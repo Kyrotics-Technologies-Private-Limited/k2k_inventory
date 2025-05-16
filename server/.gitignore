@@ -7,12 +7,16 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-.env
-
 node_modules
 dist
 dist-ssr
 *.local
+package-lock.json
+.env
+config.env
+firebase/firebaseServiceAccountKey.json
+
+
 
 # Editor directories and files
 .vscode/*
