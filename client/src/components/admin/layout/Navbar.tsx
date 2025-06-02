@@ -32,7 +32,7 @@ const Navbar = () => {
     <header className="bg-white shadow-sm border-b border-gray-100">
       <div className="flex items-center justify-between px-6 py-3">
         <div className="flex items-center">
-          <button className="p-2 mr-3 text-gray-600 rounded-md hover:bg-gray-50 transition-colors">
+          <button className="button p-2 mr-3 text-gray-600 rounded-md hover:bg-gray-50 transition-colors">
             <FiMenu size={20} />
           </button>
           <h1 className="text-lg font-semibold text-gray-800">Dashboard</h1>
@@ -41,7 +41,7 @@ const Navbar = () => {
         <div className="flex items-center space-x-4">
           {/* Notification Bell with Badge */}
           <div className="relative">
-            <button className="p-2 text-gray-500 rounded-full hover:bg-gray-50 transition-colors relative">
+            <button className="button p-2 text-gray-500 rounded-full hover:bg-gray-50 transition-colors relative">
               <FiBell size={20} />
               <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
             </button>
@@ -51,7 +51,7 @@ const Navbar = () => {
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="flex items-center space-x-2 focus:outline-none group"
+              className="button flex items-center space-x-2 focus:outline-none group"
             >
               <div className="w-9 h-9 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
                 <span className="text-white font-medium text-sm">AD</span>
