@@ -13,11 +13,11 @@ import AdminProducts from "./pages/admin/AdminProducts";
 import ProductDetailsPage from "./pages/admin/ProductDetailsPage";
 import ProductListPage from "./pages/admin/ProductListPage";
 import AdminOrders from "./pages/admin/AdminOrders";
-import AdminOrderDetails from "./pages/admin/AdminOrderDetails";
 import AdminCustomers from "./pages/admin/AdminCustomers";
 import { ToastContainer, Bounce } from "react-toastify";
 import VariantDetailsPage from "./pages/admin/Variantdetailspage";
 import VariantEditPage from "./pages/admin/VariantEditPage";
+import AdminOrderDetailsPage from "./pages/admin/AdminOrderDetails";
 
 
 
@@ -56,8 +56,12 @@ function App() {
               <Route
                 path="products/:productId/variants/:variantId/edit"
                 element={<VariantEditPage />}
-              />              <Route path="orders" element={<AdminOrders />} />
-              <Route path="orders/:orderId" element={<AdminOrderDetails />} />
+              />
+              <Route path="orders" element={<AdminOrders />} />
+              <Route
+                path="orders/getOrder/:orderId"
+                element={<AdminOrderDetailsPage />}
+              />
               <Route path="customers" element={<AdminCustomers />} />
               {/* Add other admin routes as needed */}
             </Route>

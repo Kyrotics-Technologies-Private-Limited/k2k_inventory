@@ -156,7 +156,7 @@ const AdminOrdersPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                     <button
-                      onClick={() => navigate(`/admin/orders/${order.id}`)}
+                      onClick={() => navigate(`/admin/orders/getOrder/${order.id}`)}
                       className="button text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
                       title="View Order"
                     >
@@ -218,7 +218,7 @@ const AdminOrdersPage: React.FC = () => {
               <div className="mt-6 flex justify-end">
                 <button
                   onClick={() => setIsUpdateModalOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  className="button px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
                   Cancel
                 </button>

@@ -109,13 +109,13 @@ const AdminOrderDetailsPage: React.FC = () => {
       <div className="mb-6 flex items-center justify-between">
         <button
           onClick={() => navigate("/admin/orders")}
-          className="flex items-center text-gray-600 hover:text-gray-900"
+          className="button flex items-center text-gray-600 hover:text-blue-700"
         >
           <FiArrowLeft className="mr-2" /> Back to Orders
         </button>
         <button
           onClick={() => setIsUpdateModalOpen(true)}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          className="button flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
         >
           <FiEdit2 className="mr-2" /> Update Status
         </button>
@@ -231,13 +231,13 @@ const AdminOrderDetailsPage: React.FC = () => {
                       {item.variant_name || "N/A"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ₹{item.unit_price.toFixed(2)}
+                      ₹{item.unit_price}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {item.quantity}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ₹{(item.unit_price * item.quantity).toFixed(2)}
+                      ₹{(item.unit_price * item.quantity)}
                     </td>
                   </tr>
                 ))}
@@ -251,19 +251,19 @@ const AdminOrderDetailsPage: React.FC = () => {
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Subtotal</span>
-              <span className="font-medium">₹{order.subtotal.toFixed(2)}</span>
+              <span className="font-medium">₹{order.subtotal}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Shipping Fee</span>
-              <span className="font-medium">₹{order.shipping_fee.toFixed(2)}</span>
+              <span className="font-medium">₹{order.shipping_fee}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Tax</span>
-              <span className="font-medium">₹{order.tax.toFixed(2)}</span>
+              <span className="font-medium">₹{order.tax}</span>
             </div>
             <div className="flex justify-between text-base font-medium pt-2 border-t">
               <span>Total</span>
-              <span>₹{order.total_amount.toFixed(2)}</span>
+              <span>₹{order.total_amount}</span>
             </div>
           </div>
         </div>
@@ -280,7 +280,7 @@ const AdminOrderDetailsPage: React.FC = () => {
                   <button
                     key={status}
                     onClick={() => handleStatusUpdate(status as Order["status"])}
-                    className={`w-full p-3 text-left rounded-lg transition-colors ${
+                    className={`button w-full p-3 text-left rounded-lg transition-colors ${
                       order.status === status
                         ? "bg-blue-50 text-blue-700 border border-blue-200"
                         : "hover:bg-gray-50"
@@ -293,7 +293,7 @@ const AdminOrderDetailsPage: React.FC = () => {
               <div className="mt-6 flex justify-end">
                 <button
                   onClick={() => setIsUpdateModalOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50"
+                  className="button px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50"
                 >
                   Cancel
                 </button>
