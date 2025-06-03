@@ -69,7 +69,7 @@
 // src/services/api/cartApi.ts
 
 import api from "./api";
-import { CartItem, Cart } from "../../types/cart";
+import type { CartItem, Cart } from "../../types/cart";
 import { getAuth } from "firebase/auth";
 
 const getAuthToken = async () => {

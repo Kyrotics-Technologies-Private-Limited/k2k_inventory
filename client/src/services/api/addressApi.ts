@@ -1,5 +1,5 @@
 import api from './api'; // your custom fetch wrapper
-import { Address } from '../../types/address';
+import type { Address } from '../../types/address';
 
 export const addressApi = {
   getAll: async (): Promise<Address[]> => {

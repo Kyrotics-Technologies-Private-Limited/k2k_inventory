@@ -1,12 +1,12 @@
 //src/services/auth.service.ts
-import { User } from "../../types/user";
+import type { User } from "../../types/user";
 import api from "./api";
 import {
   RecaptchaVerifier,
   signInWithPhoneNumber,
-  ConfirmationResult,
   signOut,
 } from "firebase/auth";
+import type { ConfirmationResult } from "firebase/auth";
 
 import { auth } from "../firebase/firebase";
 

@@ -502,7 +502,7 @@ const handleEditSubmit = async (e: React.FormEvent) => {
       <div className="flex justify-between items-center mb-6">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center text-blue-600 hover:text-blue-800"
+          className="button flex items-center text-blue-600 hover:text-blue-800"
         >
           <ArrowLeftIcon className="w-5 h-5 mr-2" />
           Back to Products
@@ -646,13 +646,13 @@ const handleEditSubmit = async (e: React.FormEvent) => {
                   <button
                     type="button"
                     onClick={cancelEdit}
-                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    className="button px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                    className="button px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
                   >
                     Save Changes
                   </button>
@@ -742,14 +742,14 @@ const handleEditSubmit = async (e: React.FormEvent) => {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                       <button
                         onClick={() => handleEditVariant(variant)}
-                        className="inline-flex items-center px-2 py-1 text-xs text-white bg-green-500 hover:bg-green-600 rounded"
+                        className="button inline-flex items-center px-2 py-1 text-xs text-white bg-green-500 hover:bg-green-600 rounded"
                       >
                         <PencilIcon className="w-4 h-4 mr-1" />
                         Edit
                       </button>
                       <button
                         onClick={() => handleDeleteVariant(variant.id)}
-                        className="inline-flex items-center px-2 py-1 text-xs text-white bg-red-500 hover:bg-red-600 rounded"
+                        className="button inline-flex items-center px-2 py-1 text-xs text-white bg-red-500 hover:bg-red-600 rounded"
                       >
                         <TrashIcon className="w-4 h-4 mr-1" />
                         Delete

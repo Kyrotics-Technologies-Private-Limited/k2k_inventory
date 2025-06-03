@@ -17,6 +17,7 @@ import AdminCustomers from "./pages/admin/AdminCustomers";
 import { ToastContainer, Bounce } from "react-toastify";
 import VariantDetailsPage from "./pages/admin/Variantdetailspage";
 import VariantEditPage from "./pages/admin/VariantEditPage";
+import AdminOrderDetailsPage from "./pages/admin/AdminOrderDetails";
 
 
 
@@ -57,6 +58,10 @@ function App() {
                 element={<VariantEditPage />}
               />
               <Route path="orders" element={<AdminOrders />} />
+              <Route
+                path="orders/getOrder/:orderId"
+                element={<AdminOrderDetailsPage />}
+              />
               <Route path="customers" element={<AdminCustomers />} />
               {/* Add other admin routes as needed */}
             </Route>

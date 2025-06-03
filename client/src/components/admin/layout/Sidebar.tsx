@@ -54,7 +54,7 @@ const Sidebar = () => {
         {!collapsed && <h1 className="text-xl font-bold">Admin Panel</h1>}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="p-1 rounded hover:bg-gray-700"
+          className="button p-1 rounded hover:bg-gray-700"
         >
           {collapsed ? (
             <FiChevronRight size={20} />

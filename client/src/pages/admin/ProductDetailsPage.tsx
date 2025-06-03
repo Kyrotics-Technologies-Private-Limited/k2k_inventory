@@ -156,7 +156,7 @@ const ProductDetailsPage: React.FC = () => {
           <button
             onClick={handleDelete}
             disabled={isDeleting}
-            className={`flex items-center px-4 py-2 rounded-md transition ${
+            className={`button flex items-center px-4 py-2 rounded-md transition ${
               isDeleting
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-red-600 hover:bg-red-700 text-white"
@@ -165,7 +165,7 @@ const ProductDetailsPage: React.FC = () => {
             <TrashIcon className="w-5 h-5 mr-2" />
             {isDeleting ? "Deleting..." : "Delete Product"}
           </button>
-          <button className="flex items-center px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition">
+          <button className="button flex items-center px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition">
             <ArrowTopRightOnSquareIcon className="w-5 h-5 mr-2" />
             View on Site
           </button>

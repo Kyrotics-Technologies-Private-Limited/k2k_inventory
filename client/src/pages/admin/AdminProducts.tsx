@@ -861,7 +861,7 @@ const AdminProductPage: React.FC = () => {
               <button
                 type="button"
                 onClick={resetForm}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
+                className="button px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
               >
                 Cancel
               </button>
@@ -869,7 +869,7 @@ const AdminProductPage: React.FC = () => {
             <button
               type="submit"
               disabled={formLoading}
-              className={`px-4 py-2 rounded-md text-white flex items-center ${
+              className={`button px-4 py-2 rounded-md text-white flex items-center ${
                 formLoading
                   ? "bg-blue-400 cursor-not-allowed"
                   : "bg-blue-600 hover:bg-blue-700"
@@ -969,31 +969,31 @@ const AdminProductPage: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
                           onClick={() => viewVariants(product.id)}
-                          className="text-blue-600 hover:text-blue-900 mr-4"
+                          className="button text-blue-600 hover:text-blue-900 mr-4"
                         >
                           Variants
                         </button>
                         <button
                           onClick={() => viewDetails(product.id)}
-                          className="text-blue-600 hover:text-blue-900 mr-4"
+                          className="button text-blue-600 hover:text-blue-900 mr-4"
                         >
                           View
                         </button>
                         <button
                           onClick={() => handleEditClick(product)}
-                          className="text-indigo-600 hover:text-indigo-900 mr-4"
+                          className="button text-indigo-600 hover:text-indigo-900 mr-4"
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => handleDelete(product.id)}
-                          className="text-red-600 hover:text-red-900"
+                          className="button text-red-600 hover:text-red-900"
                         >
                           Delete
                         </button>
                         <button
                           onClick={() => toggleVariantForm(product.id)}
-                          className="ml-4 text-green-600 hover:text-green-900 flex items-center"
+                          className="button ml-4 text-green-600 hover:text-green-900 flex items-center"
                         >
                           {showVariantForm === product.id ? (
                             <ChevronUpIcon className="w-4 h-4 mr-1" />
@@ -1089,7 +1089,7 @@ const AdminProductPage: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={resetVariantForm}
-                                className="px-3 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
+                                className="button px-3 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
                               >
                                 Cancel
                               </button>
@@ -1097,7 +1097,7 @@ const AdminProductPage: React.FC = () => {
                                 type="button"
                                 onClick={() => handleVariantSubmit(product.id)}
                                 disabled={formLoading}
-                                className={`px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition ${
+                                className={`button px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition ${
                                   formLoading
                                     ? "opacity-75 cursor-not-allowed"
                                     : ""
