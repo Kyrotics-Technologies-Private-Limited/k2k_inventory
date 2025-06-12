@@ -11,6 +11,8 @@ export interface Product {
     description: string;
     // ingredients: string[];
     origin: string;
+    sku: string;
+    warehouseName: string;
     category: "ghee" | "oils" | "honey";
     images: {
       main: string;
@@ -30,6 +32,7 @@ export interface Product {
       icon: string;
     }[];
   }
+  
   
   export type SortOption = "price_high" | "price_low" | "popularity" | "newest";
   

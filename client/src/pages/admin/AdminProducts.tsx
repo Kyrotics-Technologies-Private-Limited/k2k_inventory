@@ -431,6 +431,8 @@ const initialForm: Omit<Product, "id"> = {
   price: { amount: 0, currency: "INR" },
   description: "",
   origin: "",
+  sku: "",
+  warehouseName: "",
   category: "ghee",
   images: { main: "", gallery: [], banner: "" },
   stockStatus: "in_stock",
@@ -829,8 +831,8 @@ const AdminProductPage: React.FC = () => {
               SKU
             </label>
             <input
-              name="origin"
-              value={formData.origin}
+              name="sku"
+              value={formData.sku}
               onChange={handleChange}
               placeholder="Enter Product SKU"
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
@@ -843,8 +845,8 @@ const AdminProductPage: React.FC = () => {
             </label>
             <input
               list="warehouse-options"
-              name="origin"
-              value={formData.origin}
+              name="warehouseName"
+              value={formData.warehouseName}
               onChange={handleChange}
               placeholder="Select or enter warehouse name"
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
