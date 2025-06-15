@@ -409,7 +409,6 @@
 
 // export default AdminProductPage;
 
-
 import React, { useEffect, useState } from "react";
 import type { Variant } from "../../types/variant";
 import type { Product } from "../../types";
@@ -478,10 +477,15 @@ const AdminProductPage: React.FC = () => {
         await Promise.all(
           fetchedProducts.map(async (product) => {
             try {
-              const productVariants = await variantApi.getVariantsByProductId(product.id);
+              const productVariants = await variantApi.getVariantsByProductId(
+                product.id
+              );
               variantsMap[product.id] = productVariants;
             } catch (err) {
-              console.error(`Error fetching variants for product ${product.id}:`, err);
+              console.error(
+                `Error fetching variants for product ${product.id}:`,
+                err
+              );
               variantsMap[product.id] = [];
             }
           })
@@ -499,7 +503,9 @@ const AdminProductPage: React.FC = () => {
 
   // Handle form changes
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
   ) => {
     const { name, value } = e.target;
     if (name === "amount") {
@@ -524,6 +530,37 @@ const AdminProductPage: React.FC = () => {
         [type]: type === "gallery" ? [...prev.images.gallery, value] : value,
       },
     }));
+  };
+
+  // update a single gallery URL
+  const handleGalleryChange = (idx: number, url: string) => {
+    setFormData((prev) => {
+      const newGallery = [...prev.images.gallery];
+      newGallery[idx] = url;
+      return {
+        ...prev,
+        images: { ...prev.images, gallery: newGallery },
+      };
+    });
+  };
+
+  // add an empty slot
+  const addGalleryImage = () => {
+    setFormData((prev) => ({
+      ...prev,
+      images: { ...prev.images, gallery: [...prev.images.gallery, ""] },
+    }));
+  };
+
+  // remove one by index
+  const removeGalleryImage = (idx: number) => {
+    setFormData((prev) => {
+      const newGallery = prev.images.gallery.filter((_, i) => i !== idx);
+      return {
+        ...prev,
+        images: { ...prev.images, gallery: newGallery },
+      };
+    });
   };
 
   // Handle variant form changes
@@ -591,10 +628,11 @@ const AdminProductPage: React.FC = () => {
         setSuccess("Variant updated successfully!");
       } else {
         // Create new variant
-        const newVariant = await variantApi.createVariant(
+        const newVariant = await variantApi.createVariant(productId, {
+          ...variantForm,
+          id: "",
           productId,
-          { ...variantForm, id: "", productId }
-        );
+        });
         setVariants((prev) => ({
           ...prev,
           [productId]: [...(prev[productId] || []), newVariant],
@@ -611,7 +649,8 @@ const AdminProductPage: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this product?")) return;
+    if (!window.confirm("Are you sure you want to delete this product?"))
+      return;
 
     try {
       await productApi.deleteProduct(id);
@@ -632,7 +671,8 @@ const AdminProductPage: React.FC = () => {
   };
 
   const handleVariantDelete = async (productId: string, variantId: string) => {
-    if (!window.confirm("Are you sure you want to delete this variant?")) return;
+    if (!window.confirm("Are you sure you want to delete this variant?"))
+      return;
 
     try {
       await variantApi.deleteVariant(productId, variantId);
@@ -822,6 +862,38 @@ const AdminProductPage: React.FC = () => {
                   placeholder="Enter main image URL"
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 />
+              </div>
+
+              <div className="space-y-4">
+                <label className="block text-sm font-medium">
+                  Gallery Images
+                </label>
+                {formData.images.gallery.map((url, idx) => (
+                  <div key={idx} className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      value={url}
+                      onChange={(e) => handleGalleryChange(idx, e.target.value)}
+                      placeholder={`Image URL #${idx + 1}`}
+                      className="flex-1 px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeGalleryImage(idx)}
+                      className="px-2 py-1 text-red-600 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={addGalleryImage}
+                  className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Add Image
+                </button>
               </div>
             </div>
           </div>
