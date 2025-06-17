@@ -1,16 +1,16 @@
+// src/pages/admin/AdminOrdersPage.tsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { orderApi } from "../../services/api/orderApi";
-import type { Order, UpdateOrderStatusPayload } from "../../types/order";
+import type { Order } from "../../types/order";
 import { toast } from "react-toastify";
 import { FiEye, FiEdit2 } from "react-icons/fi";
 
-const AdminOrdersPage: React.FC = () => {
+const AdminOrdersPage = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchOrders();
@@ -19,47 +19,26 @@ const AdminOrdersPage: React.FC = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const ordersData = await orderApi.getAllOrders();
-      setOrders(ordersData);
       setError(null);
-    } catch (err) {
-      console.error("Failed to fetch orders:", err);
-      setError("Failed to fetch orders. Please try again later.");
-      toast.error("Failed to fetch orders");
+      const data = await orderApi.getAllOrdersForAdmin();
+      setOrders(data);
+    } catch (err: any) {
+      console.error("Error fetching admin orders:", err);
+      setError(err.message || "Failed to fetch orders");
+      toast.error(err.message || "Failed to fetch orders");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleStatusUpdate = async (
-    orderId: string,
-    status: UpdateOrderStatusPayload["status"]
-  ) => {
+  const handleStatusUpdate = async (orderId: string, status: string) => {
     try {
-      await orderApi.updateOrderStatus(orderId, { status });
+      await orderApi.adminUpdateOrderStatus(orderId, { status });
       await fetchOrders();
       toast.success("Order status updated successfully");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to update order status:", err);
-      toast.error("Failed to update order status");
-    }
-  };
-  const navigate = useNavigate();
-
-  const getStatusBadgeColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "pending":
-        return "bg-yellow-100 text-yellow-800";
-      case "processing":
-        return "bg-blue-100 text-blue-800";
-      case "shipped":
-        return "bg-indigo-100 text-indigo-800";
-      case "delivered":
-        return "bg-green-100 text-green-800";
-      case "cancelled":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+      toast.error(err.message || "Failed to update order status");
     }
   };
 
@@ -73,43 +52,56 @@ const AdminOrdersPage: React.FC = () => {
 
   if (error) {
     return (
-      <div className="bg-red-50 border-l-4 border-red-500 p-4">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <svg
-              className="h-5 w-5 text-red-500"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clipRule="evenodd"
-              />
-            </svg>
+      <div className="p-4">
+        <div className="bg-red-50 border-l-4 border-red-500 p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-5 w-5 text-red-500"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
           </div>
-          <div className="ml-3">
-            <p className="text-sm text-red-700">{error}</p>
-          </div>
+          <button
+            onClick={fetchOrders}
+            className="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">Order Management</h1>
+  const viewDetails = (id: string) => {
+    navigate(`/admin/orders/${id}`);
+  };
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+  return (
+    <div className="p-4">
+      <h2 className="text-xl font-bold mb-4">All Orders</h2>
+      {orders.length === 0 ? (
+        <p className="text-gray-500">No orders found</p>
+      ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min-w-full border divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Order ID
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Customer
+                  User
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
@@ -124,107 +116,66 @@ const AdminOrdersPage: React.FC = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {orders.map((order) => (
-                <tr key={order.id} className="hover:bg-gray-50">
+                <tr key={order.id}>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-blue-600">
-                      #{order.id.slice(-8)}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {new Date(order.created_at).toLocaleDateString()}
-                    </div>
+                    <div className="text-sm text-gray-900">{order.id}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {order.address?.first_name} {order.address?.last_name}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {order.user_id.slice(0, 8)}...
-                    </div>
+                    <div className="text-sm text-gray-900">{order.user_id}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(
-                        order.status
-                      )}`}
+                      className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                      ${
+                        order.status.toLowerCase() === "cancelled"
+                          ? "bg-red-100 text-red-800"
+                          : order.status.toLowerCase() === "delivered"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-blue-100 text-blue-800"
+                      }`}
                     >
-                      {order.status.charAt(0).toUpperCase() +
-                        order.status.slice(1)}
+                      {order.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    ₹{order.total_amount.toFixed(2)}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    ₹{order.total_amount}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
-                      onClick={() => navigate(`/admin/orders/getOrder/${order.id}`)}
-                      className="button text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
-                      title="View Order"
+                      // onClick={() => navigate(`/orders/${order.id}`)}
+                      onClick={() => viewDetails(order.id)}
+                      className="text-indigo-600 hover:text-indigo-900 mr-4"
                     >
-                      <FiEye className="w-5 h-5" />
+                      <FiEye className="inline-block" /> View
                     </button>
                     <button
                       onClick={() => {
-                        setSelectedOrder(order);
-                        setIsUpdateModalOpen(true);
+                        const status = order.status.toLowerCase();
+                        const newStatus =
+                          status === "pending"
+                            ? "processing"
+                            : status === "processing"
+                            ? "shipped"
+                            : status === "shipped"
+                            ? "delivered"
+                            : order.status;
+                        if (newStatus !== order.status) {
+                          handleStatusUpdate(order.id, newStatus);
+                        }
                       }}
-                      className="button text-indigo-600 hover:text-indigo-900 p-1 rounded hover:bg-indigo-50"
-                      title="Update Status"
+                      className="text-blue-600 hover:text-blue-900"
+                      disabled={
+                        order.status.toLowerCase() === "delivered" ||
+                        order.status.toLowerCase() === "cancelled"
+                      }
                     >
-                      <FiEdit2 className="w-5 h-5" />
+                      <FiEdit2 className="inline-block" /> Update Status
                     </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
-
-      {/* Status Update Modal */}
-      {isUpdateModalOpen && selectedOrder && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center">
-          <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Update Order Status
-              </h3>
-              <div className="space-y-2">
-                {[
-                  "pending",
-                  "processing",
-                  "shipped",
-                  "delivered",
-                  "cancelled",
-                ].map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => {
-                      handleStatusUpdate(
-                        selectedOrder.id,
-                        status as Order["status"]
-                      );
-                      setIsUpdateModalOpen(false);
-                    }}
-                    className={`w-full p-3 text-left rounded-lg transition-colors ${
-                      selectedOrder.status === status
-                        ? "bg-blue-50 text-blue-700 border border-blue-200"
-                        : "hover:bg-gray-50"
-                    }`}
-                  >
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                  </button>
-                ))}
-              </div>
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={() => setIsUpdateModalOpen(false)}
-                  className="button px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       )}
     </div>

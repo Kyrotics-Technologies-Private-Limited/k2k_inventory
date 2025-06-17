@@ -59,7 +59,7 @@ function App() {
               />
               <Route path="orders" element={<AdminOrders />} />
               <Route
-                path="orders/getOrder/:orderId"
+                path="orders/:orderId"
                 element={<AdminOrderDetailsPage />}
               />
               <Route path="customers" element={<AdminCustomers />} />

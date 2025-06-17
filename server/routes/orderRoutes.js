@@ -1,22 +1,33 @@
 const express = require('express');
 const router = express.Router();
-const orderController = require('../controllers/orderController');
+const {
+  createOrder,
+  getAllOrders,
+  getOrderById,
+  cancelOrder,
+  updateOrder,
+  trackOrder,
+  getAllOrdersForAdmin,
+  adminUpdateOrderStatus,
+} = require('../controllers/orderController');
+
+// Middleware to protect routes
 const auth = require('../middleware/firebaseAuth');
 
-// Apply auth middleware to all order routes
+// All routes are protected
 router.use(auth);
 
-router.post('/create', orderController.createOrder);
-
-// Admin routes (add admin middleware if needed)
-router.get('/getAllOrders', orderController.getAllOrders);
-router.get('/getOrder/:id', orderController.getOrderById);
-router.put('/:id/status', orderController.updateOrderStatus);
+// Admin routes
+router.get('/', getAllOrdersForAdmin);
+router.get('/:orderId', getOrderById); // Admin can also get order by ID
+router.patch('/:orderId/status', adminUpdateOrderStatus);
 
 // User routes
-router.get('/', orderController.getOrders);
-router.put('/:id/cancel', orderController.cancelOrderById);
-router.get('/:id/tracking', orderController.getTracking);
-
+router.post('/create', createOrder);
+router.get('/', getAllOrders);// Get all orders for one user
+//router.get('/:orderId', getOrderById);
+router.put('/:orderId/cancel', cancelOrder);
+router.put('/:orderId', updateOrder);
+router.get('/:orderId/track', trackOrder);
 
 module.exports = router;
