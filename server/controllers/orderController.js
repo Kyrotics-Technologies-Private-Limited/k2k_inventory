@@ -2,247 +2,190 @@ const admin = require('firebase-admin');
 const db = admin.firestore();
 const ordersCollection = db.collection('orders');
 
+// Helper
 const getTimestamp = () => admin.firestore.FieldValue.serverTimestamp();
 
-module.exports = {
-  // Create a new order
-  createOrder: async (req, res) => {
-    try {
-      const userId = req.user.uid;
-      const {
-        address_id,
-        total_amount,
-        payment_id,
-        items
-      } = req.body;
+// Create a new order
+exports.createOrder = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const {
+      address_id,
+      total_amount,
+      payment_id,
+      items,
+      shipping_method = 'standard',
+      payment_method = 'COD'
+    } = req.body;
 
-      // Validate required fields
-      if (!address_id || !total_amount || !payment_id || !items || !Array.isArray(items)) {
-        return res.status(400).json({ error: 'Missing required fields' });
-      }
-
-      const orderRef = ordersCollection.doc();
-      const orderId = orderRef.id;
-      const batch = db.batch();
-
-      // Create order document
-      const orderData = {
-        id: orderId,
-        user_id: userId,
-        address_id,
-        total_amount,
-        status: 'pending', // initial status
-        payment_id,
-        created_at: new Date(),
-        updated_at: new Date()
-      };
-
-      batch.set(orderRef, orderData);
-
-      // Add order items as subcollection
-      const orderItemsCollection = orderRef.collection('order-items');
-      items.forEach(item => {
-        const itemRef = orderItemsCollection.doc();
-        batch.set(itemRef, {
-          id: itemRef.id,
-          order_id: orderId,
-          product_id: item.product_id,
-          variant_id: item.variant_id || null,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          created_at: new Date(),
-        });
-      });
-
-      // Commit the batch
-      await batch.commit();
-
-      res.status(201).json({
-        id: orderId,
-        ...orderData,
-        items
-      });
-    } catch (error) {
-      console.error('Error creating order:', error);
-      res.status(500).json({ error: 'Failed to create order' });
+    if (!items || items.length === 0) {
+      return res.status(400).json({ message: 'No items in order.' });
     }
-  },
 
-  // Get user's orders
-  getOrders: async (req, res) => {
-    try {
-      const userId = req.user.uid;
-      const snapshot = await ordersCollection
-        .where('user_id', '==', userId)
-        .orderBy('created_at', 'desc')
-        .get();
+    const newOrder = {
+      userId,
+      address_id,
+      total_amount,
+      payment_id,
+      items,
+      shipping_method,
+      payment_method,
+      status: 'Placed',
+      createdAt: getTimestamp(),
+      updatedAt: getTimestamp(),
+    };
 
-      const orders = [];
-      for (const doc of snapshot.docs) {
-        const order = doc.data();
-        const itemsSnapshot = await doc.ref.collection('order-items').get();
-        order.items = itemsSnapshot.docs.map(itemDoc => itemDoc.data());
-        orders.push(order);
-      }
+    const docRef = await ordersCollection.add(newOrder);
+    res.status(201).json({ message: 'Order placed successfully.', orderId: docRef.id });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to place order.', error: error.message });
+  }
+};
 
-      res.status(200).json(orders);
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-      res.status(500).json({ error: 'Failed to fetch orders' });
+// Get all orders of a user
+exports.getAllOrders = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const snapshot = await ordersCollection.where('userId', '==', userId).get();
+
+    const orders = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    res.status(200).json(orders);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to get orders.', error: error.message });
+  }
+};
+
+// Get order by ID
+exports.getOrderById = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const { orderId } = req.params;
+
+    const doc = await ordersCollection.doc(orderId).get();
+
+    if (!doc.exists || doc.data().userId !== userId) {
+      return res.status(404).json({ message: 'Order not found or unauthorized.' });
     }
-  },
 
-  // Get single order
-  getOrderById: async (req, res) => {
-    try {
-      const { id } = req.params;
-      const userId = req.user.uid;
+    res.status(200).json({ id: doc.id, ...doc.data() });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to get order.', error: error.message });
+  }
+};
 
-      const orderDoc = await ordersCollection.doc(id).get();
-      if (!orderDoc.exists) {
-        return res.status(404).json({ error: 'Order not found' });
-      }
+// Cancel order
+exports.cancelOrder = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const { orderId } = req.params;
 
-      const order = orderDoc.data();
-      
+    const docRef = ordersCollection.doc(orderId);
+    const doc = await docRef.get();
 
-      const itemsSnapshot = await orderDoc.ref.collection('order-items').get();
-      order.items = itemsSnapshot.docs.map(doc => doc.data());
-
-      res.status(200).json(order);
-    } catch (error) {
-      console.error('Error fetching order:', error);
-      res.status(500).json({ error: 'Failed to fetch order' });
+    if (!doc.exists || doc.data().userId !== userId) {
+      return res.status(404).json({ message: 'Order not found or unauthorized.' });
     }
-  },
 
-  // Cancel order
-  cancelOrderById: async (req, res) => {
-    try {
-      const { id } = req.params;
-      const userId = req.user.uid;
-
-      const orderRef = ordersCollection.doc(id);
-      const orderDoc = await orderRef.get();
-
-      if (!orderDoc.exists) {
-        return res.status(404).json({ error: 'Order not found' });
-      }
-
-      const order = orderDoc.data();
-      
-
-      // Only allow cancellation if order is pending
-      if (order.status !== 'pending') {
-        return res.status(400).json({ 
-          error: `Order cannot be cancelled in its current state (${order.status})` 
-        });
-      }
-
-      await orderRef.update({
-        status: 'cancelled',
-        updated_at: getTimestamp()
-      });
-
-      res.status(200).json({ message: 'Order cancelled successfully' });
-    } catch (error) {
-      console.error('Error cancelling order:', error);
-      res.status(500).json({ error: 'Failed to cancel order' });
+    const currentStatus = doc.data().status;
+    if (currentStatus === 'Cancelled' || currentStatus === 'Delivered') {
+      return res.status(400).json({ message: `Order cannot be cancelled. Current status: ${currentStatus}` });
     }
-  },
 
-  // Get order tracking (simplified)
-  getTracking: async (req, res) => {
-    try {
-      const { id } = req.params;
-      const userId = req.user.uid;
+    await docRef.update({
+      status: 'Cancelled',
+      updatedAt: getTimestamp(),
+    });
 
-      const orderDoc = await ordersCollection.doc(id).get();
-      if (!orderDoc.exists) {
-        return res.status(404).json({ error: 'Order not found' });
-      }
+    res.status(200).json({ message: 'Order cancelled successfully.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to cancel order.', error: error.message });
+  }
+};
 
-      const order = orderDoc.data();
-     
+// Update order (limited fields like address or payment_method)
+exports.updateOrder = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const { orderId } = req.params;
+    const { address_id, payment_method } = req.body;
 
-      // This would come from a shipping service in a real app
-      const trackingInfo = {
-        status: order.status,
-        estimated_delivery: null, // Would calculate based on status
-        tracking_number: `TRK-${id.slice(0, 8).toUpperCase()}`,
-        history: [
-          {
-            status: 'ordered',
-            timestamp: order.created_at
-          }
-        ]
-      };
+    const docRef = ordersCollection.doc(orderId);
+    const doc = await docRef.get();
 
-      if (order.status !== 'pending') {
-        trackingInfo.history.push({
-          status: order.status,
-          timestamp: order.updated_at
-        });
-      }
-
-      res.status(200).json(trackingInfo);
-    } catch (error) {
-      console.error('Error fetching tracking:', error);
-      res.status(500).json({ error: 'Failed to fetch tracking' });
+    if (!doc.exists || doc.data().userId !== userId) {
+      return res.status(404).json({ message: 'Order not found or unauthorized.' });
     }
-  },
 
-  // Admin - Get all orders
-  getAllOrders: async (req, res) => {
-    try {
-      // In a real app, you'd add admin role verification here
-      const snapshot = await ordersCollection
-        .orderBy('created_at', 'desc')
-        .get();
+    const updates = {
+      updatedAt: getTimestamp()
+    };
 
-      const orders = [];
-      for (const doc of snapshot.docs) {
-        const order = doc.data();
-        const itemsSnapshot = await doc.ref.collection('order-items').get();
-        order.items = itemsSnapshot.docs.map(itemDoc => itemDoc.data());
-        orders.push(order);
-      }
+    if (address_id) updates.address_id = address_id;
+    if (payment_method) updates.payment_method = payment_method;
 
-      res.status(200).json(orders);
-    } catch (error) {
-      console.error('Error fetching all orders:', error);
-      res.status(500).json({ error: 'Failed to fetch orders' });
+    await docRef.update(updates);
+
+    res.status(200).json({ message: 'Order updated successfully.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update order.', error: error.message });
+  }
+};
+
+// Track order (get status)
+exports.trackOrder = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const { orderId } = req.params;
+
+    const doc = await ordersCollection.doc(orderId).get();
+
+    if (!doc.exists || doc.data().userId !== userId) {
+      return res.status(404).json({ message: 'Order not found or unauthorized.' });
     }
-  },
 
-  // Admin - Update order status
-  updateOrderStatus: async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { status } = req.body;
+    const status = doc.data().status;
+    res.status(200).json({ orderId: doc.id, status });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to track order.', error: error.message });
+  }
+};
+// Admin - Get all orders
+exports.getAllOrdersForAdmin = async (req, res) => {
+  try {
+    // Optional: Check if user is admin
+    // if (req.user.role !== 'admin') {
+    //   return res.status(403).json({ message: 'Access denied. Admins only.' });
+    // }
 
-      // Validate status
-      const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
-      if (!validStatuses.includes(status)) {
-        return res.status(400).json({ error: 'Invalid status' });
-      }
+    const snapshot = await ordersCollection.orderBy('createdAt', 'desc').get();
 
-      const orderRef = ordersCollection.doc(id);
-      const orderDoc = await orderRef.get();
+    const orders = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
 
-      if (!orderDoc.exists) {
-        return res.status(404).json({ error: 'Order not found' });
-      }
+    res.status(200).json(orders);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch all orders.', error: error.message });
+  }
+};
+exports.adminUpdateOrderStatus = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { status } = req.body;
 
-      await orderRef.update({
-        status,
-        updated_at: getTimestamp()
-      });
+    const orderRef = ordersCollection.doc(orderId);
+    await orderRef.update({
+      status,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
 
-      res.status(200).json({ message: 'Order status updated' });
-    } catch (error) {
-      console.error('Error updating order status:', error);
-      res.status(500).json({ error: 'Failed to update order status' });
-    }
+    res.status(200).json({ message: "Order status updated successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to update order status", error: error.message });
   }
 };

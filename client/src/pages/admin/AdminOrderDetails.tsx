@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { orderApi } from "../../services/api/orderApi";
-import type { Order, TrackingInfo, UpdateOrderStatusPayload } from "../../types/order";
+import type { Order } from "../../types/order";
 import { toast } from "react-toastify";
-import { FiArrowLeft, FiEdit2, FiTruck, FiPackage } from "react-icons/fi";
+import { FiArrowLeft, FiEdit2, FiTruck } from "react-icons/fi";
 
 const AdminOrderDetailsPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
@@ -22,29 +22,29 @@ const AdminOrderDetailsPage: React.FC = () => {
   const fetchOrderDetails = async (id: string) => {
     try {
       setLoading(true);
+      setError(null);
       const orderData = await orderApi.getOrderById(id);
       setOrder(orderData);
-      setError(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to fetch order details:", err);
-      setError("Failed to fetch order details. Please try again later.");
-      toast.error("Failed to fetch order details");
+      setError(err.message || "Failed to fetch order details");
+      toast.error(err.message || "Failed to fetch order details");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleStatusUpdate = async (status: UpdateOrderStatusPayload["status"]) => {
+  const handleStatusUpdate = async (status: string) => {
     if (!orderId) return;
 
     try {
-      await orderApi.updateOrderStatus(orderId, { status });
+      await orderApi.adminUpdateOrderStatus(orderId, { status });
       await fetchOrderDetails(orderId);
       setIsUpdateModalOpen(false);
       toast.success("Order status updated successfully");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to update order status:", err);
-      toast.error("Failed to update order status");
+      toast.error(err.message || "Failed to update order status");
     }
   };
 
@@ -63,18 +63,6 @@ const AdminOrderDetailsPage: React.FC = () => {
       default:
         return "bg-gray-100 text-gray-800";
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString("en-IN", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
   };
 
   if (loading) {
@@ -99,6 +87,12 @@ const AdminOrderDetailsPage: React.FC = () => {
               <p className="text-sm text-red-700">{error || "Order not found"}</p>
             </div>
           </div>
+          <button 
+            onClick={() => orderId && fetchOrderDetails(orderId)}
+            className="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
@@ -126,15 +120,13 @@ const AdminOrderDetailsPage: React.FC = () => {
         <div className="border-b pb-6 mb-6">
           <div className="flex justify-between items-start mb-4">
             <div>
-              <h1 className="text-2xl font-bold mb-2">Order #{order.id.slice(-8)}</h1>
-              <p className="text-gray-500">Placed on {formatDate(order.created_at)}</p>
+              <h1 className="text-2xl font-bold mb-2">Order #{order.id}</h1>
+              <p className="text-gray-500">Placed on {new Date(order.created_at).toLocaleString()}</p>
             </div>
             <span
-              className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusBadgeColor(
-                order.status
-              )}`}
+              className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusBadgeColor(order.status)}`}
             >
-              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+              {order.status}
             </span>
           </div>
           {order.tracking_number && (
@@ -145,128 +137,87 @@ const AdminOrderDetailsPage: React.FC = () => {
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {/* Customer Information */}
+        {/* Order Details */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h2 className="text-lg font-medium mb-4">Customer Information</h2>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-500">Name</p>
-                  <p className="text-sm font-medium">
-                    {order.address?.first_name} {order.address?.last_name}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Contact</p>
-                  <p className="text-sm font-medium">{order.address?.phone}</p>
-                  <p className="text-sm font-medium">{order.address?.email}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Customer ID</p>
-                  <p className="text-sm font-medium">{order.user_id}</p>
-                </div>
+            <h2 className="text-lg font-medium mb-4">Order Information</h2>
+            <div className="bg-gray-50 rounded p-4 space-y-2">
+              <div>
+                <span className="text-gray-500">Order Total:</span>
+                <span className="ml-2 font-medium">₹{order.total_amount}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">User ID:</span>
+                <span className="ml-2 font-medium">{order.user_id}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Payment Method:</span>
+                <span className="ml-2 font-medium">{order.payment_method}</span>
               </div>
             </div>
           </div>
-
-          {/* Shipping Address */}
+          
           <div>
-            <h2 className="text-lg font-medium mb-4">Shipping Address</h2>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="space-y-1">
-                <p className="text-sm">{order.address?.street}</p>
-                <p className="text-sm">
-                  {order.address?.city}, {order.address?.state} {order.address?.postal_code}
-                </p>
-                <p className="text-sm">{order.address?.country}</p>
+            <h2 className="text-lg font-medium mb-4">Shipping Information</h2>
+            <div className="bg-gray-50 rounded p-4 space-y-2">
+              <div>
+                <span className="text-gray-500">Shipping Method:</span>
+                <span className="ml-2 font-medium">{order.shipping_method}</span>
               </div>
+              {order.address && (
+                <>
+                  <div className="text-sm">
+                    <p className="font-medium">{order.address.first_name} {order.address.last_name}</p>
+                    <p>{order.address.street}</p>
+                    <p>{order.address.city}, {order.address.state} {order.address.postal_code}</p>
+                    <p>{order.address.country}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Contact</p>
+                    <p className="text-sm">{order.address.phone}</p>
+                    <p className="text-sm">{order.address.email}</p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
 
         {/* Order Items */}
-        <div className="mb-8">
-          <h2 className="text-lg font-medium mb-4">Order Items</h2>
-          <div className="bg-white border rounded-lg overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Product
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Variant
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Price
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Quantity
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {order.items?.map((item) => (
-                  <tr key={item.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {item.image && (
-                          <img
-                            src={item.image}
-                            alt={item.name}
-                            className="w-12 h-12 rounded-md object-cover mr-4"
-                          />
-                        )}
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{item.name}</div>
-                          <div className="text-sm text-gray-500">{item.product_id}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {item.variant_name || "N/A"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ₹{item.unit_price}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {item.quantity}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ₹{(item.unit_price * item.quantity)}
-                    </td>
+        {order.items && order.items.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-lg font-medium mb-4">Order Items</h2>
+            <div className="bg-gray-50 rounded-lg overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Order Summary */}
-        <div className="bg-gray-50 rounded-lg p-4">
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Subtotal</span>
-              <span className="font-medium">₹{order.subtotal}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Shipping Fee</span>
-              <span className="font-medium">₹{order.shipping_fee}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Tax</span>
-              <span className="font-medium">₹{order.tax}</span>
-            </div>
-            <div className="flex justify-between text-base font-medium pt-2 border-t">
-              <span>Total</span>
-              <span>₹{order.total_amount}</span>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {order.items.map((item, index) => (
+                    <tr key={index}>
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-medium text-gray-900">{item.name || item.product_id}</div>
+                        {item.variant_name && (
+                          <div className="text-sm text-gray-500">{item.variant_name}</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{item.quantity}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">₹{item.unit_price}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        ₹{(item.quantity * item.unit_price).toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Status Update Modal */}
@@ -279,12 +230,13 @@ const AdminOrderDetailsPage: React.FC = () => {
                 {["pending", "processing", "shipped", "delivered", "cancelled"].map((status) => (
                   <button
                     key={status}
-                    onClick={() => handleStatusUpdate(status as Order["status"])}
+                    onClick={() => handleStatusUpdate(status)}
                     className={`button w-full p-3 text-left rounded-lg transition-colors ${
-                      order.status === status
+                      order.status.toLowerCase() === status
                         ? "bg-blue-50 text-blue-700 border border-blue-200"
                         : "hover:bg-gray-50"
                     }`}
+                    disabled={status === "cancelled" && order.status.toLowerCase() === "delivered"}
                   >
                     {status.charAt(0).toUpperCase() + status.slice(1)}
                   </button>

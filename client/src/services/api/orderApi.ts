@@ -28,7 +28,23 @@ export const orderApi = {
     return response.data;
   },
 
-  getOrders: async (): Promise<Order[]> => {
+  // getOrders: async (): Promise<Order[]> => {
+  //   const token = await getAuthToken();
+  //   const response = await api.get(`/orders`, {
+  //     headers: { Authorization: `Bearer ${token}` }
+  //   });
+  //   return response.data;
+  // },
+
+  // getAllOrders: async (): Promise<Order[]> => {
+  //   const token = await getAuthToken();
+  //   const response = await api.get(`/orders/getAllOrders`, {
+  //     headers: { Authorization: `Bearer ${token}` }
+  //   });
+  //   return response.data;
+  // },
+  // ✅ Get All Orders (admin only)
+  getAllOrdersForAdmin: async (): Promise<Order[]> => {
     const token = await getAuthToken();
     const response = await api.get(`/orders`, {
       headers: { Authorization: `Bearer ${token}` }
@@ -36,17 +52,9 @@ export const orderApi = {
     return response.data;
   },
 
-  getAllOrders: async (): Promise<Order[]> => {
-    const token = await getAuthToken();
-    const response = await api.get(`/orders/getAllOrders`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return response.data;
-  },
-
   getOrderById: async (orderId: string): Promise<Order> => {
     const token = await getAuthToken();
-    const response = await api.get(`/orders/getOrder/${orderId}`, {
+    const response = await api.get(`/orders/${orderId}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     return response.data;
