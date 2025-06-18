@@ -4,19 +4,48 @@ import { useNavigate } from "react-router-dom";
 import { orderApi } from "../../services/api/orderApi";
 import type { Order } from "../../types/order";
 import { toast } from "react-toastify";
-import { FiEye, FiEdit2 } from "react-icons/fi";
+import { FiEye } from "react-icons/fi";
+import { auth } from "../../services/firebase/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+
+const ORDER_STATUSES = [
+  "pending",
+  "confirmed",
+  "processing",
+  "shipped",
+  "delivered",
+  "cancelled",
+  "returned",
+] as const;
 
 const AdminOrdersPage = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const navigate = useNavigate();
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchOrders();
-  }, []);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsAuthReady(true);
+      if (user) {
+        fetchOrders();
+      } else {
+        setError("Please log in to view orders");
+        navigate("/admin/login");
+      }
+    });
+
+    return () => unsubscribe();
+  }, [navigate]);
 
   const fetchOrders = async () => {
+    if (!auth.currentUser) {
+      setError("Authentication required");
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -31,11 +60,22 @@ const AdminOrdersPage = () => {
     }
   };
 
-  const handleStatusUpdate = async (orderId: string, status: string) => {
+  const handleStatusUpdate = async (
+    orderId: string,
+    status:
+      | "pending"
+      | "confirmed"
+      | "processing"
+      | "shipped"
+      | "delivered"
+      | "cancelled"
+      | "returned"
+  ) => {
     try {
-      await orderApi.adminUpdateOrderStatus(orderId, { status });
+      await orderApi.updateOrderStatus(orderId, { status });
       await fetchOrders();
       toast.success("Order status updated successfully");
+      setEditingOrderId(null); // Close the dropdown after update
     } catch (err: any) {
       console.error("Failed to update order status:", err);
       toast.error(err.message || "Failed to update order status");
@@ -124,53 +164,62 @@ const AdminOrdersPage = () => {
                     <div className="text-sm text-gray-900">{order.user_id}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
-                      ${
-                        order.status.toLowerCase() === "cancelled"
-                          ? "bg-red-100 text-red-800"
-                          : order.status.toLowerCase() === "delivered"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-blue-100 text-blue-800"
-                      }`}
-                    >
-                      {order.status}
-                    </span>
+                    {editingOrderId === order.id ? (
+                      <select
+                        value={order.status}
+                        onChange={(e) => {
+                          const newStatus = e.target.value as Order["status"];
+                          handleStatusUpdate(order.id, newStatus);
+                        }}
+                        className="border rounded px-2 py-1 text-sm"
+                      >
+                        {ORDER_STATUSES.map((status) => (
+                          <option key={status} value={status}>
+                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span
+                        className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        ${
+                          order.status === "cancelled"
+                            ? "bg-red-100 text-red-800"
+                            : order.status === "delivered"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-blue-100 text-blue-800"
+                        }`}
+                      >
+                        {order.status.charAt(0).toUpperCase() +
+                          order.status.slice(1)}
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     ₹{order.total_amount}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
-                      // onClick={() => navigate(`/orders/${order.id}`)}
                       onClick={() => viewDetails(order.id)}
                       className="text-indigo-600 hover:text-indigo-900 mr-4"
                     >
                       <FiEye className="inline-block" /> View
                     </button>
-                    <button
-                      onClick={() => {
-                        const status = order.status.toLowerCase();
-                        const newStatus =
-                          status === "pending"
-                            ? "processing"
-                            : status === "processing"
-                            ? "shipped"
-                            : status === "shipped"
-                            ? "delivered"
-                            : order.status;
-                        if (newStatus !== order.status) {
-                          handleStatusUpdate(order.id, newStatus);
-                        }
-                      }}
-                      className="text-blue-600 hover:text-blue-900"
-                      disabled={
-                        order.status.toLowerCase() === "delivered" ||
-                        order.status.toLowerCase() === "cancelled"
-                      }
-                    >
-                      <FiEdit2 className="inline-block" /> Update Status
-                    </button>
+                    {order.status !== "delivered" &&
+                      order.status !== "cancelled" && (
+                        <button
+                          onClick={() =>
+                            setEditingOrderId(
+                              editingOrderId === order.id ? null : order.id
+                            )
+                          }
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          {editingOrderId === order.id
+                            ? "Cancel"
+                            : "Update Status"}
+                        </button>
+                      )}
                   </td>
                 </tr>
               ))}

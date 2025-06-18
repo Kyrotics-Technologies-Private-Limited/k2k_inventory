@@ -1,9 +1,12 @@
-// User interface
-export interface User {
-    uid: string;
-    name: string;
-    email: string | null;
-    phone: string;
-    createdAt?: Date;
-    updatedAt?: Date;
-  }
+// src/types/auth.ts
+
+export interface AdminSignupInput {
+  email: string;
+  name: string;
+  uid: string;
+}
+
+export interface AdminLoginResponse {
+  message: string;
+  token: string;
+}
