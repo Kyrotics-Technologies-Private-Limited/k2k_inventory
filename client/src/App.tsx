@@ -1,15 +1,7 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-
-// Public components
-
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/admin/layout/Layout";
 import AdminDashboard from "./pages/admin/Admindashboard";
-//import { store } from "./store/store";
-//import { Provider } from "react-redux";
-//import AppProvider from "./AppProvider";
 import AdminProducts from "./pages/admin/AdminProducts";
-//import PhoneAuth from "./components/PhoneAuth";
-
 import ProductDetailsPage from "./pages/admin/ProductDetailsPage";
 import ProductListPage from "./pages/admin/ProductListPage";
 import AdminOrders from "./pages/admin/AdminOrders";
@@ -18,15 +10,14 @@ import { ToastContainer, Bounce } from "react-toastify";
 import VariantDetailsPage from "./pages/admin/Variantdetailspage";
 import VariantEditPage from "./pages/admin/VariantEditPage";
 import AdminOrderDetailsPage from "./pages/admin/AdminOrderDetails";
-
-
+import AdminSignupLogin from "./pages/admin/AdminSignupLogin";
+import AdminLogin from "./pages/admin/AdminLogin";
+import ProtectedRoute from "./utils/ProtectedRoute";
 
 function App() {
   return (
-   
-      <BrowserRouter>
-        
-        <ToastContainer
+    <BrowserRouter>
+      <ToastContainer
         position="top-right"
         autoClose={5000}
         hideProgressBar={false}
@@ -37,38 +28,137 @@ function App() {
         draggable
         pauseOnHover
         theme="light"
-        style={{ marginTop: '3rem' }}  
-        className="!top-[3rem]" // This ensures toast appears below navbar
-        transition={Bounce} />
-    
-          <Routes>
-            
-            {/* Admin Routes */}
-            <Route path="/admin" element={<Layout />}>
-              <Route index element={<AdminDashboard />} />
-              <Route path="products" element={<AdminProducts />} />
-              <Route path="products/:id" element={<ProductDetailsPage />} />
-              <Route path="productlist" element={<ProductListPage />} />
-              <Route
-                path="products/:productId/variants"
-                element={<VariantDetailsPage />}
-              />
-              <Route
-                path="products/:productId/variants/:variantId/edit"
-                element={<VariantEditPage />}
-              />
-              <Route path="orders" element={<AdminOrders />} />
-              <Route
-                path="orders/:orderId"
-                element={<AdminOrderDetailsPage />}
-              />
-              <Route path="customers" element={<AdminCustomers />} />
-              {/* Add other admin routes as needed */}
-            </Route>
-          </Routes>
-       
-      </BrowserRouter>
-   
+        style={{ marginTop: "3rem" }}
+        className="!top-[3rem]"
+        transition={Bounce}
+      />
+
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/admin/signup" element={<AdminSignupLogin />} />
+
+        {/* Protected Admin Routes */}
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
+          {/* Dashboard */}
+          <Route
+            index
+            element={
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="dashboard"
+            element={
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Products and Variants */}
+          <Route
+            path="products"
+            element={
+              <ProtectedRoute>
+                <AdminProducts />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="products/:id"
+            element={
+              <ProtectedRoute>
+                <ProductDetailsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="productlist"
+            element={
+              <ProtectedRoute>
+                <ProductListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="variants/:id"
+            element={
+              <ProtectedRoute>
+                <VariantDetailsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="variants/:id/edit"
+            element={
+              <ProtectedRoute>
+                <VariantEditPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="products/:productId/variants"
+            element={
+              <ProtectedRoute>
+                <VariantDetailsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="products/:productId/variants/:variantId/edit"
+            element={
+              <ProtectedRoute>
+                <VariantEditPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Orders */}
+          <Route
+            path="orders"
+            element={
+              <ProtectedRoute>
+                <AdminOrders />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="orders/:orderId"
+            element={
+              <ProtectedRoute>
+                <AdminOrderDetailsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Customers */}
+          <Route
+            path="customers"
+            element={
+              <ProtectedRoute>
+                <AdminCustomers />
+              </ProtectedRoute>
+            }
+          />
+        </Route>
+
+        {/* Root redirect */}
+        <Route path="/" element={<Navigate to="/admin" replace />} />
+
+        {/* Catch all other routes */}
+        <Route path="*" element={<Navigate to="/admin" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

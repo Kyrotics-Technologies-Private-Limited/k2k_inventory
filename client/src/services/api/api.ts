@@ -1,15 +1,12 @@
 // src/services/api.ts
-import axios, { AxiosError } from 'axios';
-import type { InternalAxiosRequestConfig } from 'axios';
-import type { AxiosResponse } from 'axios';
-import { auth } from '../firebase/firebase'; // Adjust the import path as necessary
+import axios from 'axios';
+import type { AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
+import { auth } from '../firebase/firebase';
+import type { User } from 'firebase/auth';
 
 // Create axios instance
 const api = axios.create({
-  // Use a relative URL for the API base URL
-  // baseURL: import.meta.env.REACT_APP_API_URL || 'http://192.168.1.44:5566/api',
-  baseURL: `${import.meta.env.VITE_BACKEND_URL}/api` || '/api' ,
-  // baseURL: '/api',
+  baseURL: `${import.meta.env.VITE_BACKEND_URL}/api` || '/api',
   headers: {
     'Content-Type': 'application/json'
   }
@@ -41,27 +38,27 @@ api.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
+    if (!error.config) {
+      return Promise.reject(error);
+    }
+
     const originalRequest = error.config;
     
-    // Handle token refreshing if needed
-    if (error.response?.status === 401 && originalRequest) {
+    if (error.response?.status === 401) {
       try {
-        // Force token refresh
-        const user = auth.currentUser;
+        const user = auth.currentUser as User | null;
         if (user) {
-          await user.getIdToken(true);
-          
-          // Retry the original request with new token
-          if (originalRequest.headers) {
-            originalRequest.headers.Authorization = `Bearer ${await user.getIdToken()}`;
-          }
-          return api(originalRequest);
+          // Force token refresh
+          const newToken = await user.getIdToken(true);
+          originalRequest.headers = originalRequest.headers || {};
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          // Retry the request with the new token
+          return axios(originalRequest);
         }
       } catch (refreshError) {
-        console.error('Error refreshing token:', refreshError);
+        console.error('Token refresh failed:', refreshError);
       }
     }
-    
     return Promise.reject(error);
   }
 );

@@ -7,7 +7,7 @@ const app = express();
 app.use(cors({ origin: "http://localhost:5173" }));
 app.use(bodyParser.json());
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5567;
 
 // Routes
 const productRoutes = require('./routes/productRoutes');
@@ -20,7 +20,7 @@ const orderRoutes = require("./routes/orderRoutes");
 
 app.use('/api/products', productRoutes);
 app.use("/api/carts", cartRoutes);
-app.use("/api/users", authRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/addresses", addressRoutes);
 app.use("/api/variants", variantRoutes);

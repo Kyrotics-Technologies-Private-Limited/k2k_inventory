@@ -3,6 +3,8 @@ const admin = require("firebase-admin");
 const dotenv = require("dotenv");
 const path = require("path");
 
+// Load environment variables
+dotenv.config({ path: path.join(__dirname, '../config.env') });
 
 // Build the service account object from env variables
 const serviceAccount = {

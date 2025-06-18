@@ -9,6 +9,7 @@ const {
   trackOrder,
   getAllOrdersForAdmin,
   adminUpdateOrderStatus,
+  adminGetOrderById,
 } = require('../controllers/orderController');
 
 // Middleware to protect routes
@@ -19,7 +20,7 @@ router.use(auth);
 
 // Admin routes
 router.get('/', getAllOrdersForAdmin);
-router.get('/:orderId', getOrderById); // Admin can also get order by ID
+router.get('/:orderId', adminGetOrderById);
 router.patch('/:orderId/status', adminUpdateOrderStatus);
 
 // User routes

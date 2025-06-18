@@ -36,6 +36,8 @@ export interface OrderPayment {
   created_at: string;
 }
 
+export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'returned';
+
 export interface Order {
   id: string;
   user_id: string;
@@ -45,46 +47,16 @@ export interface Order {
   subtotal: number;
   tax: number;
   shipping_fee: number;
-  status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'returned';
+  status: OrderStatus;
   payment_id: string;
-  payment_url?: string; // URL for payment gateway
-  payment?: OrderPayment;     // Expanded payment details
+  payment_url?: string;      // URL for payment gateway
   items?: OrderItem[];
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  shipping_method?: string;
+  payment_method?: string;
   tracking_number?: string;
 }
 
-export interface TrackingEvent {
-  status: string;
-  location?: string;
-  timestamp: string;
-  description?: string;
-}
-
-export interface TrackingInfo {
-  order_id: string;
-  tracking_number: string;
-  carrier?: string;
-  estimated_delivery?: string;
-  status: string;
-  history: TrackingEvent[];
-}
-
-// For API responses
-export interface CreateOrderResponse {
-  order: Order;
-  payment_url?: string; // For redirecting to payment gateway
-}
-
-export interface OrderListResponse {
-  orders: Order[];
-  total: number;
-  page: number;
-  limit: number;
-}
-
-// For order creation payload
 export interface CreateOrderPayload {
   address_id: string;
   items: Array<{
@@ -92,19 +64,13 @@ export interface CreateOrderPayload {
     variant_id?: string;
     quantity: number;
   }>;
-  payment_method?: string;
 }
 
-// For order status update payload
 export interface UpdateOrderStatusPayload {
-  status: Order['status'];
-  notify_customer?: boolean;
+  status: OrderStatus;
 }
 
-// For order cancellation payload
-export interface CancelOrderPayload {
-  reason?: string;
+export interface OrderListResponse {
+  orders: Order[];
+  total: number;
 }
-
-// Add this export if it doesn't exist
-export type OrderStatus = "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled" | "returned";

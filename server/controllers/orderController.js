@@ -189,3 +189,29 @@ exports.adminUpdateOrderStatus = async (req, res) => {
     res.status(500).json({ message: "Failed to update order status", error: error.message });
   }
 };
+
+// Get order by ID (Admin)
+exports.adminGetOrderById = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    
+    const doc = await ordersCollection.doc(orderId).get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ message: 'Order not found.' });
+    }
+
+    const orderData = doc.data();
+    const order = {
+      id: doc.id,
+      ...orderData,
+      created_at: orderData.createdAt ? orderData.createdAt.toDate().toISOString() : new Date().toISOString(),
+      status: orderData.status.toLowerCase()
+    };
+
+    res.status(200).json(order);
+  } catch (error) {
+    console.error('Error getting order:', error);
+    res.status(500).json({ message: 'Failed to get order.', error: error.message });
+  }
+};
