@@ -251,7 +251,7 @@ const AdminOrderDetailsPage: React.FC = () => {
               </div>
               <div>
                 <span className="text-gray-500">User ID:</span>
-                <span className="ml-2 font-medium">{order.user_id}</span>
+                <span className="ml-2 font-medium">{order.userId}</span>
               </div>
               <div>
                 <span className="text-gray-500">Payment Method:</span>
