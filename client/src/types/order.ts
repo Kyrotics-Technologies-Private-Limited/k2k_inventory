@@ -40,7 +40,7 @@ export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | '
 
 export interface Order {
   id: string;
-  user_id: string;
+  userId: string;
   address_id: string;
   address?: OrderAddress;     // Expanded address details
   total_amount: number;

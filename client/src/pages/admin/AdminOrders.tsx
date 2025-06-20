@@ -18,7 +18,60 @@ const ORDER_STATUSES = [
   "returned",
 ] as const;
 
-const AdminOrdersPage = () => {
+// Helper functions for date and time formatting
+// const formatDate = (timestamp: any) => {
+//   if (!timestamp) return "-";
+//   try {
+//     // Handle Firestore Timestamp
+//     if (timestamp?.seconds) {
+//       const date = new Date(timestamp.seconds * 1000);
+//       return date.toLocaleDateString("en-IN", {
+//         day: "2-digit",
+//         month: "short",
+//         year: "numeric",
+//       });
+//     }
+//     // Handle regular date string
+//     const date = new Date(timestamp);
+//     if (isNaN(date.getTime())) return "-";
+//     return date.toLocaleDateString("en-IN", {
+//       day: "2-digit",
+//       month: "short",
+//       year: "numeric",
+//     });
+//   } catch (error) {
+//     console.error("Error formatting date:", error);
+//     return "-";
+//   }
+// };
+
+// const formatTime = (timestamp: any) => {
+//   if (!timestamp) return "-";
+//   try {
+//     // Handle Firestore Timestamp
+//     if (timestamp?.seconds) {
+//       const date = new Date(timestamp.seconds * 1000);
+//       return date.toLocaleTimeString("en-IN", {
+//         hour: "2-digit",
+//         minute: "2-digit",
+//         hour12: true,
+//       });
+//     }
+//     // Handle regular date string
+//     const date = new Date(timestamp);
+//     if (isNaN(date.getTime())) return "-";
+//     return date.toLocaleTimeString("en-IN", {
+//       hour: "2-digit",
+//       minute: "2-digit",
+//       hour12: true,
+//     });
+//   } catch (error) {
+//     console.error("Error formatting time:", error);
+//     return "-";
+//   }
+// };
+
+const AdminOrdersPage: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +103,10 @@ const AdminOrdersPage = () => {
       setLoading(true);
       setError(null);
       const data = await orderApi.getAllOrdersForAdmin();
+      console.log("Orders received:", data);      // Log the first order's date for debugging
+      if (data.length > 0) {
+        console.log("First order created_at:", data[0].created_at);
+      }
       setOrders(data);
     } catch (err: any) {
       console.error("Error fetching admin orders:", err);
@@ -132,36 +189,49 @@ const AdminOrdersPage = () => {
       <h2 className="text-xl font-bold mb-4">All Orders</h2>
       {orders.length === 0 ? (
         <p className="text-gray-500">No orders found</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full border divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+      ) : (        <div className="overflow-x-auto ring-1 ring-gray-200 rounded-lg bg-white shadow-sm">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead>
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b">
                   Order ID
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </th>                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b">
                   User
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b">
+                  Date
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b">
+                  Time
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b">
                   Total
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b">
                   Actions
                 </th>
               </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            </thead>            <tbody className="bg-white divide-y divide-gray-100">
               {orders.map((order) => (
-                <tr key={order.id}>
+                <tr key={order.id} className="hover:bg-gray-50 transition-colors duration-150">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{order.id}</div>
+                    <div className="text-sm font-medium text-gray-900">{order.id}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{order.user_id}</div>
+                    <div className="text-sm text-gray-900">{order.userId}</div>
+                  </td>{" "}                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {" "}
+                {new Date(order.created_at || Date.now()).toLocaleString()}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {/* {formatTime(order.created_at)} */}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {editingOrderId === order.id ? (
@@ -171,7 +241,7 @@ const AdminOrdersPage = () => {
                           const newStatus = e.target.value as Order["status"];
                           handleStatusUpdate(order.id, newStatus);
                         }}
-                        className="border rounded px-2 py-1 text-sm"
+                        className="button border rounded px-2 py-1 text-sm"
                       >
                         {ORDER_STATUSES.map((status) => (
                           <option key={status} value={status}>
@@ -201,7 +271,7 @@ const AdminOrdersPage = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
                       onClick={() => viewDetails(order.id)}
-                      className="text-indigo-600 hover:text-indigo-900 mr-4"
+                      className="button text-indigo-600 hover:text-indigo-900 mr-4"
                     >
                       <FiEye className="inline-block" /> View
                     </button>
@@ -213,7 +283,7 @@ const AdminOrdersPage = () => {
                               editingOrderId === order.id ? null : order.id
                             )
                           }
-                          className="text-blue-600 hover:text-blue-900"
+                          className="button text-blue-600 hover:text-blue-900"
                         >
                           {editingOrderId === order.id
                             ? "Cancel"

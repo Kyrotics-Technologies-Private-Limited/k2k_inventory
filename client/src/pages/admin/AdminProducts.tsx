@@ -469,7 +469,7 @@ const AdminProductPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => removeGalleryImage(idx)}
-                      className="px-2 py-1 text-red-600 hover:underline"
+                      className="button px-2 py-1 text-red-600 hover:underline"
                     >
                       Remove
                     </button>
@@ -479,7 +479,7 @@ const AdminProductPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={addGalleryImage}
-                  className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="button mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
                   Add Image
                 </button>
