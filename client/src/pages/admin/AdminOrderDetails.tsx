@@ -325,67 +325,78 @@ const AdminOrderDetailsPage: React.FC = () => {
               </button>
             </div>
           </div>
-        )}
-
-        {/* Order Items */}
+        )}        {/* Order Items */}
         {order.items && order.items.length > 0 && (
           <div className="mt-8">
-            <h2 className="text-lg font-medium mb-4">Order Items</h2>
-            <div className="bg-gray-50 rounded-lg overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Item
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Quantity
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Price
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Total
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {order.items.map((item) => (
-                    <tr key={item.id}>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          {item.image && (
-                            <img
-                              src={item.image}
-                              alt={item.name}
-                              className="h-10 w-10 object-cover rounded"
-                            />
-                          )}
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {item.name}
-                            </div>
-                            {item.variant_name && (
-                              <div className="text-sm text-gray-500">
-                                {item.variant_name}
-                              </div>
-                            )}
-                          </div>
+            <h2 className="text-lg font-medium mb-4 flex items-center">
+              <span className="bg-blue-50 text-blue-600 p-1.5 rounded-lg mr-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                </svg>
+              </span>
+              Order Items
+              <span className="ml-2 text-sm text-gray-500 font-normal">({order.items.length} items)</span>
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {order.items?.map((item: any, idx: number) => (
+                <div key={item.id || idx} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 border border-gray-100">
+                  <div className="flex p-4">
+                    <div className="relative w-24 h-24 bg-gray-50 rounded-lg overflow-hidden flex-shrink-0">
+                      {item.product?.images?.main ? (
+                        <img
+                          src={item.product?.images?.main}
+                          alt={item.product?.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {item.quantity}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        ₹{item.unit_price}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        ₹{item.quantity * item.unit_price}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      )}
+                      <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium text-gray-600 shadow-sm">
+                        x{item.quantity}
+                      </div>
+                    </div>
+
+                    <div className="ml-4 flex-grow">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium text-gray-900">{item.product?.name}</h3>
+                          {item.variant?.weight && (
+                            <p className="text-sm text-gray-500 mt-0.5">{item.variant?.weight}</p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-medium text-gray-900">₹{item.variant?.price}</div>
+                          <div className="text-sm text-gray-500 mt-0.5">per unit</div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex justify-between items-end">
+                        <div className="text-xs text-gray-500">Item Total:</div>
+                        <div className="text-base font-semibold text-blue-600">
+                          ₹{item.quantity * item.variant?.price}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Order Summary */}
+            <div className="mt-6 bg-gray-50 rounded-xl p-4">
+              <div className="flex justify-between items-center">
+                <div className="text-sm font-medium text-gray-600">Total Items:</div>
+                <div className="text-sm font-medium text-gray-900">{order.items.length}</div>
+              </div>
+              <div className="flex justify-between items-center mt-2">
+                <div className="text-base font-medium text-gray-900">Order Total:</div>
+                <div className="text-lg font-semibold text-blue-600">₹{order.total_amount}</div>
+              </div>
             </div>
           </div>
         )}
