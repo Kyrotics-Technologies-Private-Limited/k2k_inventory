@@ -7,6 +7,8 @@ import { toast } from "react-toastify";
 import { FiEye } from "react-icons/fi";
 import { auth } from "../../services/firebase/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
 const ORDER_STATUSES = [
   "pending",
@@ -19,63 +21,87 @@ const ORDER_STATUSES = [
 ] as const;
 
 // Helper functions for date and time formatting
-// const formatDate = (timestamp: any) => {
-//   if (!timestamp) return "-";
-//   try {
-//     // Handle Firestore Timestamp
-//     if (timestamp?.seconds) {
-//       const date = new Date(timestamp.seconds * 1000);
-//       return date.toLocaleDateString("en-IN", {
-//         day: "2-digit",
-//         month: "short",
-//         year: "numeric",
-//       });
-//     }
-//     // Handle regular date string
-//     const date = new Date(timestamp);
-//     if (isNaN(date.getTime())) return "-";
-//     return date.toLocaleDateString("en-IN", {
-//       day: "2-digit",
-//       month: "short",
-//       year: "numeric",
-//     });
-//   } catch (error) {
-//     console.error("Error formatting date:", error);
-//     return "-";
-//   }
-// };
+const formatDate = (timestamp: any) => {
+  if (!timestamp) return "-";
+  try {
+    // Handle Firestore Timestamp
+    if (timestamp?.seconds) {
+      const date = new Date(timestamp.seconds * 1000);
+      return date.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+    }
+    // Handle ISO string or number
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return "-";
+    return date.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch (error) {
+    console.error("Error formatting date:", error);
+    return "-";
+  }
+};
 
-// const formatTime = (timestamp: any) => {
-//   if (!timestamp) return "-";
-//   try {
-//     // Handle Firestore Timestamp
-//     if (timestamp?.seconds) {
-//       const date = new Date(timestamp.seconds * 1000);
-//       return date.toLocaleTimeString("en-IN", {
-//         hour: "2-digit",
-//         minute: "2-digit",
-//         hour12: true,
-//       });
-//     }
-//     // Handle regular date string
-//     const date = new Date(timestamp);
-//     if (isNaN(date.getTime())) return "-";
-//     return date.toLocaleTimeString("en-IN", {
-//       hour: "2-digit",
-//       minute: "2-digit",
-//       hour12: true,
-//     });
-//   } catch (error) {
-//     console.error("Error formatting time:", error);
-//     return "-";
-//   }
-// };
+const formatTime = (timestamp: any) => {
+  if (!timestamp) return "-";
+  try {
+    // Handle Firestore Timestamp
+    if (timestamp?.seconds) {
+      const date = new Date(timestamp.seconds * 1000);
+      return date.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+    }
+    // Handle ISO string or number
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return "-";
+    return date.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch (error) {
+    console.error("Error formatting time:", error);
+    return "-";
+  }
+};
+
+// Helper to flatten nested objects/arrays for Excel export
+const flattenObject = (obj: any, prefix = ""): any => {
+  let result: any = {};
+  for (const key in obj) {
+    if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+    const value = obj[key];
+    const newKey = prefix ? `${prefix}.${key}` : key;
+    if (
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      !(value instanceof Date)
+    ) {
+      Object.assign(result, flattenObject(value, newKey));
+    } else if (Array.isArray(value)) {
+      result[newKey] = JSON.stringify(value);
+    } else {
+      result[newKey] = value;
+    }
+  }
+  return result;
+};
 
 const AdminOrdersPage: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const navigate = useNavigate();
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
 
@@ -103,7 +129,7 @@ const AdminOrdersPage: React.FC = () => {
       setLoading(true);
       setError(null);
       const data = await orderApi.getAllOrdersForAdmin();
-      console.log("Orders received:", data);      // Log the first order's date for debugging
+      console.log("Orders received:", data); // Log the first order's date for debugging
       if (data.length > 0) {
         console.log("First order created_at:", data[0].created_at);
       }
@@ -137,6 +163,37 @@ const AdminOrdersPage: React.FC = () => {
       console.error("Failed to update order status:", err);
       toast.error(err.message || "Failed to update order status");
     }
+  };
+
+  const filteredOrders =
+    statusFilter === "all"
+      ? orders
+      : orders.filter((order) => order.status === statusFilter);
+
+  // Excel export handler (selected backend fields)
+  const handleExportExcel = () => {
+    const exportData = filteredOrders.map((order) => ({
+      "Order ID": order.id,
+      "User ID": order.userId,
+      "Address ID": order.address_id,
+      "Total Amount": order.total_amount,
+      "Payment Method": order.payment_method,
+      "Shipping Method": order.shipping_method,
+      Items: Array.isArray(order.items)
+        ? order.items
+            .map((item: any) => item.name || item.title || "")
+            .join(", ")
+        : "",
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
+    const data = new Blob([excelBuffer], { type: "application/octet-stream" });
+    saveAs(data, "orders_selected_fields.xlsx");
   };
 
   if (loading) {
@@ -187,15 +244,60 @@ const AdminOrdersPage: React.FC = () => {
   return (
     <div className="p-4">
       <h2 className="text-xl font-bold mb-4">All Orders</h2>
-      {orders.length === 0 ? (
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-2">
+          <label
+            htmlFor="statusFilter"
+            className="text-sm font-medium text-gray-700"
+          >
+            <span className="inline-block mr-1">Filter by Status:</span>
+          </label>
+          <div className="relative">
+            <select
+              id="statusFilter"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="appearance-none border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white pr-8 min-w-[120px]"
+            >
+              <option value="all">All</option>
+              {ORDER_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </option>
+              ))}
+            </select>
+            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
+              ▼
+            </span>
+          </div>
+        </div>
+        {statusFilter !== "all" && (
+          <button
+            onClick={() => setStatusFilter("all")}
+            className="inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 transition"
+          >
+            Clear Filter
+            <span className="ml-1">✕</span>
+          </button>
+        )}
+        <button
+          onClick={handleExportExcel}
+          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
+        >
+          Export to Excel
+        </button>
+      </div>
+      {filteredOrders.length === 0 ? (
         <p className="text-gray-500">No orders found</p>
-      ) : (        <div className="overflow-x-auto ring-1 ring-gray-200 rounded-lg bg-white shadow-sm">
+      ) : (
+        <div className="overflow-x-auto ring-1 ring-gray-200 rounded-lg bg-white shadow-sm">
           <table className="min-w-full divide-y divide-gray-200">
             <thead>
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b">
                   Order ID
-                </th>                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b">
+                </th>{" "}
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b">
                   User
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b">
@@ -214,23 +316,29 @@ const AdminOrdersPage: React.FC = () => {
                   Actions
                 </th>
               </tr>
-            </thead>            <tbody className="bg-white divide-y divide-gray-100">
-              {orders.map((order) => (
-                <tr key={order.id} className="hover:bg-gray-50 transition-colors duration-150">
+            </thead>{" "}
+            <tbody className="bg-white divide-y divide-gray-100">
+              {filteredOrders.map((order) => (
+                <tr
+                  key={order.id}
+                  className="hover:bg-gray-50 transition-colors duration-150"
+                >
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{order.id}</div>
+                    <div className="text-sm font-medium text-gray-900">
+                      {order.id}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{order.userId}</div>
-                  </td>{" "}                  <td className="px-6 py-4 whitespace-nowrap">
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
-                      {" "}
-                {new Date(order.created_at || Date.now()).toLocaleString()}
+                      {formatDate(order.created_at)}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
-                      {/* {formatTime(order.created_at)} */}
+                      {formatTime(order.created_at)}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
