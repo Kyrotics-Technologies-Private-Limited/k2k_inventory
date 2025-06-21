@@ -12,6 +12,7 @@ import {
   PlusIcon,
   ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
+import axios from "axios";
 
 interface Customer {
   id: string;
@@ -34,54 +35,35 @@ const CustomersManagement: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
 
-  // Mock data - replace with API calls
+  // Fetch customers from backend API
   useEffect(() => {
     const fetchCustomers = async () => {
+      setLoading(true);
       try {
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 800));
-        const mockCustomers: Customer[] = [
-          {
-            id: "1",
-            name: "Rahul Sharma",
-            email: "rahul.sharma@example.com",
-            phone: "+91 9876543210",
-            joinDate: "2022-01-15",
-            orders: 12,
-            totalSpent: 45999,
-            lastOrder: "2023-06-20",
-            status: "active",
-            location: "Bangalore, KA",
-          },
-          {
-            id: "2",
-            name: "Priya Patel",
-            email: "priya.p@example.com",
-            phone: "+91 8765432109",
-            joinDate: "2023-03-10",
-            orders: 3,
-            totalSpent: 8999,
-            lastOrder: "2023-06-18",
-            status: "new",
-            location: "Mumbai, MH",
-          },
-          // Add 8 more customers with similar structure...
-          {
-            id: "10",
-            name: "Arjun Reddy",
-            email: "arjun.r@example.com",
-            phone: "+91 7654321098",
-            joinDate: "2021-11-05",
-            orders: 25,
-            totalSpent: 112499,
-            lastOrder: "2023-06-22",
-            status: "active",
-            location: "Hyderabad, TS",
-          },
-        ];
-        setCustomers(mockCustomers);
+        // Use absolute backend URL in dev if needed
+        const apiUrl = import.meta.env.DEV
+          ? "http://localhost:5567/api/admin/users"
+          : "/api/admin/users";
+        const res = await axios.get(apiUrl);
+        if (!Array.isArray(res.data)) {
+          throw new Error("API did not return an array of users");
+        }
+        const users: Customer[] = res.data.map((user: any) => ({
+          id: user.uid || user.id,
+          name: user.name || user.displayName || "",
+          email: user.email || "",
+          phone: user.phone || user.phoneNumber || "",
+          joinDate: user.createdAt || user.joinDate || new Date().toISOString(),
+          orders: user.ordersCount || 0,
+          totalSpent: user.totalSpent || 0,
+          lastOrder: user.lastOrder || null,
+          status: user.status || "active",
+          location: user.location || "",
+        }));
+        setCustomers(users);
       } catch (error) {
         console.error("Failed to fetch customers:", error);
+        setCustomers([]);
       } finally {
         setLoading(false);
       }
@@ -138,13 +120,6 @@ const CustomersManagement: React.FC = () => {
           >
             <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
             Export
-          </button>
-          <button
-            type="button"
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-          >
-            <PlusIcon className="h-5 w-5 mr-2" />
-            Add Customer
           </button>
         </div>
       </div>
@@ -219,18 +194,6 @@ const CustomersManagement: React.FC = () => {
                     scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                   >
-                    Orders
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Total Spent
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
                     Status
                   </th>
                   <th
@@ -281,22 +244,6 @@ const CustomersManagement: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-500">
                         {new Date(customer.joinDate).toLocaleDateString()}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {customer.orders}
-                      </div>
-                      {customer.lastOrder && (
-                        <div className="text-xs text-gray-500">
-                          Last:{" "}
-                          {new Date(customer.lastOrder).toLocaleDateString()}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {formatCurrency(customer.totalSpent)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
