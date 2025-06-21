@@ -5,6 +5,14 @@ const ordersCollection = db.collection('orders');
 // Helper
 const getTimestamp = () => admin.firestore.FieldValue.serverTimestamp();
 
+// Helper to convert Firestore Timestamp to ISO string
+function toISO(ts) {
+  if (!ts) return null;
+  if (typeof ts.toDate === 'function') return ts.toDate().toISOString();
+  if (ts._seconds) return new Date(ts._seconds * 1000).toISOString();
+  return ts;
+}
+
 // Create a new order
 exports.createOrder = async (req, res) => {
   try {
@@ -48,10 +56,16 @@ exports.getAllOrders = async (req, res) => {
     const userId = req.user.uid;
     const snapshot = await ordersCollection.where('userId', '==', userId).get();
 
-    const orders = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    const orders = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        created_at: toISO(data.createdAt),
+        updated_at: toISO(data.updatedAt),
+        status: data.status ? data.status.toLowerCase() : undefined
+      };
+    });
 
     res.status(200).json(orders);
   } catch (error) {
@@ -163,10 +177,16 @@ exports.getAllOrdersForAdmin = async (req, res) => {
 
     const snapshot = await ordersCollection.orderBy('createdAt', 'desc').get();
 
-    const orders = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    const orders = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        created_at: toISO(data.createdAt),
+        updated_at: toISO(data.updatedAt),
+        status: data.status ? data.status.toLowerCase() : undefined
+      };
+    });
 
     res.status(200).json(orders);
   } catch (error) {
@@ -194,21 +214,18 @@ exports.adminUpdateOrderStatus = async (req, res) => {
 exports.adminGetOrderById = async (req, res) => {
   try {
     const { orderId } = req.params;
-    
     const doc = await ordersCollection.doc(orderId).get();
-
     if (!doc.exists) {
       return res.status(404).json({ message: 'Order not found.' });
     }
-
     const orderData = doc.data();
     const order = {
       id: doc.id,
       ...orderData,
-      created_at: orderData.createdAt ? orderData.createdAt.toDate().toISOString() : new Date().toISOString(),
-      status: orderData.status.toLowerCase()
+      created_at: toISO(orderData.createdAt),
+      updated_at: toISO(orderData.updatedAt),
+      status: orderData.status ? orderData.status.toLowerCase() : undefined
     };
-
     res.status(200).json(order);
   } catch (error) {
     console.error('Error getting order:', error);

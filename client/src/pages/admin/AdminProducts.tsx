@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import type { Variant } from "../../types/variant";
 import type { Product } from "../../types";
 import { productApi } from "../../services/api/productApi";
@@ -13,6 +13,7 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
 } from "@heroicons/react/24/outline";
+import { Dialog, Transition } from "@headlessui/react";
 
 const initialForm: Omit<Product, "id"> = {
   name: "",
@@ -52,6 +53,7 @@ const AdminProductPage: React.FC = () => {
   const [variantForm, setVariantForm] = useState(initialVariantForm);
   const [showVariantForm, setShowVariantForm] = useState<string | null>(null);
   const [editingVariantId, setEditingVariantId] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Fetch products and their variants
   useEffect(() => {
@@ -186,6 +188,7 @@ const AdminProductPage: React.FC = () => {
         setSuccess("Product created successfully!");
       }
       resetForm();
+      closeModal();
     } catch (err) {
       setError("Failed to save product. Please try again.");
       console.error("Product save error:", err);
@@ -317,6 +320,16 @@ const AdminProductPage: React.FC = () => {
     }
   };
 
+  // Open modal for new product
+  const openCreateModal = () => {
+    resetForm();
+    setIsModalOpen(true);
+  };
+  // Close modal
+  const closeModal = () => {
+    setIsModalOpen(false);
+  };
+
   // Navigate to the dedicated variants page
   const viewVariants = (id: string) => {
     navigate(`/admin/products/${id}/variants`);
@@ -329,15 +342,13 @@ const AdminProductPage: React.FC = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-gray-800">Product Management</h1>
-        {editMode && (
-          <button
-            onClick={resetForm}
-            className="flex items-center px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition"
-          >
-            <PlusIcon className="w-5 h-5 mr-2" />
-            Add New Product
-          </button>
-        )}
+        <button
+          onClick={openCreateModal}
+          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+        >
+          <PlusIcon className="w-5 h-5 mr-2" />
+          Create New Product
+        </button>
       </div>
 
       {/* Status Messages */}
@@ -354,210 +365,253 @@ const AdminProductPage: React.FC = () => {
         </div>
       )}
 
-      {/* Product Form */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-800">
-            {editMode ? "Edit Product" : "Create New Product"}
-          </h2>
-        </div>
-        <form onSubmit={handleSubmit} className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Product Name
-                </label>
-                <input
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="Enter product name"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  required
-                />
-              </div>
+      {/* Product Form Modal */}
+      <Transition.Root show={isModalOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-10" onClose={closeModal}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+          </Transition.Child>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  placeholder="Enter product description"
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Category
-                </label>
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="ghee">Ghee</option>
-                  <option value="oils">Oils</option>
-                  <option value="honey">Honey</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Price (₹)
-                </label>
-                <input
-                  name="amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.price.amount}
-                  onChange={handleChange}
-                  placeholder="Enter price"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Origin
-                </label>
-                <input
-                  name="origin"
-                  value={formData.origin}
-                  onChange={handleChange}
-                  placeholder="Enter product origin"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Main Image URL
-                </label>
-                <input
-                  name="images.main"
-                  value={formData.images.main}
-                  onChange={(e) => handleImageChange("main", e.target.value)}
-                  placeholder="Enter main image URL"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div className="space-y-4">
-                <label className="block text-sm font-medium">
-                  Gallery Images
-                </label>
-                {formData.images.gallery.map((url, idx) => (
-                  <div key={idx} className="flex items-center space-x-2">
-                    <input
-                      type="text"
-                      value={url}
-                      onChange={(e) => handleGalleryChange(idx, e.target.value)}
-                      placeholder={`Image URL #${idx + 1}`}
-                      className="flex-1 px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    />
+          <div className="fixed inset-0 z-10 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                enterTo="opacity-100 translate-y-0 sm:scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+                leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              >
+                <Dialog.Panel className="relative bg-white rounded-lg px-6 pt-6 pb-4 text-left shadow-xl transform transition-all sm:my-8 sm:max-w-2xl w-full">
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold text-gray-800">
+                      {editMode ? "Edit Product" : "Create New Product"}
+                    </h2>
                     <button
-                      type="button"
-                      onClick={() => removeGalleryImage(idx)}
-                      className="button px-2 py-1 text-red-600 hover:underline"
+                      onClick={closeModal}
+                      className="text-gray-400 hover:text-gray-600 focus:outline-none"
                     >
-                      Remove
+                      <XMarkIcon className="w-6 h-6" />
                     </button>
                   </div>
-                ))}
+                  <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Product Name
+                          </label>
+                          <input
+                            name="name"
+                            value={formData.name}
+                            onChange={handleChange}
+                            placeholder="Enter product name"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                            required
+                          />
+                        </div>
 
-                <button
-                  type="button"
-                  onClick={addGalleryImage}
-                  className="button mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  Add Image
-                </button>
-              </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Description
+                          </label>
+                          <textarea
+                            name="description"
+                            value={formData.description}
+                            onChange={handleChange}
+                            placeholder="Enter product description"
+                            rows={3}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Category
+                          </label>
+                          <select
+                            name="category"
+                            value={formData.category}
+                            onChange={handleChange}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                          >
+                            <option value="ghee">Ghee</option>
+                            <option value="oils">Oils</option>
+                            <option value="honey">Honey</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Price (₹)
+                          </label>
+                          <input
+                            name="amount"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={formData.price.amount}
+                            onChange={handleChange}
+                            placeholder="Enter price"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Origin
+                          </label>
+                          <input
+                            name="origin"
+                            value={formData.origin}
+                            onChange={handleChange}
+                            placeholder="Enter product origin"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Main Image URL
+                          </label>
+                          <input
+                            name="images.main"
+                            value={formData.images.main}
+                            onChange={(e) =>
+                              handleImageChange("main", e.target.value)
+                            }
+                            placeholder="Enter main image URL"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+
+                        <div className="space-y-4">
+                          <label className="block text-sm font-medium">
+                            Gallery Images
+                          </label>
+                          {formData.images.gallery.map((url, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center space-x-2"
+                            >
+                              <input
+                                type="text"
+                                value={url}
+                                onChange={(e) =>
+                                  handleGalleryChange(idx, e.target.value)
+                                }
+                                placeholder={`Image URL #${idx + 1}`}
+                                className="flex-1 px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeGalleryImage(idx)}
+                                className="button px-2 py-1 text-red-600 hover:underline"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+
+                          <button
+                            type="button"
+                            onClick={addGalleryImage}
+                            className="button mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                          >
+                            Add Image
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        SKU
+                      </label>
+                      <input
+                        name="sku"
+                        value={formData.sku}
+                        onChange={handleChange}
+                        placeholder="Enter Product SKU"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Warehouse Name
+                      </label>
+                      <input
+                        list="warehouse-options"
+                        name="warehouseName"
+                        value={formData.warehouseName}
+                        onChange={handleChange}
+                        placeholder="Select or enter warehouse name"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <datalist id="warehouse-options">
+                        <option value="Ghee Warehouse" />
+                        <option value="Oils Warehouse" />
+                        <option value="Honey Warehouse" />
+                      </datalist>
+                    </div>
+
+                    <div className="mt-6 flex justify-end space-x-3">
+                      {editMode && (
+                        <button
+                          type="button"
+                          onClick={resetForm}
+                          className="button px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                      <button
+                        type="submit"
+                        disabled={formLoading}
+                        className={`button px-4 py-2 rounded-md text-white flex items-center ${
+                          formLoading
+                            ? "bg-blue-400 cursor-not-allowed"
+                            : "bg-blue-600 hover:bg-blue-700"
+                        }`}
+                      >
+                        {formLoading ? (
+                          <>
+                            <ArrowPathIcon className="w-5 h-5 mr-2 animate-spin" />
+                            Processing...
+                          </>
+                        ) : editMode ? (
+                          <>
+                            <PencilIcon className="w-5 h-5 mr-2" />
+                            Update Product
+                          </>
+                        ) : (
+                          <>
+                            <PlusIcon className="w-5 h-5 mr-2" />
+                            Create Product
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </Dialog.Panel>
+              </Transition.Child>
             </div>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              SKU
-            </label>
-            <input
-              name="sku"
-              value={formData.sku}
-              onChange={handleChange}
-              placeholder="Enter Product SKU"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Warehouse Name
-            </label>
-            <input
-              list="warehouse-options"
-              name="warehouseName"
-              value={formData.warehouseName}
-              onChange={handleChange}
-              placeholder="Select or enter warehouse name"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            />
-            <datalist id="warehouse-options">
-              <option value="Ghee Warehouse" />
-              <option value="Oils Warehouse" />
-              <option value="Honey Warehouse" />
-            </datalist>
-          </div>
-
-          <div className="mt-6 flex justify-end space-x-3">
-            {editMode && (
-              <button
-                type="button"
-                onClick={resetForm}
-                className="button px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
-              >
-                Cancel
-              </button>
-            )}
-            <button
-              type="submit"
-              disabled={formLoading}
-              className={`button px-4 py-2 rounded-md text-white flex items-center ${
-                formLoading
-                  ? "bg-blue-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700"
-              }`}
-            >
-              {formLoading ? (
-                <>
-                  <ArrowPathIcon className="w-5 h-5 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : editMode ? (
-                <>
-                  <PencilIcon className="w-5 h-5 mr-2" />
-                  Update Product
-                </>
-              ) : (
-                <>
-                  <PlusIcon className="w-5 h-5 mr-2" />
-                  Create Product
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
+        </Dialog>
+      </Transition.Root>
 
       {/* Product List */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
