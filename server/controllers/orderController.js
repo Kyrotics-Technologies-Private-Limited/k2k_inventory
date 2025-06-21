@@ -74,22 +74,22 @@ exports.getAllOrders = async (req, res) => {
 };
 
 // Get order by ID
-exports.getOrderById = async (req, res) => {
-  try {
-    const userId = req.user.uid;
-    const { orderId } = req.params;
+// exports.getOrderById = async (req, res) => {
+//   try {
+//     const userId = req.user.uid;
+//     const { orderId } = req.params;
 
-    const doc = await ordersCollection.doc(orderId).get();
+//     const doc = await ordersCollection.doc(orderId).get();
 
-    if (!doc.exists || doc.data().userId !== userId) {
-      return res.status(404).json({ message: 'Order not found or unauthorized.' });
-    }
+//     if (!doc.exists || doc.data().userId !== userId) {
+//       return res.status(404).json({ message: 'Order not found or unauthorized.' });
+//     }
 
-    res.status(200).json({ id: doc.id, ...doc.data() });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to get order.', error: error.message });
-  }
-};
+//     res.status(200).json({ id: doc.id, ...doc.data() });
+//   } catch (error) {
+//     res.status(500).json({ message: 'Failed to get order.', error: error.message });
+//   }
+// };
 
 // Cancel order
 exports.cancelOrder = async (req, res) => {
