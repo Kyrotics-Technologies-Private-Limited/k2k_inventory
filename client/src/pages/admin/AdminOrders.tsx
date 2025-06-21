@@ -257,7 +257,7 @@ const AdminOrdersPage: React.FC = () => {
               id="statusFilter"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="appearance-none border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white pr-8 min-w-[120px]"
+              className="button appearance-none border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white pr-8 min-w-[120px]"
             >
               <option value="all">All</option>
               {ORDER_STATUSES.map((status) => (
@@ -274,7 +274,7 @@ const AdminOrdersPage: React.FC = () => {
         {statusFilter !== "all" && (
           <button
             onClick={() => setStatusFilter("all")}
-            className="inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 transition"
+            className="button inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 transition"
           >
             Clear Filter
             <span className="ml-1">✕</span>
@@ -282,7 +282,7 @@ const AdminOrdersPage: React.FC = () => {
         )}
         <button
           onClick={handleExportExcel}
-          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
+          className="button px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
         >
           Export to Excel
         </button>

@@ -344,7 +344,7 @@ const AdminProductPage: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-800">Product Management</h1>
         <button
           onClick={openCreateModal}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+          className="button flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
         >
           <PlusIcon className="w-5 h-5 mr-2" />
           Create New Product
@@ -398,7 +398,7 @@ const AdminProductPage: React.FC = () => {
                     </h2>
                     <button
                       onClick={closeModal}
-                      className="text-gray-400 hover:text-gray-600 focus:outline-none"
+                      className="button text-gray-400 hover:text-gray-600 focus:outline-none"
                     >
                       <XMarkIcon className="w-6 h-6" />
                     </button>
