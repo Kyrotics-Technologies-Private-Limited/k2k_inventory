@@ -116,7 +116,7 @@ const CustomersManagement: React.FC = () => {
         <div className="mt-4 sm:mt-0 flex space-x-3">
           <button
             type="button"
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            className="button inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
           >
             <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
             Export
@@ -142,7 +142,7 @@ const CustomersManagement: React.FC = () => {
           <div className="flex items-center">
             <FunnelIcon className="h-5 w-5 text-gray-400 mr-2" />
             <select
-              className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+              className="button block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -264,18 +264,18 @@ const CustomersManagement: React.FC = () => {
                       <div className="flex justify-end space-x-3">
                         <button
                           onClick={() => viewCustomerDetails(customer.id)}
-                          className="text-blue-600 hover:text-blue-900"
+                          className="button text-blue-600 hover:text-blue-900"
                           title="View Details"
                         >
                           <PencilIcon className="h-5 w-5" />
                         </button>
-                        <button
+                        {/* <button
                           onClick={() => console.log("Delete", customer.id)}
                           className="text-red-600 hover:text-red-900"
                           title="Delete Customer"
                         >
                           <TrashIcon className="h-5 w-5" />
-                        </button>
+                        </button> */}
                       </div>
                     </td>
                   </tr>
@@ -296,12 +296,12 @@ const CustomersManagement: React.FC = () => {
         </div>
         <div className="flex space-x-2">
           <button
-            className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            className="button px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
             disabled
           >
             Previous
           </button>
-          <button className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+          <button className="button px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
             Next
           </button>
         </div>
