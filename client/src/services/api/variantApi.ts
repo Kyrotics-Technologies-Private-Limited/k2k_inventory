@@ -27,7 +27,7 @@ export const getVariantById = async (id: string): Promise<Variant> => {
 };
 
 // Create a new variant
-export const createVariant = async (productId: string, variant: Variant): Promise<Variant> => {
+export const createVariant = async (productId: string, variant: Omit<Variant, "id">): Promise<Variant> => {
   try {
     const response = await api.post(`/variants/${productId}/createVariant`, variant);
     return response.data;
