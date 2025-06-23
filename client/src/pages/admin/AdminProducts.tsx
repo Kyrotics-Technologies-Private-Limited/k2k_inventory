@@ -222,7 +222,6 @@ const AdminProductPage: React.FC = () => {
         // Create new variant
         const newVariant = await variantApi.createVariant(productId, {
           ...variantForm,
-          id: "",
           productId,
         });
         setVariants((prev) => ({
