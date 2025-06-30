@@ -53,7 +53,7 @@ const CustomersManagement: React.FC = () => {
           name: user.name || user.displayName || "",
           email: user.email || "",
           phone: user.phone || user.phoneNumber || "",
-          joinDate: user.createdAt || user.joinDate || new Date().toISOString(),
+          joinDate: user.joinDate || new Date().toISOString(), // Use only joinDate from backend
           orders: user.ordersCount || 0,
           totalSpent: user.totalSpent || 0,
           lastOrder: user.lastOrder || null,
@@ -209,18 +209,19 @@ const CustomersManagement: React.FC = () => {
                   <tr key={customer.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <input
+                        {/* <input
                           type="checkbox"
                           checked={selectedCustomers.includes(customer.id)}
                           onChange={() => toggleSelectCustomer(customer.id)}
                           className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-3"
-                        />
+                        /> */}
                         <div className="flex items-center">
                           <UserCircleIcon className="flex-shrink-0 h-10 w-10 text-gray-400 mr-3" />
                           <div>
                             <div
                               className="text-sm font-medium text-gray-900 hover:text-blue-600 cursor-pointer"
                               onClick={() => viewCustomerDetails(customer.id)}
+                              title="View Details"
                             >
                               {customer.name}
                             </div>
@@ -267,7 +268,14 @@ const CustomersManagement: React.FC = () => {
                           className="button text-blue-600 hover:text-blue-900"
                           title="View Details"
                         >
-                          <PencilIcon className="h-5 w-5" />
+                          {/* <PencilIcon className="h-5 w-5" /> */}
+                        </button>
+                        <button
+                          onClick={() => viewCustomerDetails(customer.id)}
+                          className="button bg-blue-600 text-white hover:bg-blue-700 border border-blue-600 px-3 py-1 rounded"
+                          title="View Orders"
+                        >
+                          View Orders
                         </button>
                         {/* <button
                           onClick={() => console.log("Delete", customer.id)}
