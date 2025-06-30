@@ -13,6 +13,7 @@ import AdminOrderDetailsPage from "./pages/admin/AdminOrderDetails";
 import AdminSignupLogin from "./pages/admin/AdminSignupLogin";
 import AdminLogin from "./pages/admin/AdminLogin";
 import ProtectedRoute from "./utils/ProtectedRoute";
+import CustomerDetailsPage from "./pages/admin/CustomerDetailsPage";
 
 function App() {
   return (
@@ -147,6 +148,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <AdminCustomers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="customers/:customerId"
+            element={
+              <ProtectedRoute>
+                <CustomerDetailsPage />
               </ProtectedRoute>
             }
           />
