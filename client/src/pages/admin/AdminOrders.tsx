@@ -1,10 +1,9 @@
-// src/pages/admin/AdminOrdersPage.tsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { orderApi } from "../../services/api/orderApi";
 import type { Order } from "../../types/order";
 import { toast } from "react-toastify";
-import { FiEye } from "react-icons/fi";
+import { FiEye, FiSearch } from "react-icons/fi";
 import { auth } from "../../services/firebase/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import * as XLSX from "xlsx";
@@ -102,6 +101,7 @@ const AdminOrdersPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const navigate = useNavigate();
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
 
@@ -129,7 +129,7 @@ const AdminOrdersPage: React.FC = () => {
       setLoading(true);
       setError(null);
       const data = await orderApi.getAllOrdersForAdmin();
-      console.log("Orders received:", data); // Log the first order's date for debugging
+      console.log("Orders received:", data);
       if (data.length > 0) {
         console.log("First order created_at:", data[0].created_at);
       }
@@ -165,16 +165,27 @@ const AdminOrdersPage: React.FC = () => {
     }
   };
 
-  const filteredOrders =
-    statusFilter === "all"
-      ? orders
-      : orders.filter((order) => order.status === statusFilter);
+  const filteredOrders = orders.filter((order) => {
+    // Apply status filter
+    const statusMatch = statusFilter === "all" || order.status === statusFilter;
+
+    // Apply search filter
+    const searchMatch =
+      searchQuery === "" ||
+      (order.username &&
+        order.username.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (order.userId &&
+        order.userId.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    return statusMatch && searchMatch;
+  });
 
   // Excel export handler (selected backend fields)
   const handleExportExcel = () => {
     const exportData = filteredOrders.map((order) => ({
       "Order ID": order.id,
       "User ID": order.userId,
+      Username: order.username || "",
       "Address ID": order.address_id,
       "Total Amount": order.total_amount,
       "Payment Method": order.payment_method,
@@ -271,6 +282,21 @@ const AdminOrdersPage: React.FC = () => {
             </span>
           </div>
         </div>
+
+        {/* Search Bar */}
+        <div className="relative flex-grow max-w-md">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <FiSearch className="text-gray-400" />
+          </div>
+          <input
+            type="text"
+            placeholder="Search by username or user ID..."
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+
         {statusFilter !== "all" && (
           <button
             onClick={() => setStatusFilter("all")}
@@ -296,7 +322,7 @@ const AdminOrdersPage: React.FC = () => {
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b">
                   Order ID
-                </th>{" "}
+                </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b">
                   User
                 </th>
@@ -316,7 +342,7 @@ const AdminOrdersPage: React.FC = () => {
                   Actions
                 </th>
               </tr>
-            </thead>{" "}
+            </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {filteredOrders.map((order) => (
                 <tr
@@ -329,7 +355,9 @@ const AdminOrdersPage: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{order.userId}</div>
+                    <div className="text-sm text-gray-900">
+                      {order.username || order.userId}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">

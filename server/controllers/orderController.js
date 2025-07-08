@@ -1,6 +1,7 @@
 const admin = require('firebase-admin');
 const db = admin.firestore();
 const ordersCollection = db.collection('orders');
+const usersCollection = db.collection('users');
 
 // Helper
 const getTimestamp = () => admin.firestore.FieldValue.serverTimestamp();
@@ -168,31 +169,50 @@ exports.trackOrder = async (req, res) => {
   }
 };
 // Admin - Get all orders
+// server/controllers/orderController.js
+
+// ... (other code in the file)
+
+// Admin - Get all orders
 exports.getAllOrdersForAdmin = async (req, res) => {
   try {
-    // Optional: Check if user is admin
-    // if (req.user.role !== 'admin') {
-    //   return res.status(403).json({ message: 'Access denied. Admins only.' });
-    // }
-
     const snapshot = await ordersCollection.orderBy('createdAt', 'desc').get();
 
-    const orders = snapshot.docs.map(doc => {
+    // This part is crucial. It processes each order.
+    const orders = await Promise.all(snapshot.docs.map(async doc => {
       const data = doc.data();
+      let username = 'N/A'; // A default name in case the user is not found
+
+      // Fetch the user's details using the userId from the order
+      if (data.userId) {
+        const userDoc = await usersCollection.doc(data.userId).get();
+        if (userDoc.exists) {
+          const userData = userDoc.data();
+          // Use the username, or fall back to the email, or a generic placeholder
+          username = userData.name || userData.email || 'Unknown User';
+        }
+      }
+
+      // Return the complete order object, now with the username included
       return {
         id: doc.id,
         ...data,
+        username: username, // The username is added here
         created_at: toISO(data.createdAt),
         updated_at: toISO(data.updatedAt),
         status: data.status ? data.status.toLowerCase() : undefined
       };
-    });
+    }));
 
     res.status(200).json(orders);
   } catch (error) {
+    console.error('Error fetching all orders for admin:', error);
     res.status(500).json({ message: 'Failed to fetch all orders.', error: error.message });
   }
 };
+
+// ... (rest of the file)
+
 exports.adminUpdateOrderStatus = async (req, res) => {
   try {
     const { orderId } = req.params;
