@@ -8,9 +8,9 @@ export interface OrderItem {
   quantity: number;
   unit_price: number;
   created_at: string;
-  name?: string;              // Added for frontend display
-  image?: string;             // Added for frontend display
-  variant_name?: string;      // Added for frontend display
+  name?: string; // Added for frontend display
+  image?: string; // Added for frontend display
+  variant_name?: string; // Added for frontend display
 }
 
 export interface OrderAddress {
@@ -29,27 +29,35 @@ export interface OrderAddress {
 
 export interface OrderPayment {
   id: string;
-  method: 'card' | 'upi' | 'netbanking' | 'wallet';
-  status: 'pending' | 'completed' | 'failed' | 'refunded';
+  method: "card" | "upi" | "netbanking" | "wallet";
+  status: "pending" | "completed" | "failed" | "refunded";
   amount: number;
   transaction_id?: string;
   created_at: string;
 }
 
-export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'returned';
+export type OrderStatus =
+  | "pending"
+  | "confirmed"
+  | "processing"
+  | "shipped"
+  | "delivered"
+  | "cancelled"
+  | "returned";
 
 export interface Order {
   id: string;
   userId: string;
+  username?: string; // Added for frontend display
   address_id: string;
-  address?: OrderAddress;     // Expanded address details
+  address?: OrderAddress; // Expanded address details
   total_amount: number;
   subtotal: number;
   tax: number;
   shipping_fee: number;
   status: OrderStatus;
   payment_id: string;
-  payment_url?: string;      // URL for payment gateway
+  payment_url?: string; // URL for payment gateway
   items?: OrderItem[];
   created_at?: string;
   shipping_method?: string;
