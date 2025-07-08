@@ -33,6 +33,7 @@ const VariantEditPage: React.FC = () => {
     originalPrice: 0,
     discount: 0,
     inStock: true,
+    units_in_stock: 0,
   });
 
   useEffect(() => {
@@ -47,6 +48,7 @@ const VariantEditPage: React.FC = () => {
           originalPrice: data.originalPrice || 0,
           discount: data.discount || 0,
           inStock: data.inStock,
+          units_in_stock: data.units_in_stock || 0,
         });
         setLoading(false);
       } catch (err) {
@@ -190,6 +192,21 @@ const VariantEditPage: React.FC = () => {
                 min="0"
                 max="100"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Units in Stock
+              </label>
+              <input
+                type="number"
+                name="units_in_stock"
+                value={formData.units_in_stock || 0}
+                onChange={handleInputChange}
+                min="0"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                required
               />
             </div>
           </div>

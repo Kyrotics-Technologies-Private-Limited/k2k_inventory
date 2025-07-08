@@ -31,12 +31,13 @@ const initialForm: Omit<Product, "id"> = {
   benefits: [],
 };
 
-const initialVariantForm: Omit<Variant, "id" | "productId"> = {
+const initialVariantForm = {
   weight: "",
   price: 0,
   originalPrice: 0,
   discount: 0,
   inStock: true,
+  units_in_stock: 0,
 };
 
 const AdminProductPage: React.FC = () => {
@@ -301,6 +302,7 @@ const AdminProductPage: React.FC = () => {
       originalPrice: variant.originalPrice || 0,
       discount: variant.discount || 0,
       inStock: variant.inStock,
+      units_in_stock: variant.units_in_stock || 0,
     });
     setEditingVariantId(variant.id);
     setShowVariantForm(variant.productId);
@@ -772,7 +774,7 @@ const AdminProductPage: React.FC = () => {
                                 ? "Edit Variant"
                                 : "Add New Variant"}
                             </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                   Weight
@@ -827,6 +829,20 @@ const AdminProductPage: React.FC = () => {
                                   value={variantForm.discount}
                                   onChange={handleVariantChange}
                                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Units in Stock
+                                </label>
+                                <input
+                                  type="number"
+                                  name="units_in_stock"
+                                  value={variantForm.units_in_stock || 0}
+                                  onChange={handleVariantChange}
+                                  min="0"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                  required
                                 />
                               </div>
                               <div className="flex items-center">
@@ -889,6 +905,9 @@ const AdminProductPage: React.FC = () => {
                                     <th className="px-3 py-3 text-left text-sm font-semibold text-gray-900">
                                       Stock
                                     </th>
+                                    <th className="px-3 py-3 text-left text-sm font-semibold text-gray-900">
+                                      Units in Stock
+                                    </th>
                                     <th className="relative py-3 pl-3 pr-4 text-right text-sm font-semibold text-gray-900">
                                       Actions
                                     </th>
@@ -927,6 +946,9 @@ const AdminProductPage: React.FC = () => {
                                             ? "In Stock"
                                             : "Out of Stock"}
                                         </span>
+                                      </td>
+                                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900 font-semibold">
+                                        {variant.units_in_stock}
                                       </td>
                                       <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium">
                                         <button

@@ -54,7 +54,7 @@ const CustomerDetailsPage: React.FC = () => {
     <div className="w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 mx-auto">
       <button
         onClick={() => navigate(-1)}
-        className="mb-6 flex items-center text-blue-600 hover:underline text-sm"
+        className="button mb-6 flex items-center text-blue-600 hover:underline text-sm"
       >
         <span className="mr-2">&larr;</span> Back to Customers
       </button>

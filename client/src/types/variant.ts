@@ -6,6 +6,7 @@ export interface Variant {
     originalPrice?: number;
     discount?: number;
     inStock: boolean;
+    units_in_stock: number;
     createdAt?: Date;
     updatedAt?: Date;
   }

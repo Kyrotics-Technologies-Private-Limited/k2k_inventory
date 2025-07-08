@@ -12,13 +12,15 @@ exports.createVariant = async (req, res) => {
     // Create a subcollection 'variants' under the product
     const variantRef = await productRef.collection('variants').add({
       ...variantData,
+      units_in_stock: variantData.units_in_stock || 0,
       createdAt: new Date()
     });
 
     res.status(201).json({
       id: variantRef.id, 
       productId,
-      ...variantData 
+      ...variantData,
+      units_in_stock: variantData.units_in_stock || 0
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -85,13 +87,15 @@ exports.updateVariant = async (req, res) => {
       .doc(variantId)
       .update({
         ...updateData,
+        units_in_stock: updateData.units_in_stock || 0,
         updatedAt: new Date()
       });
 
     res.status(200).json({ 
       id: variantId,
       productId,
-      ...updateData 
+      ...updateData,
+      units_in_stock: updateData.units_in_stock || 0
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

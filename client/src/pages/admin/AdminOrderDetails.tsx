@@ -256,6 +256,7 @@ const AdminOrderDetailsPage: React.FC = () => {
               <div>
                 <span className="text-gray-500">Payment Method:</span>
                 <span className="ml-2 font-medium">
+                
                   {order.payment_method || "N/A"}
                 </span>
               </div>
