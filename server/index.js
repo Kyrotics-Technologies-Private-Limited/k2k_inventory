@@ -4,7 +4,7 @@ const bodyParser = require('body-parser');
 require('dotenv').config({ path: './config.env' }); // ✅ Correct usage
 
 const app = express();
-app.use(cors({ origin: "http://localhost:5173" }));
+app.use(cors());
 app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 5567;

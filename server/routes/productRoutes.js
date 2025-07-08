@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const productController = require('../controllers/ProductController');
+const { uploadGallery, uploadGalleryImages } = require('../controllers/imageUploadController');
 
 // Create a new product
 router.post('/create', productController.createProduct);
@@ -17,4 +18,7 @@ router.put('/:id', productController.updateProduct);
 // Delete product
 router.delete('/:id', productController.deleteProduct);
 
-module.exports = router; 
+// Upload gallery images
+router.post('/upload-gallery', uploadGallery, uploadGalleryImages);
+
+module.exports = router;

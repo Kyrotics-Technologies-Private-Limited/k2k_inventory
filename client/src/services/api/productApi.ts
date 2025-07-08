@@ -1,4 +1,3 @@
-
 import api from "./api";
 import type { Product } from "../../types/index"; // adjust this path based on your project structure
 
@@ -41,5 +40,17 @@ export const productApi = {
   fetchProducts: async () => {
     const response = await api.get(`/products`);
     return response.data; // Assuming the products are in response.data
+  },
+
+  // UPLOAD gallery images
+  uploadGalleryImages: async (files: FileList | File[]) => {
+    const formData = new FormData();
+    Array.from(files).forEach((file) => {
+      formData.append("gallery", file);
+    });
+    const response = await api.post(`/products/upload-gallery`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data.urls as string[];
   },
 };

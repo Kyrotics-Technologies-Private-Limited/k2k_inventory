@@ -54,6 +54,9 @@ const AdminProductPage: React.FC = () => {
   const [showVariantForm, setShowVariantForm] = useState<string | null>(null);
   const [editingVariantId, setEditingVariantId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [galleryFiles, setGalleryFiles] = useState<FileList | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [priceInput, setPriceInput] = useState(""); // New state for price input as string
 
   // Fetch products and their variants
   useEffect(() => {
@@ -100,10 +103,14 @@ const AdminProductPage: React.FC = () => {
   ) => {
     const { name, value } = e.target;
     if (name === "amount") {
-      setFormData((prev) => ({
-        ...prev,
-        price: { ...prev.price, amount: parseFloat(value) || 0 },
-      }));
+      // Update price input as string
+      if (/^\d*\.?\d*$/.test(value)) {
+        setPriceInput(value);
+        setFormData((prev) => ({
+          ...prev,
+          price: { ...prev.price, amount: value === "" ? 0 : parseFloat(value) },
+        }));
+      }
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -283,6 +290,7 @@ const AdminProductPage: React.FC = () => {
     setEditId(product.id);
     setEditMode(true);
     setIsModalOpen(true); // Ensure modal opens on edit
+    setPriceInput(product.price.amount ? String(product.price.amount) : "");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -323,6 +331,7 @@ const AdminProductPage: React.FC = () => {
   // Open modal for new product
   const openCreateModal = () => {
     resetForm();
+    setPriceInput(""); // Reset price input
     setIsModalOpen(true);
   };
   // Close modal
@@ -338,6 +347,35 @@ const AdminProductPage: React.FC = () => {
   const viewDetails = (id: string) => {
     navigate(`/admin/products/${id}`);
   };
+
+  // Open file picker when upload button is clicked
+  const handleGalleryButtonClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  // Handle gallery file selection and upload immediately
+  const handleGalleryFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    setFormLoading(true);
+    setError("");
+    try {
+      const urls = await productApi.uploadGalleryImages(e.target.files);
+      setFormData((prev) => ({
+        ...prev,
+        images: {
+          ...prev.images,
+          gallery: [...prev.images.gallery, ...urls],
+        },
+      }));
+    } catch (err: any) {
+      setError("Failed to upload images. Please try again.");
+    } finally {
+      setFormLoading(false);
+      // Reset the file input value so the same file can be selected again if needed
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
@@ -461,7 +499,7 @@ const AdminProductPage: React.FC = () => {
                             type="number"
                             min="0"
                             step="0.01"
-                            value={formData.price.amount}
+                            value={priceInput}
                             onChange={handleChange}
                             placeholder="Enter price"
                             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
@@ -501,19 +539,29 @@ const AdminProductPage: React.FC = () => {
                           <label className="block text-sm font-medium">
                             Gallery Images
                           </label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            ref={fileInputRef}
+                            onChange={handleGalleryFileSelect}
+                            className="hidden"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleGalleryButtonClick}
+                            disabled={formLoading}
+                            className="button mb-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {formLoading ? "Uploading..." : "Upload Images"}
+                          </button>
                           {formData.images.gallery.map((url, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center space-x-2"
-                            >
+                            <div key={idx} className="flex items-center space-x-2">
                               <input
                                 type="text"
                                 value={url}
-                                onChange={(e) =>
-                                  handleGalleryChange(idx, e.target.value)
-                                }
-                                placeholder={`Image URL #${idx + 1}`}
-                                className="flex-1 px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                readOnly
+                                className="flex-1 px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 bg-gray-100 cursor-not-allowed"
                               />
                               <button
                                 type="button"
@@ -524,14 +572,6 @@ const AdminProductPage: React.FC = () => {
                               </button>
                             </div>
                           ))}
-
-                          <button
-                            type="button"
-                            onClick={addGalleryImage}
-                            className="button mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                          >
-                            Add Image
-                          </button>
                         </div>
                       </div>
                     </div>

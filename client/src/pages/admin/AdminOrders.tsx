@@ -313,6 +313,9 @@ const AdminOrdersPage: React.FC = () => {
                   Total
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b">
+                  Shipping Address
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b">
                   Actions
                 </th>
               </tr>
@@ -375,6 +378,11 @@ const AdminOrdersPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     ₹{order.total_amount}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {order.address
+                      ? `${order.address.first_name || ""} ${order.address.last_name || ""}, ${order.address.street || ""}, ${order.address.city || ""}, ${order.address.state || ""} ${order.address.postal_code || ""}, ${order.address.country || ""}, ${order.address.phone || ""}, ${order.address.email || ""}`.replace(/, +/g, ', ').replace(/^, |, $/g, '')
+                      : "-"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button

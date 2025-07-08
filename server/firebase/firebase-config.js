@@ -2,6 +2,8 @@
 const admin = require("firebase-admin");
 const dotenv = require("dotenv");
 const path = require("path");
+const { getStorage } = require('firebase-admin/storage');
+
 
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '../config.env') });
@@ -26,23 +28,25 @@ const serviceAccount = {
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET, // <-- ensure bucket is set
   });
 }
 
 // Export Firestore and Auth
 const db = admin.firestore();
 const auth = admin.auth();
+const storage = admin.storage();
 const FieldValue = admin.firestore.FieldValue;
+const bucket = storage.bucket();
 
 // Optional: enable these later if needed
 // const storage = admin.storage();
-// const bucket = storage.bucket();
 
 module.exports = {
   admin,
   db,
   auth,
+  storage,
+  bucket,
   FieldValue
-  // storage,
-  // bucket,
 };
