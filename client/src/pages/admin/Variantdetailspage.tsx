@@ -232,6 +232,9 @@
 //                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
 //                     Stock
 //                   </th>
+//                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+//                     Units in Stock
+//                   </th>
 //                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
 //                     Actions
 //                   </th>
@@ -265,6 +268,9 @@
 //                         </span>
 //                       )}
 //                     </td>
+//                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+//                       {variant.units_in_stock}
+//                     </td>
 //                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
 //                       <Link
 //                         to={`/admin/products/${productId}/variants/${variant.id}/edit`}
@@ -294,7 +300,6 @@
 
 // export default VariantDetailsPage;
 
-
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import type { Product } from "../../types/index";
@@ -316,6 +321,7 @@ interface EditVariantForm {
   originalPrice: number;
   discount: number;
   inStock: boolean;
+  units_in_stock: number;
 }
 
 const VariantDetailsPage: React.FC = () => {
@@ -338,6 +344,7 @@ const VariantDetailsPage: React.FC = () => {
     originalPrice: 0,
     discount: 0,
     inStock: true,
+    units_in_stock: 0,
   });
 
   useEffect(() => {
@@ -371,29 +378,29 @@ const VariantDetailsPage: React.FC = () => {
   }, [productId]);
 
   const handleDeleteVariant = async (variantId: string) => {
-  if (!window.confirm("Are you sure you want to delete this variant?")) return;
+    if (!window.confirm("Are you sure you want to delete this variant?"))
+      return;
 
-  try {
-    if (!productId) {
-      console.error("Product ID is undefined");
+    try {
+      if (!productId) {
+        console.error("Product ID is undefined");
+        setError((prev) => ({
+          ...prev,
+          variants: "Failed to delete variant due to missing product ID",
+        }));
+        return;
+      }
+
+      await variantApi.deleteVariant(productId, variantId); // ✅ uses both IDs
+      setVariants((prev) => prev.filter((v) => v.id !== variantId)); // remove from UI
+    } catch (err) {
+      console.error("Delete error:", err);
       setError((prev) => ({
         ...prev,
-        variants: "Failed to delete variant due to missing product ID",
+        variants: "Failed to delete variant. Please try again.",
       }));
-      return;
     }
-
-    await variantApi.deleteVariant(productId, variantId); // ✅ uses both IDs
-    setVariants((prev) => prev.filter((v) => v.id !== variantId)); // remove from UI
-  } catch (err) {
-    console.error("Delete error:", err);
-    setError((prev) => ({
-      ...prev,
-      variants: "Failed to delete variant. Please try again.",
-    }));
-  }
-};
-
+  };
 
   const handleEditVariant = (variant: Variant) => {
     setEditingVariant(variant);
@@ -403,6 +410,8 @@ const VariantDetailsPage: React.FC = () => {
       originalPrice: variant.originalPrice || 0,
       discount: variant.discount || 0,
       inStock: variant.inStock,
+      units_in_stock:
+        typeof variant.units_in_stock === "number" ? variant.units_in_stock : 0,
     });
   };
 
@@ -414,7 +423,9 @@ const VariantDetailsPage: React.FC = () => {
       [name]:
         type === "checkbox"
           ? checked
-          : ["price", "originalPrice", "discount"].includes(name)
+          : ["price", "originalPrice", "discount", "units_in_stock"].includes(
+              name
+            )
           ? value === ""
             ? 0
             : Number(value)
@@ -422,35 +433,38 @@ const VariantDetailsPage: React.FC = () => {
     }));
   };
 
-const handleEditSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!editingVariant || !productId) return;
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingVariant || !productId) return;
 
-  try {
-    const updatedVariant = await variantApi.updateVariant(
-      productId, // productId as first param
-      editingVariant.id, // variantId as second param
-      { id: editingVariant.id, ...editFormData, productId } // payload
-    );
+    try {
+      const updatedVariant = await variantApi.updateVariant(
+        productId, // productId as first param
+        editingVariant.id, // variantId as second param
+        {
+          id: editingVariant.id,
+          ...editFormData,
+          productId,
+          units_in_stock: editingVariant.units_in_stock,
+        } // payload
+      );
 
-    setVariants((prev) =>
-      prev.map((v) =>
-        v.id === editingVariant.id ? { ...v, ...updatedVariant } : v
-      )
-    );
-    setEditingVariant(null);
-    setError((prev) => ({ ...prev, variants: "" }));
-  } catch (err) {
-    console.error("Update error:", err);
-    setError((prev) => ({
-      ...prev,
-      variants:
-        "Failed to update variant. Please check the data and try again.",
-    }));
-  }
-};
-
-
+      setVariants((prev) =>
+        prev.map((v) =>
+          v.id === editingVariant.id ? { ...v, ...updatedVariant } : v
+        )
+      );
+      setEditingVariant(null);
+      setError((prev) => ({ ...prev, variants: "" }));
+    } catch (err) {
+      console.error("Update error:", err);
+      setError((prev) => ({
+        ...prev,
+        variants:
+          "Failed to update variant. Please check the data and try again.",
+      }));
+    }
+  };
 
   const handleRetryVariants = async () => {
     try {
@@ -502,19 +516,19 @@ const handleEditSubmit = async (e: React.FormEvent) => {
       <div className="flex justify-between items-center mb-6">
         <button
           onClick={() => navigate(-1)}
-          className="button flex items-center text-blue-600 hover:text-blue-800"
+          className="flex items-center text-blue-600 hover:text-blue-800"
         >
           <ArrowLeftIcon className="w-5 h-5 mr-2" />
           Back to Products
         </button>
 
-        {/* <Link
+        <Link
           to={`/admin/products/${productId}/variants/new`}
           className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
         >
           <PlusIcon className="w-5 h-5 mr-2" />
           Add New Variant
-        </Link> */}
+        </Link>
       </div>
 
       {/* Product Info */}
@@ -560,7 +574,7 @@ const handleEditSubmit = async (e: React.FormEvent) => {
 
       {/* Edit Modal */}
       {editingVariant && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-gray-900/60 bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
             <div className="p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-4">
@@ -625,6 +639,21 @@ const handleEditSubmit = async (e: React.FormEvent) => {
                       min="0"
                       max="100"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Units in Stock
+                    </label>
+                    <input
+                      type="number"
+                      name="units_in_stock"
+                      value={editFormData.units_in_stock}
+                      onChange={handleEditInputChange}
+                      min="0"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      required
                     />
                   </div>
 
@@ -706,6 +735,9 @@ const handleEditSubmit = async (e: React.FormEvent) => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Stock
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Units in Stock
+                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                     Actions
                   </th>
@@ -738,6 +770,9 @@ const handleEditSubmit = async (e: React.FormEvent) => {
                           Out of Stock
                         </span>
                       )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                      {variant.units_in_stock}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                       <button
