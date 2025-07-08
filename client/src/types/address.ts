@@ -3,7 +3,7 @@ export interface Address {
     name: string;
     phone: string;
     appartment: string;
-    adress: string;
+    address: string;
     state: string;
     country: string;
     pincode: string;

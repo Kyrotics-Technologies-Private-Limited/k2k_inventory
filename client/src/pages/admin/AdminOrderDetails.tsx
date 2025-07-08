@@ -27,6 +27,8 @@ const AdminOrderDetailsPage: React.FC = () => {
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [isAuthChecked, setIsAuthChecked] = useState(false);
 
+  console.log("order", order);
+
   useEffect(() => {
     // First effect to handle authentication
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -278,9 +280,9 @@ const AdminOrderDetailsPage: React.FC = () => {
                     <p className="font-medium">
                       {order.address.first_name} {order.address.last_name}
                     </p>
-                    <p>{order.address.street}</p>
+                    <p>{order.address.street},{order.address.address}</p>
                     <p>
-                      {order.address.city}, {order.address.state}{" "}
+                      {order.address.city}, {order.address.state}{"-"}
                       {order.address.postal_code}
                     </p>
                     <p>{order.address.country}</p>
@@ -344,10 +346,10 @@ const AdminOrderDetailsPage: React.FC = () => {
                 <div key={item.id || idx} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 border border-gray-100">
                   <div className="flex p-4">
                     <div className="relative w-24 h-24 bg-gray-50 rounded-lg overflow-hidden flex-shrink-0">
-                      {item.product?.images?.main ? (
+                      {item.image ? (
                         <img
-                          src={item.product?.images?.main}
-                          alt={item.product?.name}
+                          src={item.image}
+                          alt={item.name}
                           className="w-full h-full object-cover"
                         />
                       ) : (
@@ -365,13 +367,13 @@ const AdminOrderDetailsPage: React.FC = () => {
                     <div className="ml-4 flex-grow">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h3 className="font-medium text-gray-900">{item.product?.name}</h3>
-                          {item.variant?.weight && (
-                            <p className="text-sm text-gray-500 mt-0.5">{item.variant?.weight}</p>
+                          <h3 className="font-medium text-gray-900">{item.name}</h3>
+                          {item.variant_name && (
+                            <p className="text-sm text-gray-500 mt-0.5">{item.variant_name}</p>
                           )}
                         </div>
                         <div className="text-right">
-                          <div className="text-sm font-medium text-gray-900">₹{item.variant?.price}</div>
+                          <div className="text-sm font-medium text-gray-900">₹{item.unit_price}</div>
                           <div className="text-sm text-gray-500 mt-0.5">per unit</div>
                         </div>
                       </div>
@@ -379,7 +381,7 @@ const AdminOrderDetailsPage: React.FC = () => {
                       <div className="mt-3 flex justify-between items-end">
                         <div className="text-xs text-gray-500">Item Total:</div>
                         <div className="text-base font-semibold text-blue-600">
-                          ₹{item.quantity * item.variant?.price}
+                          ₹{item.quantity * item.unit_price}
                         </div>
                       </div>
                     </div>
@@ -391,7 +393,7 @@ const AdminOrderDetailsPage: React.FC = () => {
             {/* Order Summary */}
             <div className="mt-6 bg-gray-50 rounded-xl p-4">
               <div className="flex justify-between items-center">
-                <div className="text-sm font-medium text-gray-600">Total Items:</div>
+                <div className="text-sm font-medium text-gray-600">Total Item :</div>
                 <div className="text-sm font-medium text-gray-900">{order.items.length}</div>
               </div>
               <div className="flex justify-between items-center mt-2">
