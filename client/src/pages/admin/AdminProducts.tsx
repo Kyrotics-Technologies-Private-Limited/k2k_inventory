@@ -283,6 +283,7 @@ const AdminProductPage: React.FC = () => {
     setFormData({ ...product });
     setEditId(product.id);
     setEditMode(true);
+    setIsModalOpen(true); // Ensure modal opens on edit
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
