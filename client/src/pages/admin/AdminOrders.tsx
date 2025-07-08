@@ -409,7 +409,7 @@ const AdminOrdersPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {order.address
-                      ? `${order.address.first_name || ""} ${order.address.last_name || ""}, ${order.address.street || ""}, ${order.address.city || ""}, ${order.address.state || ""} ${order.address.postal_code || ""}, ${order.address.country || ""}, ${order.address.phone || ""}, ${order.address.email || ""}`.replace(/, +/g, ', ').replace(/^, |, $/g, '')
+                      ? `${order.address.street || ""},${order.address.address || ""}, ${order.address.city || ""}, ${order.address.state || ""} ${order.address.postal_code || ""}, ${order.address.country || ""}`
                       : "-"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

@@ -21,6 +21,7 @@ export interface OrderAddress {
   street: string;
   city: string;
   state: string;
+  address: string;
   postal_code: string;
   country: string;
   phone: string;
