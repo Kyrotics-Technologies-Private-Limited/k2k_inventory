@@ -38,7 +38,7 @@ export interface OrderPayment {
 }
 
 export type OrderStatus =
-  | "pending"
+  | "placed"
   | "confirmed"
   | "processing"
   | "shipped"
