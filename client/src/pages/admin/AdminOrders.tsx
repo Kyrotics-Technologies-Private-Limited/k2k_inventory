@@ -10,7 +10,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
 const ORDER_STATUSES = [
-  "pending",
+  "placed",
   "confirmed",
   "processing",
   "shipped",
@@ -146,7 +146,7 @@ const AdminOrdersPage: React.FC = () => {
   const handleStatusUpdate = async (
     orderId: string,
     status:
-      | "pending"
+      | "placed"
       | "confirmed"
       | "processing"
       | "shipped"
@@ -181,21 +181,59 @@ const AdminOrdersPage: React.FC = () => {
   });
 
   // Excel export handler (selected backend fields)
+  // const handleExportExcel = () => {
+  //   const exportData = filteredOrders.map((order) => ({
+
+  //     const fullAddress = order.address
+  //     ? `${order.address.first_name} ${order.address.last_name}, ${order.address.street}, ${order.address.city}, ${order.address.state}, ${order.address.postal_code}, ${order.address.country}, Phone: ${order.address.phone}`
+  //     : "";
+  //     "Order ID": order.id,
+  //     "User ID": order.userId,
+  //     "Username": order.username || "",
+  //     "Address": order.address,
+  //     "Total Amount": order.total_amount,
+  //     "Payment Method": order.payment_method,
+  //     "Shipping Method": order.shipping_method,
+  //     Items: Array.isArray(order.items)
+  //       ? order.items
+  //           .map((item: any) => item.name || item.title || "")
+  //           .join(", ")
+  //       : "",
+  //   }));
+  //   const worksheet = XLSX.utils.json_to_sheet(exportData);
+  //   const workbook = XLSX.utils.book_new();
+  //   XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
+  //   const excelBuffer = XLSX.write(workbook, {
+  //     bookType: "xlsx",
+  //     type: "array",
+  //   });
+  //   const data = new Blob([excelBuffer], { type: "application/octet-stream" });
+  //   saveAs(data, "orders_selected_fields.xlsx");
+  // };
+
+
   const handleExportExcel = () => {
-    const exportData = filteredOrders.map((order) => ({
-      "Order ID": order.id,
-      "User ID": order.userId,
-      Username: order.username || "",
-      "Address ID": order.address_id,
-      "Total Amount": order.total_amount,
-      "Payment Method": order.payment_method,
-      "Shipping Method": order.shipping_method,
-      Items: Array.isArray(order.items)
-        ? order.items
-            .map((item: any) => item.name || item.title || "")
-            .join(", ")
-        : "",
-    }));
+    const exportData = filteredOrders.map((order) => {
+      const fullAddress = order.address
+        ? `${order.address.first_name} ${order.address.last_name}, ${order.address.street}, ${order.address.city}, ${order.address.state}, ${order.address.postal_code}, ${order.address.country}, Phone: ${order.address.phone}`
+        : "";
+
+      return {
+        "Order ID": order.id,
+        "User ID": order.userId,
+        Username: order.username || "",
+        Address: fullAddress, 
+        "Total Amount": order.total_amount,
+        "Payment Method": order.payment_method,
+        "Shipping Method": order.shipping_method,
+        Items: Array.isArray(order.items)
+          ? order.items
+              .map((item: any) => item.name || item.title || "")
+              .join(", ")
+          : "",
+      };
+    });
+
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
@@ -206,7 +244,7 @@ const AdminOrdersPage: React.FC = () => {
     const data = new Blob([excelBuffer], { type: "application/octet-stream" });
     saveAs(data, "orders_selected_fields.xlsx");
   };
-
+  
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -353,9 +391,12 @@ const AdminOrdersPage: React.FC = () => {
                   className="hover:bg-gray-50 transition-colors duration-150"
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
+                    <button
+                      onClick={() => viewDetails(order.id)}
+                      className="text-sm font-medium text-blue-600 hover:text-blue-800 hover cursor-pointer transition-colors duration-150"
+                    >
                       {order.id}
-                    </div>
+                    </button>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
@@ -396,6 +437,15 @@ const AdminOrdersPage: React.FC = () => {
                             ? "bg-red-100 text-red-800"
                             : order.status === "delivered"
                             ? "bg-green-100 text-green-800"
+                            : order.status === "returned"
+                            ? "bg-yellow-100 text-yellow-800"
+                            
+                            : order.status === "confirmed"
+                            ? "bg-blue-100 text-blue-800"
+                            : order.status === "processing"
+                            ? "bg-purple-100 text-purple-800"
+                            : order.status === "shipped"
+                            ? "bg-indigo-100 text-indigo-800"
                             : "bg-blue-100 text-blue-800"
                         }`}
                       >

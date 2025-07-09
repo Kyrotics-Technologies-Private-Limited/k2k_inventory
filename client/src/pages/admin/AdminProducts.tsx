@@ -558,7 +558,10 @@ const AdminProductPage: React.FC = () => {
                             {formLoading ? "Uploading..." : "Upload Images"}
                           </button>
                           {formData.images.gallery.map((url, idx) => (
-                            <div key={idx} className="flex items-center space-x-2">
+                            <div
+                              key={idx}
+                              className="flex items-center space-x-2"
+                            >
                               <input
                                 type="text"
                                 value={url}
@@ -707,7 +710,12 @@ const AdminProductPage: React.FC = () => {
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
-                              {product.name}
+                              <button
+                                onClick={() => viewDetails(product.id)}
+                                className="button text-blue-600 hover:text-blue-900 mr-4"
+                              >
+                                {product.name}
+                              </button>
                             </div>
                             <div className="text-sm text-gray-500">
                               {product.origin}
@@ -732,12 +740,12 @@ const AdminProductPage: React.FC = () => {
                         >
                           Variants
                         </button>
-                        <button
+                        {/* <button
                           onClick={() => viewDetails(product.id)}
                           className="button text-blue-600 hover:text-blue-900 mr-4"
                         >
                           View
-                        </button>
+                        </button> */}
                         <button
                           onClick={() => handleEditClick(product)}
                           className="button text-indigo-600 hover:text-indigo-900 mr-4"

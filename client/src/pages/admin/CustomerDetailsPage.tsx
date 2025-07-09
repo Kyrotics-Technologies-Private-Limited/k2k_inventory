@@ -50,6 +50,11 @@ const CustomerDetailsPage: React.FC = () => {
   if (!customer)
     return <div className="p-8 text-center">Customer not found</div>;
 
+
+  const viewDetails = (id: string) => {
+    navigate(`/admin/orders/${id}`);
+  };
+
   return (
     <div className="w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 mx-auto">
       <button
@@ -142,8 +147,13 @@ const CustomerDetailsPage: React.FC = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {orders.map((order) => (
                   <tr key={order.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap font-mono text-blue-700">
-                      {order.id}
+                    <td className="px-6 py-4 whitespace-nowrap font-mono-bold text-blue-700">
+                      <button
+                        onClick={() => viewDetails(order.id)}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors duration-150"
+                      >
+                        {order.id}
+                      </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {order.createdAt
