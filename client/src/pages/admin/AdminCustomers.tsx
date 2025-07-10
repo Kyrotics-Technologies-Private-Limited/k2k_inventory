@@ -9,7 +9,8 @@ import {
   ArrowPathIcon,
   ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
-import axios from "axios";
+
+import api from "../../services/api/api";
 
 interface Customer {
   id: string;
@@ -37,10 +38,8 @@ const CustomersManagement: React.FC = () => {
       setLoading(true);
       try {
         // Use absolute backend URL in dev if needed
-        const apiUrl = import.meta.env.DEV
-          ? "http://localhost:5567/api/admin/users"
-          : "/api/admin/users";
-        const res = await axios.get(apiUrl);
+        const apiUrl =  "/admin/users";
+        const res = await api.get(apiUrl);
         if (!Array.isArray(res.data)) {
           throw new Error("API did not return an array of users");
         }
