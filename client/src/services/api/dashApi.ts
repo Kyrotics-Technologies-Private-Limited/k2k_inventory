@@ -1,4 +1,5 @@
-import axios from "axios";
+
+import api from "./api";
 
 export interface DashboardStatsResponse {
   totalRevenue: number;
@@ -20,8 +21,8 @@ export interface DashboardStatsResponse {
 // API call function
 export const fetchDashboardStats =
   async (): Promise<DashboardStatsResponse> => {
-    const response = await axios.get<DashboardStatsResponse>(
-      "http://localhost:5567/api/dashboard/stats"
+    const response = await api.get<DashboardStatsResponse>(
+      "/dashboard/stats"
     );
     return response.data;
   };
