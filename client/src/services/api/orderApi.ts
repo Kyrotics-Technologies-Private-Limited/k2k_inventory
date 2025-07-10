@@ -3,10 +3,10 @@ import api from '../api/api';
 // import { getAuth } from 'firebase/auth';
 import type {
   Order,
-  OrderItem,
+ 
   // TrackingInfo,
   CreateOrderPayload,
-  OrderListResponse,
+  
   UpdateOrderStatusPayload
 } from '../../types/order';
 
