@@ -55,7 +55,7 @@ const AdminProductPage: React.FC = () => {
   const [showVariantForm, setShowVariantForm] = useState<string | null>(null);
   const [editingVariantId, setEditingVariantId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [galleryFiles, setGalleryFiles] = useState<FileList | null>(null);
+  //const [galleryFiles, setGalleryFiles] = useState<FileList | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [priceInput, setPriceInput] = useState(""); // New state for price input as string
 
@@ -132,24 +132,24 @@ const AdminProductPage: React.FC = () => {
   };
 
   // update a single gallery URL
-  const handleGalleryChange = (idx: number, url: string) => {
-    setFormData((prev) => {
-      const newGallery = [...prev.images.gallery];
-      newGallery[idx] = url;
-      return {
-        ...prev,
-        images: { ...prev.images, gallery: newGallery },
-      };
-    });
-  };
+  // const handleGalleryChange = (idx: number, url: string) => {
+  //   setFormData((prev) => {
+  //     const newGallery = [...prev.images.gallery];
+  //     newGallery[idx] = url;
+  //     return {
+  //       ...prev,
+  //       images: { ...prev.images, gallery: newGallery },
+  //     };
+  //   });
+  // };
 
-  // add an empty slot
-  const addGalleryImage = () => {
-    setFormData((prev) => ({
-      ...prev,
-      images: { ...prev.images, gallery: [...prev.images.gallery, ""] },
-    }));
-  };
+  // // add an empty slot
+  // const addGalleryImage = () => {
+  //   setFormData((prev) => ({
+  //     ...prev,
+  //     images: { ...prev.images, gallery: [...prev.images.gallery, ""] },
+  //   }));
+  // };
 
   // remove one by index
   const removeGalleryImage = (idx: number) => {

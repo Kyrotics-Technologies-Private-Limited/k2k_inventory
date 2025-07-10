@@ -3,13 +3,10 @@ import { useNavigate } from "react-router-dom";
 import {
   MagnifyingGlassIcon,
   FunnelIcon,
-  PencilIcon,
-  TrashIcon,
   EnvelopeIcon,
   PhoneIcon,
   UserCircleIcon,
   ArrowPathIcon,
-  PlusIcon,
   ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 import axios from "axios";
@@ -33,7 +30,6 @@ const CustomersManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
 
   // Fetch customers from backend API
   useEffect(() => {
@@ -82,24 +78,8 @@ const CustomersManagement: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const toggleSelectCustomer = (customerId: string) => {
-    setSelectedCustomers((prev) =>
-      prev.includes(customerId)
-        ? prev.filter((id) => id !== customerId)
-        : [...prev, customerId]
-    );
-  };
-
   const viewCustomerDetails = (customerId: string) => {
     navigate(`/admin/customers/${customerId}`);
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(amount);
   };
 
   return (
@@ -209,12 +189,6 @@ const CustomersManagement: React.FC = () => {
                   <tr key={customer.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        {/* <input
-                          type="checkbox"
-                          checked={selectedCustomers.includes(customer.id)}
-                          onChange={() => toggleSelectCustomer(customer.id)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-3"
-                        /> */}
                         <div className="flex items-center">
                           <UserCircleIcon className="flex-shrink-0 h-10 w-10 text-gray-400 mr-3" />
                           <div>
