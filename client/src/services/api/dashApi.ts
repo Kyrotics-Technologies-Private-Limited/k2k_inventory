@@ -7,7 +7,7 @@ export interface DashboardStatsResponse {
   totalOrders: number;
   totalCustomers: number;
   orderStatusCounts: {
-    pending: number;
+    placed: number;
     delivered: number;
     cancelled: number;
   };
