@@ -226,6 +226,7 @@ const AdminOrdersPage: React.FC = () => {
         "Total Amount": order.total_amount,
         "Payment Method": order.payment_method,
         "Shipping Method": order.shipping_method,
+        "Order Creation Date": formatDate(order.created_at),
         Items: Array.isArray(order.items)
           ? order.items
               .map((item: any) => item.name || item.title || "")

@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { FiChevronDown, FiUser, FiLogOut } from "react-icons/fi";
 import { useAdmin } from "../../../context/AdminContext";
+import { getAuth, signOut } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
 
 const Navbar = () => {
   const { admin } = useAdmin();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -19,6 +22,16 @@ const Navbar = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const handleLogout = async () => {
+    try {
+      const auth = getAuth();
+      await signOut(auth); // Firebase logout
+      navigate("/admin-login"); // or your login route
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-100">
@@ -77,13 +90,13 @@ const Navbar = () => {
                   </div>
                 </div>
                 <div className="border-t border-gray-100 p-2 bg-gray-50">
-                  <a
-                    href="#"
-                    className="flex items-center px-4 py-2.5 text-sm font-medium text-red-600 rounded-lg hover:bg-red-50"
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-red-600 rounded-lg hover:bg-red-50 transition"
                   >
                     <FiLogOut className="mr-3 text-red-500" />
                     Logout
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>
