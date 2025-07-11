@@ -14,6 +14,7 @@ import AdminSignupLogin from "./pages/admin/AdminSignupLogin";
 import AdminLogin from "./pages/admin/AdminLogin";
 import ProtectedRoute from "./utils/ProtectedRoute";
 import CustomerDetailsPage from "./pages/admin/CustomerDetailsPage";
+import ForgotPassword from "./pages/admin/ForgotPassword";
 
 function App() {
   return (
@@ -38,6 +39,7 @@ function App() {
         {/* Public Routes */}
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/signup" element={<AdminSignupLogin />} />
+        <Route path="/admin/forgot-password" element={<ForgotPassword />} />
 
         {/* Protected Admin Routes */}
         <Route
