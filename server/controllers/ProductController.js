@@ -4,6 +4,7 @@ const { db } = require('../firebase/firebase-config');
 exports.createProduct = async (req, res) => {
   try {
     const product = req.body;
+    console.log('Creating product:', JSON.stringify(product, null, 2)); // Debug log
     const docRef = await db.collection('products').add(product);
     res.status(201).json({ id: docRef.id, ...product });
   } catch (error) {
@@ -27,6 +28,7 @@ exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
     const product = req.body;
+    console.log('Updating product:', JSON.stringify(product, null, 2)); // Debug log
     await db.collection('products').doc(id).update(product);
     res.status(200).json({ id, ...product });
   } catch (error) {

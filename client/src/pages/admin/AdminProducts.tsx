@@ -27,17 +27,17 @@ const initialForm: Omit<Product, "id"> = {
   stockStatus: "in_stock",
   ratings: 0,
   reviews: 0,
-  badges: [],
+  badges: [], // badges now support { text, type, image? }
   benefits: [],
 };
 
 const initialVariantForm = {
   weight: "",
-  price: 0,
-  originalPrice: 0,
-  discount: 0,
+  price: "",
+  originalPrice: "",
+  discount: "",
   inStock: true,
-  units_in_stock: 0,
+  units_in_stock: "",
 };
 
 const AdminProductPage: React.FC = () => {
@@ -58,6 +58,70 @@ const AdminProductPage: React.FC = () => {
   const [galleryFiles, setGalleryFiles] = useState<FileList | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [priceInput, setPriceInput] = useState(""); // New state for price input as string
+  const [mainImageUploading, setMainImageUploading] = useState(false);
+  const [mainImageUploadError, setMainImageUploadError] = useState("");
+  const mainImageInputRef = React.useRef<HTMLInputElement>(null);
+  const [bannerUploading, setBannerUploading] = useState(false);
+  const [bannerUploadError, setBannerUploadError] = useState("");
+  const bannerInputRef = React.useRef<HTMLInputElement>(null);
+
+  // BADGES STATE (for image + name per badge)
+  const [badgeImageUploading, setBadgeImageUploading] = useState(false);
+  const [badgeImageUploadError, setBadgeImageUploadError] = useState("");
+  const badgeImageInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Default banners and badges by category
+  const categoryDefaults: Record<Product["category"], { banner: string; badges: { text: string; image?: string }[] }> = {
+    ghee: {
+      banner: "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/product-main/1752089018798-1.png",
+      badges: [
+        { text: "Zero Adulteration" , image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752089074276-ZERO ADULTERATION.png" },
+        { text: "Lab Tested" , image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752089074276-LAB TESTED.png" },
+        {text:"Made at Home- Not in Factories",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752089074276-MADE AT HOME.png"},
+        {text:"Zero Preservatives ",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752089074276-ZERO PRESERVATIVES.png"},
+        {text:"No Bad Cholesterol",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752089074276-NO BAD CHOLESTEROL.png"},
+      ],
+    },
+    oils: {
+      banner: "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/product-main/1752142641203-3.png",
+      badges: [
+        { text: "Cold Pressed" ,image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752142641203-COLD PRESSED.png"},
+        { text: "Zero Adulteration" ,image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752142641203-ZERO ADULTERATION.png"},
+        {text:"Zero Preservatives",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752142641203-ZERO PRESERVATIVES.png"},
+        {text:"Non Refined",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752142641203-NON REFINED.png"},
+        {text:"Sourced from Rural Farmers",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752142641203-SOURCED FROM RURAL FARMERS.png"},
+      ],
+    },
+    honey: {
+      banner: "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/product-main/1752143076344-2.png",
+      badges: [
+      {text:"Zero Adulteration",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752143076344-ZERO ADULTERATION.png"},
+      {text:"No added sugar",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752143076344-NO ADDED SUGAR.png"} ,
+      {text:"Unprocessed",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752143076344-UNPROCESSED.png"},
+      {text:"Immunity Booster",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752143076344-IMMUNITY BOOSTER.png"},
+      {text:"Sourced from Beekeepers ",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752143076344-SOURCED FROM BEEKEEPERS.png"},
+      ],
+    },
+  };
+
+  console.log("formData", formData);
+  console.log("images", formData.images);
+  console.log("banner", formData.images.banner);
+  
+
+  console.log("badges", formData.badges);
+
+  // When category changes, set default banner and badges
+  useEffect(() => {
+    if (!editMode && formData.category && categoryDefaults[formData.category]) {
+      setFormData((prev) => ({
+        ...prev,
+        images: { ...prev.images, banner: categoryDefaults[formData.category].banner },
+        badges: categoryDefaults[formData.category].badges.map(b => ({ text: b.text, image: b.image || "" })),
+      }));
+    }
+    // eslint-disable-next-line
+  }, [formData.category, editMode]);
 
   // Fetch products and their variants
   useEffect(() => {
@@ -211,15 +275,21 @@ const AdminProductPage: React.FC = () => {
       setFormLoading(true);
       setError("");
       setSuccess("");
-
+      const variantData = {
+        ...variantForm,
+        price: Number(variantForm.price) || 0,
+        originalPrice: Number(variantForm.originalPrice) || 0,
+        discount: Number(variantForm.discount) || 0,
+        units_in_stock: Number(variantForm.units_in_stock) || 0,
+      };
       if (editingVariantId) {
         // Update existing variant
         const updatedVariant = await variantApi.updateVariant(
           productId,
           editingVariantId,
-          { id: editingVariantId, ...variantForm, productId }
+          { id: editingVariantId, ...variantData, productId }
         );
-        setVariants((prev) => ({
+        setVariants((prev: Record<string, Variant[]>) => ({
           ...prev,
           [productId]: prev[productId].map((v) =>
             v.id === editingVariantId ? updatedVariant : v
@@ -229,10 +299,10 @@ const AdminProductPage: React.FC = () => {
       } else {
         // Create new variant
         const newVariant = await variantApi.createVariant(productId, {
-          ...variantForm,
+          ...variantData,
           productId,
         });
-        setVariants((prev) => ({
+        setVariants((prev: Record<string, Variant[]>) => ({
           ...prev,
           [productId]: [...(prev[productId] || []), newVariant],
         }));
@@ -287,7 +357,7 @@ const AdminProductPage: React.FC = () => {
   };
 
   const handleEditClick = (product: Product) => {
-    setFormData({ ...product });
+    setFormData({ ...product, badges: product.badges?.map(b => ({ image: b.image || "", text: b.text || "" })) || [] });
     setEditId(product.id);
     setEditMode(true);
     setIsModalOpen(true); // Ensure modal opens on edit
@@ -297,12 +367,12 @@ const AdminProductPage: React.FC = () => {
 
   const handleVariantEditClick = (variant: Variant) => {
     setVariantForm({
-      weight: variant.weight,
-      price: variant.price,
-      originalPrice: variant.originalPrice || 0,
-      discount: variant.discount || 0,
+      weight: variant.weight || "",
+      price: variant.price ? String(variant.price) : "",
+      originalPrice: variant.originalPrice ? String(variant.originalPrice) : "",
+      discount: variant.discount ? String(variant.discount) : "",
       inStock: variant.inStock,
-      units_in_stock: variant.units_in_stock || 0,
+      units_in_stock: variant.units_in_stock ? String(variant.units_in_stock) : "",
     });
     setEditingVariantId(variant.id);
     setShowVariantForm(variant.productId);
@@ -376,6 +446,124 @@ const AdminProductPage: React.FC = () => {
       // Reset the file input value so the same file can be selected again if needed
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  };
+
+  const handleMainImageButtonClick = () => {
+    mainImageInputRef.current?.click();
+  };
+
+  const handleMainImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    setMainImageUploading(true);
+    setMainImageUploadError("");
+    try {
+      const url = await productApi.uploadMainImage(e.target.files[0]);
+      setFormData((prev) => ({
+        ...prev,
+        images: { ...prev.images, main: url },
+      }));
+    } catch (err) {
+      setMainImageUploadError("Failed to upload main image. Please try again.");
+    } finally {
+      setMainImageUploading(false);
+      if (mainImageInputRef.current) mainImageInputRef.current.value = "";
+    }
+  };
+
+  const handleBannerButtonClick = () => {
+    bannerInputRef.current?.click();
+  };
+
+  const handleBannerFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    setBannerUploading(true);
+    setBannerUploadError("");
+    try {
+      const url = await productApi.uploadMainImage(e.target.files[0]); // Reuse main image upload endpoint for banner
+      setFormData((prev) => ({
+        ...prev,
+        images: { ...prev.images, banner: url },
+      }));
+    } catch (err) {
+      setBannerUploadError("Failed to upload banner image. Please try again.");
+    } finally {
+      setBannerUploading(false);
+      if (isModalOpen && bannerInputRef.current) bannerInputRef.current.value = "";
+    }
+  };
+
+  const handleBadgeImageButtonClick = () => {
+    badgeImageInputRef.current?.click();
+  };
+
+  const handleBadgeImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    setBadgeImageUploading(true);
+    setBadgeImageUploadError("");
+    try {
+      const urls = await productApi.uploadMultipleBadgeImages(e.target.files);
+      setFormData((prev) => ({
+        ...prev,
+        badges: [
+          ...(prev.badges || []),
+          ...urls.map((url) => ({ image: url, text: "" })),
+        ],
+      }));
+    } catch (err) {
+      setBadgeImageUploadError("Failed to upload badge images. Please try again.");
+    } finally {
+      setBadgeImageUploading(false);
+      if (isModalOpen && badgeImageInputRef.current) badgeImageInputRef.current.value = "";
+    }
+  };
+
+  // Replace handleMultipleBadgeFilesSelect to add badges with empty text
+  const handleMultipleBadgeFilesSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    setBadgeImageUploading(true);
+    setBadgeImageUploadError("");
+    try {
+      const urls = await productApi.uploadMultipleBadgeImages(e.target.files);
+      setFormData((prev) => ({
+        ...prev,
+        badges: [
+          ...(prev.badges || []),
+          ...urls.map((url) => ({ image: url, text: "" })),
+        ],
+      }));
+    } catch (err) {
+      setBadgeImageUploadError("Failed to upload badge images. Please try again.");
+    } finally {
+      setBadgeImageUploading(false);
+      if (isModalOpen && badgeImageInputRef.current) badgeImageInputRef.current.value = "";
+    }
+  };
+
+  // Handler for badge name change
+  const handleBadgeNameChange = (idx: number, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      badges: prev.badges.map((badge, i) => i === idx ? { ...badge, text: value } : badge),
+    }));
+  };
+
+  // Handler for removing a badge
+  const handleRemoveBadge = (idx: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      badges: prev.badges.filter((_, i) => i !== idx),
+    }));
+  };
+
+  const bannerUrl = typeof formData.images.banner === "string" ? formData.images.banner.trim() : "";
+  console.log("bannerurl", bannerUrl);
+
+  // Banner remove handler
+  const handleRemoveBanner = () => {
+    setFormData((prev) => ({
+      ...prev,
+      images: { ...prev.images, banner: "" },
+    }));
   };
 
   return (
@@ -452,7 +640,7 @@ const AdminProductPage: React.FC = () => {
                           </label>
                           <input
                             name="name"
-                            value={formData.name}
+                            value={formData.name || ""}
                             onChange={handleChange}
                             placeholder="Enter product name"
                             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
@@ -466,7 +654,7 @@ const AdminProductPage: React.FC = () => {
                           </label>
                           <textarea
                             name="description"
-                            value={formData.description}
+                            value={formData.description || ""}
                             onChange={handleChange}
                             placeholder="Enter product description"
                             rows={3}
@@ -515,7 +703,7 @@ const AdminProductPage: React.FC = () => {
                           </label>
                           <input
                             name="origin"
-                            value={formData.origin}
+                            value={formData.origin || ""}
                             onChange={handleChange}
                             placeholder="Enter product origin"
                             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
@@ -528,13 +716,27 @@ const AdminProductPage: React.FC = () => {
                           </label>
                           <input
                             name="images.main"
-                            value={formData.images.main}
+                            value={formData.images.main || ""}
                             onChange={(e) =>
                               handleImageChange("main", e.target.value)
                             }
                             placeholder="Enter main image URL"
                             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                           />
+                          <div className="mt-2 flex items-center space-x-2">
+                            <label className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                ref={mainImageInputRef}
+                                onChange={handleMainImageFileSelect}
+                                disabled={mainImageUploading}
+                              />
+                              {mainImageUploading ? "Uploading..." : "Upload Main Image"}
+                            </label>
+                            {mainImageUploadError && <span className="text-red-500 text-sm">{mainImageUploadError}</span>}
+                          </div>
                         </div>
 
                         <div className="space-y-4">
@@ -558,13 +760,13 @@ const AdminProductPage: React.FC = () => {
                             {formLoading ? "Uploading..." : "Upload Images"}
                           </button>
                           {formData.images.gallery.map((url, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center space-x-2"
-                            >
+                            <div key={idx} className="flex items-center space-x-2">
+                              {typeof url === "string" && url.trim() !== "" && (
+                                <img src={url} alt={`Gallery ${idx + 1}`} className="w-20 h-20 object-contain rounded border" />
+                              )}
                               <input
                                 type="text"
-                                value={url}
+                                value={url || ""}
                                 readOnly
                                 className="flex-1 px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 bg-gray-100 cursor-not-allowed"
                               />
@@ -578,6 +780,82 @@ const AdminProductPage: React.FC = () => {
                             </div>
                           ))}
                         </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Banner Image
+                          </label>
+                          {bannerUrl && (
+                            <div className="mb-2 relative group">
+                              <img src={bannerUrl} alt="Banner Preview" className="w-full h-32 object-contain rounded border" />
+                              <button
+                                type="button"
+                                onClick={handleRemoveBanner}
+                                className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:bg-red-200 transition-opacity opacity-0 group-hover:opacity-100"
+                                style={{ zIndex: 10 }}
+                                aria-label="Remove banner"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          )}
+                          <label className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              ref={bannerInputRef}
+                              onChange={handleBannerFileSelect}
+                              disabled={bannerUploading}
+                            />
+                            {bannerUploading ? "Uploading..." : "Upload Banner Image"}
+                          </label>
+                          {bannerUploadError && <span className="text-red-500 text-sm ml-2">{bannerUploadError}</span>}
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Badges
+                          </label>
+                          <div className="flex space-x-2 mb-2 items-center">
+                            <label className="inline-block px-3 py-1 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                ref={badgeImageInputRef}
+                                onChange={handleMultipleBadgeFilesSelect}
+                                multiple
+                                disabled={badgeImageUploading}
+                              />
+                              {badgeImageUploading ? "Uploading..." : "Upload Badge Images"}
+                            </label>
+                          </div>
+                          {badgeImageUploadError && <span className="text-red-500 text-sm">{badgeImageUploadError}</span>}
+                          <div className="flex flex-wrap gap-4 mt-2">
+                            {(formData.badges || []).map((badge, idx) => (
+                              <div key={idx} className="flex flex-col items-center">
+                                {typeof badge.image === "string" && badge.image.trim() !== "" && (
+                                  <img src={badge.image} alt="Badge" className="w-20 h-20 object-contain rounded border mb-1" />
+                                )}
+                                <input
+                                  type="text"
+                                  value={badge.text || ""}
+                                  onChange={(e) => handleBadgeNameChange(idx, e.target.value)}
+                                  placeholder="Badge name"
+                                  className="px-2 py-1 border rounded-md text-center"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveBadge(idx)}
+                                  className="mt-1 text-red-500 hover:text-red-700 text-xs"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -587,7 +865,7 @@ const AdminProductPage: React.FC = () => {
                       </label>
                       <input
                         name="sku"
-                        value={formData.sku}
+                        value={formData.sku || ""}
                         onChange={handleChange}
                         placeholder="Enter Product SKU"
                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
@@ -601,7 +879,7 @@ const AdminProductPage: React.FC = () => {
                       <input
                         list="warehouse-options"
                         name="warehouseName"
-                        value={formData.warehouseName}
+                        value={formData.warehouseName || ""}
                         onChange={handleChange}
                         placeholder="Select or enter warehouse name"
                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
@@ -698,7 +976,7 @@ const AdminProductPage: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10">
-                            {product.images.main ? (
+                            {typeof product.images.main === "string" && product.images.main.trim() !== "" ? (
                               <img
                                 className="h-10 w-10 rounded-md object-cover"
                                 src={product.images.main}
@@ -805,7 +1083,7 @@ const AdminProductPage: React.FC = () => {
                                   type="number"
                                   min="0"
                                   step="0.01"
-                                  value={variantForm.price}
+                                  value={variantForm.price || ""}
                                   onChange={handleVariantChange}
                                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                                   required
@@ -820,7 +1098,7 @@ const AdminProductPage: React.FC = () => {
                                   type="number"
                                   min="0"
                                   step="0.01"
-                                  value={variantForm.originalPrice}
+                                  value={variantForm.originalPrice || ""}
                                   onChange={handleVariantChange}
                                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                                 />
@@ -834,7 +1112,7 @@ const AdminProductPage: React.FC = () => {
                                   type="number"
                                   min="0"
                                   max="100"
-                                  value={variantForm.discount}
+                                  value={variantForm.discount || ""}
                                   onChange={handleVariantChange}
                                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                                 />
@@ -846,7 +1124,7 @@ const AdminProductPage: React.FC = () => {
                                 <input
                                   type="number"
                                   name="units_in_stock"
-                                  value={variantForm.units_in_stock || 0}
+                                  value={variantForm.units_in_stock || ""}
                                   onChange={handleVariantChange}
                                   min="0"
                                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
