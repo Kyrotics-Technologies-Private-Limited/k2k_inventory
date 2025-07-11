@@ -46,31 +46,31 @@ const formatDate = (timestamp: any) => {
   }
 };
 
-const formatTime = (timestamp: any) => {
-  if (!timestamp) return "-";
-  try {
-    // Handle Firestore Timestamp
-    if (timestamp?.seconds) {
-      const date = new Date(timestamp.seconds * 1000);
-      return date.toLocaleTimeString("en-IN", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      });
-    }
-    // Handle ISO string or number
-    const date = new Date(timestamp);
-    if (isNaN(date.getTime())) return "-";
-    return date.toLocaleTimeString("en-IN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  } catch (error) {
-    console.error("Error formatting time:", error);
-    return "-";
-  }
-};
+// const formatTime = (timestamp: any) => {
+//   if (!timestamp) return "-";
+//   try {
+//     // Handle Firestore Timestamp
+//     if (timestamp?.seconds) {
+//       const date = new Date(timestamp.seconds * 1000);
+//       return date.toLocaleTimeString("en-IN", {
+//         hour: "2-digit",
+//         minute: "2-digit",
+//         hour12: true,
+//       });
+//     }
+//     // Handle ISO string or number
+//     const date = new Date(timestamp);
+//     if (isNaN(date.getTime())) return "-";
+//     return date.toLocaleTimeString("en-IN", {
+//       hour: "2-digit",
+//       minute: "2-digit",
+//       hour12: true,
+//     });
+//   } catch (error) {
+//     console.error("Error formatting time:", error);
+//     return "-";
+//   }
+// };
 
 // Helper to flatten nested objects/arrays for Excel export
 const flattenObject = (obj: any, prefix = ""): any => {
@@ -99,7 +99,7 @@ const AdminOrdersPage: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isAuthReady, setIsAuthReady] = useState(false);
+  //const [isAuthReady, setIsAuthReady] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const navigate = useNavigate();
@@ -107,7 +107,7 @@ const AdminOrdersPage: React.FC = () => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setIsAuthReady(true);
+      //setIsAuthReady(true);
       if (user) {
         fetchOrders();
       } else {
@@ -226,6 +226,7 @@ const AdminOrdersPage: React.FC = () => {
         "Total Amount": order.total_amount,
         "Payment Method": order.payment_method,
         "Shipping Method": order.shipping_method,
+        "Order Creation Date": formatDate(order.created_at),
         Items: Array.isArray(order.items)
           ? order.items
               .map((item: any) => item.name || item.title || "")

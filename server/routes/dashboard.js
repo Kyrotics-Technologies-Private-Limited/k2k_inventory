@@ -29,7 +29,7 @@ router.get("/stats", async (req, res) => {
     let monthlyOrders = 0;
 
     const orderStatusCounts = {
-      pending: 0,
+      placed: 0,
       delivered: 0,
       cancelled: 0,
     };
@@ -39,7 +39,7 @@ router.get("/stats", async (req, res) => {
     ordersSnapshot.forEach((doc) => {
       const data = doc.data();
       const orderDate = data.createdAt || data.timestamp || null;
-      const status = (data.status || "pending").toLowerCase();
+      const status = (data.status || "placed").toLowerCase();
 
       if (data.total_amount && typeof data.total_amount === "number") {
         totalRevenue += data.total_amount;

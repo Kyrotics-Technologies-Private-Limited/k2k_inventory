@@ -23,7 +23,7 @@ interface DashboardStatsResponse {
   totalOrders: number;
   totalCustomers: number;
   orderStatusCounts: {
-    pending: number;
+    placed: number;
     delivered: number;
     cancelled: number;
   };
@@ -84,7 +84,7 @@ const AdminDashboard: React.FC = () => {
   const statusCards = [
     {
       title: "Pending Orders",
-      value: stats?.orderStatusCounts?.pending ?? 0,
+      value: stats?.orderStatusCounts?.placed ?? 0,
       color: "text-yellow-600",
     },
     {

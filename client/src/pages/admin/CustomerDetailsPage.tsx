@@ -150,7 +150,7 @@ const CustomerDetailsPage: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap font-mono-bold text-blue-700">
                       <button
                         onClick={() => viewDetails(order.id)}
-                        className="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors duration-150"
+                        className="button text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors duration-150"
                       >
                         {order.id}
                       </button>

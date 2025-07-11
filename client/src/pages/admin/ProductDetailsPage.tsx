@@ -3,12 +3,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import { productApi } from "../../services/api/productApi";
 import type { Product } from "../../types";
 import {
-  StarIcon,
-  PencilIcon,
+  //StarIcon,
+  //PencilIcon,
   TrashIcon,
   ArrowTopRightOnSquareIcon,
-  CheckIcon,
-  ShieldCheckIcon,
+  //CheckIcon,
+  //ShieldCheckIcon,
 } from "@heroicons/react/24/solid";
 
 const ProductDetailsPage: React.FC = () => {
@@ -54,39 +54,39 @@ const ProductDetailsPage: React.FC = () => {
     }
   };
 
-  const handleEdit = () => {
-    if (!id) return;
-    navigate(`/admin/products/edit/${id}`);
-  };
+  // const handleEdit = () => {
+  //   if (!id) return;
+  //   navigate(`/admin/products/edit/${id}`);
+  // };
 
-  const renderRatingStars = () => {
-    if (!product) return null;
+  // const renderRatingStars = () => {
+  //   if (!product) return null;
 
-    const stars = [];
-    const fullStars = Math.floor(product.ratings);
-    const hasHalfStar = product.ratings % 1 >= 0.5;
+  //   const stars = [];
+  //   const fullStars = Math.floor(product.ratings);
+  //   const hasHalfStar = product.ratings % 1 >= 0.5;
 
-    for (let i = 0; i < fullStars; i++) {
-      stars.push(
-        <StarIcon key={`full-${i}`} className="w-5 h-5 text-yellow-400" />
-      );
-    }
+  //   for (let i = 0; i < fullStars; i++) {
+  //     stars.push(
+  //       <StarIcon key={`full-${i}`} className="w-5 h-5 text-yellow-400" />
+  //     );
+  //   }
 
-    if (hasHalfStar) {
-      stars.push(
-        <StarIcon key="half" className="w-5 h-5 text-yellow-400 opacity-50" />
-      );
-    }
+  //   if (hasHalfStar) {
+  //     stars.push(
+  //       <StarIcon key="half" className="w-5 h-5 text-yellow-400 opacity-50" />
+  //     );
+  //   }
 
-    const remainingStars = 5 - stars.length;
-    for (let i = 0; i < remainingStars; i++) {
-      stars.push(
-        <StarIcon key={`empty-${i}`} className="w-5 h-5 text-gray-300" />
-      );
-    }
+  //   const remainingStars = 5 - stars.length;
+  //   for (let i = 0; i < remainingStars; i++) {
+  //     stars.push(
+  //       <StarIcon key={`empty-${i}`} className="w-5 h-5 text-gray-300" />
+  //     );
+  //   }
 
-    return stars;
-  };
+  //   return stars;
+  // };
 
   const getStockStatusText = () => {
     if (!product) return "";

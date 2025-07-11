@@ -31,4 +31,9 @@ app.use("/api/admin", adminRoutes);
 app.use('/api/dashboard', require('./routes/dashboard'));
 
 
+app.get("/", (req, res) => {
+  res.send("k2k inventory API");
+});
+
+
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
