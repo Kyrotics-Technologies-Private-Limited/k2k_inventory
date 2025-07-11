@@ -448,9 +448,9 @@ const AdminProductPage: React.FC = () => {
     }
   };
 
-  const handleMainImageButtonClick = () => {
-    mainImageInputRef.current?.click();
-  };
+  // const handleMainImageButtonClick = () => {
+  //   mainImageInputRef.current?.click();
+  // };
 
   const handleMainImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -470,9 +470,9 @@ const AdminProductPage: React.FC = () => {
     }
   };
 
-  const handleBannerButtonClick = () => {
-    bannerInputRef.current?.click();
-  };
+  // const handleBannerButtonClick = () => {
+  //   bannerInputRef.current?.click();
+  // };
 
   const handleBannerFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -492,30 +492,30 @@ const AdminProductPage: React.FC = () => {
     }
   };
 
-  const handleBadgeImageButtonClick = () => {
-    badgeImageInputRef.current?.click();
-  };
+  // const handleBadgeImageButtonClick = () => {
+  //   badgeImageInputRef.current?.click();
+  // };
 
-  const handleBadgeImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    setBadgeImageUploading(true);
-    setBadgeImageUploadError("");
-    try {
-      const urls = await productApi.uploadMultipleBadgeImages(e.target.files);
-      setFormData((prev) => ({
-        ...prev,
-        badges: [
-          ...(prev.badges || []),
-          ...urls.map((url) => ({ image: url, text: "" })),
-        ],
-      }));
-    } catch (err) {
-      setBadgeImageUploadError("Failed to upload badge images. Please try again.");
-    } finally {
-      setBadgeImageUploading(false);
-      if (isModalOpen && badgeImageInputRef.current) badgeImageInputRef.current.value = "";
-    }
-  };
+  // const handleBadgeImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   if (!e.target.files || e.target.files.length === 0) return;
+  //   setBadgeImageUploading(true);
+  //   setBadgeImageUploadError("");
+  //   try {
+  //     const urls = await productApi.uploadMultipleBadgeImages(e.target.files);
+  //     setFormData((prev) => ({
+  //       ...prev,
+  //       badges: [
+  //         ...(prev.badges || []),
+  //         ...urls.map((url) => ({ image: url, text: "" })),
+  //       ],
+  //     }));
+  //   } catch (err) {
+  //     setBadgeImageUploadError("Failed to upload badge images. Please try again.");
+  //   } finally {
+  //     setBadgeImageUploading(false);
+  //     if (isModalOpen && badgeImageInputRef.current) badgeImageInputRef.current.value = "";
+  //   }
+  // };
 
   // Replace handleMultipleBadgeFilesSelect to add badges with empty text
   const handleMultipleBadgeFilesSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
