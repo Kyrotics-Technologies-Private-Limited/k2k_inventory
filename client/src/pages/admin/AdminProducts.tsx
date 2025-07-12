@@ -64,6 +64,7 @@ const AdminProductPage: React.FC = () => {
   const [bannerUploading, setBannerUploading] = useState(false);
   const [bannerUploadError, setBannerUploadError] = useState("");
   const bannerInputRef = React.useRef<HTMLInputElement>(null);
+  const [, setPriceInput] = useState(""); // Add this missing state
 
   // BADGES STATE (for image + name per badge)
   const [badgeImageUploading, setBadgeImageUploading] = useState(false);
@@ -1281,7 +1282,4 @@ const AdminProductPage: React.FC = () => {
 };
 
 export default AdminProductPage;
-function setPriceInput(_value: string) {
-  throw new Error("Function not implemented.");
-}
 
