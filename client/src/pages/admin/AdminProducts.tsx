@@ -32,7 +32,8 @@ const initialForm: Omit<Product, "id"> = {
 };
 
 const initialVariantForm = {
-  weight: "",
+  weightNumber: "",
+  weightUnit: "g",
   price: 0,
   originalPrice: 0,
   discount: 0,
@@ -56,6 +57,9 @@ const AdminProductPage: React.FC = () => {
   const [editingVariantId, setEditingVariantId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [galleryFiles, setGalleryFiles] = useState<FileList | null>(null);
+
+  const WEIGHT_UNITS = ["g", "kg", "ml", "l"];
+
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [priceInput, setPriceInput] = useState(""); // New state for price input as string
 
@@ -212,12 +216,16 @@ const AdminProductPage: React.FC = () => {
       setError("");
       setSuccess("");
 
+      // Combine weightNumber and weightUnit into a single weight string with space
+      const { weightNumber, weightUnit, ...rest } = variantForm;
+      const weight = `${weightNumber} ${weightUnit}`;
+
       if (editingVariantId) {
         // Update existing variant
         const updatedVariant = await variantApi.updateVariant(
           productId,
           editingVariantId,
-          { id: editingVariantId, ...variantForm, productId }
+          { id: editingVariantId, ...rest, weight, productId }
         );
         setVariants((prev) => ({
           ...prev,
@@ -229,7 +237,8 @@ const AdminProductPage: React.FC = () => {
       } else {
         // Create new variant
         const newVariant = await variantApi.createVariant(productId, {
-          ...variantForm,
+          ...rest,
+          weight,
           productId,
         });
         setVariants((prev) => ({
@@ -296,8 +305,14 @@ const AdminProductPage: React.FC = () => {
   };
 
   const handleVariantEditClick = (variant: Variant) => {
+    // Extract number and unit from weight string (handling space between number and unit)
+    const match = variant.weight.match(/^([\d.]+)\s*(.+)$/);
+    const weightNumber = match ? match[1] : "";
+    const weightUnit = match ? match[2] : "g";
+
     setVariantForm({
-      weight: variant.weight,
+      weightNumber,
+      weightUnit,
       price: variant.price,
       originalPrice: variant.originalPrice || 0,
       discount: variant.discount || 0,
@@ -783,18 +798,41 @@ const AdminProductPage: React.FC = () => {
                                 : "Add New Variant"}
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                  Weight
-                                </label>
-                                <input
-                                  name="weight"
-                                  value={variantForm.weight}
-                                  onChange={handleVariantChange}
-                                  placeholder="e.g., 500g, 1kg"
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                  required
-                                />
+                              <div className="flex space-x-2">
+                                <div className="flex-1">
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Weight
+                                  </label>
+                                  <input
+                                    name="weightNumber"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={variantForm.weightNumber || ""}
+                                    onChange={handleVariantChange}
+                                    placeholder="Enter weight"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                    required
+                                  />
+                                </div>
+                                <div className="w-24">
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Unit
+                                  </label>
+                                  <select
+                                    name="weightUnit"
+                                    value={variantForm.weightUnit}
+                                    onChange={handleVariantChange}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                    required
+                                  >
+                                    {WEIGHT_UNITS.map((unit) => (
+                                      <option key={unit} value={unit}>
+                                        {unit}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
                               </div>
                               <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
