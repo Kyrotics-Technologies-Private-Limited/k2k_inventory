@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate} from "react-router-dom";
 import type { Product } from "../../types/index";
 import type { Variant } from "../../types/variant";
 import { productApi } from "../../services/api/productApi";
@@ -44,6 +44,17 @@ const VariantDetailsPage: React.FC = () => {
     inStock: true,
     units_in_stock: 0,
   });
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addFormData, setAddFormData] = useState({
+    weight: "",
+    price: "",
+    originalPrice: "",
+    discount: "",
+    inStock: true,
+    units_in_stock: "",
+  });
+  const [addError, setAddError] = useState("");
+  const [addLoading, setAddLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -181,6 +192,55 @@ const VariantDetailsPage: React.FC = () => {
     setEditingVariant(null);
   };
 
+  const handleAddInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    setAddFormData((prev) => ({
+      ...prev,
+      [name]:
+        type === "checkbox"
+          ? checked
+          : ["price", "originalPrice", "discount", "units_in_stock"].includes(name)
+          ? value === "" ? 0 : Number(value)
+          : value,
+    }));
+  };
+
+  const handleAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddError("");
+    setAddLoading(true);
+    // Prevent duplicate variant by weight
+    if (variants.find(v => v.weight.trim().toLowerCase() === addFormData.weight.trim().toLowerCase())) {
+      setAddError("Variant already exists");
+      setAddLoading(false);
+      return;
+    }
+    try {
+      const newVariant = await variantApi.createVariant(productId as string, {
+        ...addFormData,
+        productId: productId as string,
+        price: Number(addFormData.price),
+        originalPrice: Number(addFormData.originalPrice),
+        discount: Number(addFormData.discount),
+        units_in_stock: Number(addFormData.units_in_stock),
+      });
+      setVariants((prev) => [...prev, newVariant]);
+      setAddFormData({
+        weight: "",
+        price: "",
+        originalPrice: "",
+        discount: "",
+        inStock: true,
+        units_in_stock: "",
+      });
+      setShowAddForm(false);
+    } catch (err) {
+      setAddError("Failed to add variant. Please try again.");
+    } finally {
+      setAddLoading(false);
+    }
+  };
+
   if (loading.product) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -218,15 +278,102 @@ const VariantDetailsPage: React.FC = () => {
           <ArrowLeftIcon className="w-5 h-5 mr-2" />
           Back to Products
         </button>
-
-        <Link
-          to={`/admin/products/${productId}/variants/new`}
+        <button
+          type="button"
+          onClick={() => setShowAddForm((prev) => !prev)}
           className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
         >
           <PlusIcon className="w-5 h-5 mr-2" />
-          Add New Variant
-        </Link>
+          {showAddForm ? "Close" : "Add New Variant"}
+        </button>
       </div>
+      {showAddForm && (
+        <form onSubmit={handleAddSubmit} className="mb-6 bg-white p-6 rounded shadow">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Add New Variant</h3>
+          {addError && <div className="mb-2 text-red-600">{addError}</div>}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Weight</label>
+              <input
+                name="weight"
+                value={addFormData.weight}
+                onChange={handleAddInputChange}
+                placeholder="e.g., 500g, 1kg"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹)</label>
+              <input
+                name="price"
+                type="number"
+                min="0"
+                step="0.01"
+                value={addFormData.price}
+                onChange={handleAddInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Original Price (₹)</label>
+              <input
+                name="originalPrice"
+                type="number"
+                min="0"
+                step="0.01"
+                value={addFormData.originalPrice}
+                onChange={handleAddInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Discount (%)</label>
+              <input
+                name="discount"
+                type="number"
+                min="0"
+                max="100"
+                value={addFormData.discount}
+                onChange={handleAddInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Units in Stock</label>
+              <input
+                type="number"
+                name="units_in_stock"
+                value={addFormData.units_in_stock}
+                onChange={handleAddInputChange}
+                min="0"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                required
+              />
+            </div>
+            <div className="flex items-center mt-2">
+              <input
+                name="inStock"
+                type="checkbox"
+                checked={addFormData.inStock}
+                onChange={handleAddInputChange}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label className="ml-2 block text-sm text-gray-700">In Stock</label>
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              type="submit"
+              disabled={addLoading}
+              className="button px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
+            >
+              {addLoading ? "Adding..." : "Add Variant"}
+            </button>
+          </div>
+        </form>
+      )}
 
       {/* Product Info */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">

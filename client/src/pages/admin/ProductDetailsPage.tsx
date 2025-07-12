@@ -150,6 +150,16 @@ const ProductDetailsPage: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <button
+        type="button"
+        onClick={() => navigate('/admin/products')}
+        className="flex items-center text-blue-600 hover:text-blue-800 mb-4"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        <span className="font-medium">Back to Products</span>
+      </button>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Product Details</h1>
         <div className="flex space-x-3">
