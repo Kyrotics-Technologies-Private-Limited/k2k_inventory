@@ -33,7 +33,7 @@ const initialForm: Omit<Product, "id"> = {
 
 const initialVariantForm = {
   weight: "",
-  price: "",
+   price: "",
   originalPrice: "",
   discount: "",
   inStock: true,
@@ -57,7 +57,7 @@ const AdminProductPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   //const [galleryFiles, setGalleryFiles] = useState<FileList | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const [priceInput, setPriceInput] = useState(""); // New state for price input as string
+  // const [, setPriceInput] = useState(""); // New state for price input as string
   const [mainImageUploading, setMainImageUploading] = useState(false);
   const [mainImageUploadError, setMainImageUploadError] = useState("");
   const mainImageInputRef = React.useRef<HTMLInputElement>(null);
@@ -195,26 +195,7 @@ const AdminProductPage: React.FC = () => {
     }));
   };
 
-  // update a single gallery URL
-  // const handleGalleryChange = (idx: number, url: string) => {
-  //   setFormData((prev) => {
-  //     const newGallery = [...prev.images.gallery];
-  //     newGallery[idx] = url;
-  //     return {
-  //       ...prev,
-  //       images: { ...prev.images, gallery: newGallery },
-  //     };
-  //   });
-  // };
-
-  // // add an empty slot
-  // const addGalleryImage = () => {
-  //   setFormData((prev) => ({
-  //     ...prev,
-  //     images: { ...prev.images, gallery: [...prev.images.gallery, ""] },
-  //   }));
-  // };
-
+  
   // remove one by index
   const removeGalleryImage = (idx: number) => {
     setFormData((prev) => {
@@ -231,15 +212,38 @@ const AdminProductPage: React.FC = () => {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value, type } = e.target;
-    setVariantForm((prev) => ({
-      ...prev,
+    let updatedForm = {
+      ...variantForm,
       [name]:
         type === "checkbox"
           ? (e.target as HTMLInputElement).checked
           : type === "number"
-          ? Number(value)
+          ? value
           : value,
-    }));
+    };
+    // Auto-calculate discount if price or originalPrice changes
+    if (name === "price" || name === "originalPrice") {
+      const price = parseFloat(name === "price" ? value : updatedForm.price);
+      const originalPrice = parseFloat(name === "originalPrice" ? value : updatedForm.originalPrice);
+      if (!isNaN(price) && !isNaN(originalPrice) && originalPrice > 0 && price <= originalPrice) {
+        const discount = (((originalPrice - price) / originalPrice) * 100).toFixed(2);
+        updatedForm.discount = discount;
+      } else {
+        updatedForm.discount = "";
+      }
+    }
+    // Auto-calculate price if originalPrice or discount changes
+    if (name === "originalPrice" || name === "discount") {
+      const originalPrice = parseFloat(name === "originalPrice" ? value : updatedForm.originalPrice);
+      const discount = parseFloat(name === "discount" ? value : updatedForm.discount);
+      if (!isNaN(originalPrice) && !isNaN(discount) && originalPrice > 0 && discount >= 0 && discount <= 100) {
+        const price = (originalPrice * (1 - discount / 100)).toFixed(2);
+        updatedForm.price = price;
+      } else {
+        updatedForm.price = "";
+      }
+    }
+    setVariantForm(updatedForm);
   };
 
   // Create or update product
@@ -275,6 +279,17 @@ const AdminProductPage: React.FC = () => {
       setFormLoading(true);
       setError("");
       setSuccess("");
+      // Prevent duplicate variant by weight/unit
+      if (!editingVariantId) {
+        const existing = (variants[productId] || []).find(
+          v => v.weight.trim().toLowerCase() === variantForm.weight.trim().toLowerCase()
+        );
+        if (existing) {
+          setError("Variant already exists");
+          setFormLoading(false);
+          return;
+        }
+      }
       const variantData = {
         ...variantForm,
         price: Number(variantForm.price) || 0,
@@ -680,22 +695,7 @@ const AdminProductPage: React.FC = () => {
                       </div>
 
                       <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Price (₹)
-                          </label>
-                          <input
-                            name="amount"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={priceInput}
-                            onChange={handleChange}
-                            placeholder="Enter price"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                            required
-                          />
-                        </div>
+                        {/* Price section removed */}
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -961,9 +961,6 @@ const AdminProductPage: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Category
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Price
-                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
@@ -989,6 +986,7 @@ const AdminProductPage: React.FC = () => {
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
                               <button
+                                type="button"
                                 onClick={() => viewDetails(product.id)}
                                 className="button text-blue-600 hover:text-blue-900 mr-4"
                               >
@@ -1006,31 +1004,30 @@ const AdminProductPage: React.FC = () => {
                           {product.category}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          ₹{product.price.amount.toLocaleString()}
-                        </div>
-                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
+                          type="button"
                           onClick={() => viewVariants(product.id)}
                           className="button text-blue-600 hover:text-blue-900 mr-4"
                         >
                           Variants
                         </button>
                         {/* <button
+                          type="button"
                           onClick={() => viewDetails(product.id)}
                           className="button text-blue-600 hover:text-blue-900 mr-4"
                         >
                           View
                         </button> */}
                         <button
+                          type="button"
                           onClick={() => handleEditClick(product)}
                           className="button text-indigo-600 hover:text-indigo-900 mr-4"
                         >
                           Edit
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleDelete(product.id)}
                           className="button text-red-600 hover:text-red-900"
                         >
@@ -1086,7 +1083,7 @@ const AdminProductPage: React.FC = () => {
                                   value={variantForm.price || ""}
                                   onChange={handleVariantChange}
                                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                  required
+                                  readOnly
                                 />
                               </div>
                               <div>
@@ -1238,6 +1235,7 @@ const AdminProductPage: React.FC = () => {
                                       </td>
                                       <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium">
                                         <button
+                                          type="button"
                                           onClick={() =>
                                             handleVariantEditClick(variant)
                                           }
@@ -1246,6 +1244,7 @@ const AdminProductPage: React.FC = () => {
                                           Edit
                                         </button>
                                         <button
+                                          type="button"
                                           onClick={() =>
                                             handleVariantDelete(
                                               product.id,
@@ -1282,3 +1281,7 @@ const AdminProductPage: React.FC = () => {
 };
 
 export default AdminProductPage;
+function setPriceInput(_value: string) {
+  throw new Error("Function not implemented.");
+}
+
