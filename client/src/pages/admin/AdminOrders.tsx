@@ -153,45 +153,64 @@ const AdminOrdersPage: React.FC = () => {
     return statusMatch && searchMatch && dateMatch;
   });
 
-  const handleExportExcel = () => {
-    const exportData = filteredOrders.map((order) => {
-      const fullAddress = order.address
-        ? `${order.address.first_name} ${order.address.last_name}, ${order.address.street}, ${order.address.city}, ${order.address.state}, ${order.address.postal_code}, ${order.address.country}, Phone: ${order.address.phone}`
-        : "";
+ const handleExportExcel = () => {
+   const maxItemsCount = Math.max(
+     ...filteredOrders.map((order) =>
+       Array.isArray(order.items) ? order.items.length : 0
+     )
+   );
 
-      return {
-        "Order ID": order.id,
-        "User ID": order.userId,
-        Username: order.username || "",
-        Address: fullAddress,
-        "Total Amount": order.total_amount,
-        "Payment Method": order.payment_method,
-        "Shipping Method": order.shipping_method,
-        Status: order.status,
-        "Order Date": formatDate(order.created_at),
-        Items: Array.isArray(order.items)
-          ? order.items
-              .map(
-                (item: any) =>
-                  `${item.name || item.title || ""} (Qty: ${
-                    item.quantity || 1
-                  })`
-              )
-              .join(", ")
-          : "",
-      };
-    });
+   const exportData = filteredOrders.map((order) => {
+     const fullAddress = order.address
+       ? `${order.address.first_name} ${order.address.last_name}, ${order.address.street}, ${order.address.city}, ${order.address.state}, ${order.address.postal_code}, ${order.address.country}, Phone: ${order.address.phone}`
+       : "";
 
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
-    const excelBuffer = XLSX.write(workbook, {
-      bookType: "xlsx",
-      type: "array",
-    });
-    const data = new Blob([excelBuffer], { type: "application/octet-stream" });
-    saveAs(data, `orders_${new Date().toISOString().slice(0, 10)}.xlsx`);
-  };
+     const row: Record<string, any> = {
+       "Order ID": order.id,
+       "User ID": order.userId,
+       Username: order.username || "",
+       Address: fullAddress,
+       "Total Amount": order.total_amount,
+       "Payment Method": order.payment_method,
+       "Shipping Method": order.shipping_method,
+       Status: order.status,
+       "Order Date": formatDate(order.created_at),
+     };
+
+     // Dynamically add item columns
+     if (Array.isArray(order.items)) {
+       order.items.forEach((item: any, index: number) => {
+         row[`Item ${index + 1} Name`] = item.name || "Unnamed Product";
+         row[`Item ${index + 1} Qty`] = item.quantity || 1;
+         row[`Item ${index + 1} Variant`] = item.variant_name || "";
+       });
+     }
+
+     // Fill empty columns if fewer items than max
+     for (let i = order.items?.length || 0; i < maxItemsCount; i++) {
+       row[`Item ${i + 1} Name`] = "";
+       row[`Item ${i + 1} Qty`] = "";
+       row[`Item ${i + 1} Variant`] = "";
+     }
+
+     return row;
+   });
+
+   const worksheet = XLSX.utils.json_to_sheet(exportData);
+   const workbook = XLSX.utils.book_new();
+   XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
+
+   const excelBuffer = XLSX.write(workbook, {
+     bookType: "xlsx",
+     type: "array",
+   });
+
+   const data = new Blob([excelBuffer], { type: "application/octet-stream" });
+   saveAs(data, `orders_${new Date().toISOString().slice(0, 10)}.xlsx`);
+ };
+
+
+
 
   const clearDateFilters = () => {
     setStartDate(null);
