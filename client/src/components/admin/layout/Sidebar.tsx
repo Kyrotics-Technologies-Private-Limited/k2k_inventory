@@ -5,7 +5,7 @@ import {
   FiPackage,
   FiShoppingBag,
   FiUsers,
-  FiSettings,
+  //FiSettings,
   FiChevronLeft,
   FiChevronRight,
 } from "react-icons/fi";
