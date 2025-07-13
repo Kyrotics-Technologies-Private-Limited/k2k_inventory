@@ -12,6 +12,7 @@ import {
   XMarkIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  MagnifyingGlassIcon,
 } from "@heroicons/react/24/outline";
 import { Dialog, Transition } from "@headlessui/react";
 
@@ -27,7 +28,7 @@ const initialForm: Omit<Product, "id"> = {
   stockStatus: "in_stock",
   ratings: 0,
   reviews: 0,
-  badges: [], // badges now support { text, type, image? }
+  badges: [],
   benefits: [],
 };
 
@@ -43,6 +44,7 @@ const initialVariantForm = {
 const AdminProductPage: React.FC = () => {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [formLoading, setFormLoading] = useState(false);
   const [error, setError] = useState("");
@@ -55,83 +57,142 @@ const AdminProductPage: React.FC = () => {
   const [showVariantForm, setShowVariantForm] = useState<string | null>(null);
   const [editingVariantId, setEditingVariantId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  //const [galleryFiles, setGalleryFiles] = useState<FileList | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const [priceInput, setPriceInput] = useState(""); // New state for price input as string
+  const [priceInput, setPriceInput] = useState("");
   const [mainImageUploading, setMainImageUploading] = useState(false);
   const [mainImageUploadError, setMainImageUploadError] = useState("");
   const mainImageInputRef = React.useRef<HTMLInputElement>(null);
   const [bannerUploading, setBannerUploading] = useState(false);
   const [bannerUploadError, setBannerUploadError] = useState("");
   const bannerInputRef = React.useRef<HTMLInputElement>(null);
-
-  // BADGES STATE (for image + name per badge)
   const [badgeImageUploading, setBadgeImageUploading] = useState(false);
   const [badgeImageUploadError, setBadgeImageUploadError] = useState("");
   const badgeImageInputRef = React.useRef<HTMLInputElement>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  // Default banners and badges by category
-  const categoryDefaults: Record<Product["category"], { banner: string; badges: { text: string; image?: string }[] }> = {
+  const categoryDefaults: Record<
+    Product["category"],
+    { banner: string; badges: { text: string; image?: string }[] }
+  > = {
     ghee: {
-      banner: "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/product-main/1752089018798-1.png",
+      banner:
+        "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/product-main/1752089018798-1.png",
       badges: [
-        { text: "Zero Adulteration" , image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752089074276-ZERO ADULTERATION.png" },
-        { text: "Lab Tested" , image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752089074276-LAB TESTED.png" },
-        {text:"Made at Home- Not in Factories",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752089074276-MADE AT HOME.png"},
-        {text:"Zero Preservatives ",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752089074276-ZERO PRESERVATIVES.png"},
-        {text:"No Bad Cholesterol",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752089074276-NO BAD CHOLESTEROL.png"},
+        {
+          text: "Zero Adulteration",
+          image:
+            "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752089074276-ZERO ADULTERATION.png",
+        },
+        {
+          text: "Lab Tested",
+          image:
+            "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752089074276-LAB TESTED.png",
+        },
+        {
+          text: "Made at Home- Not in Factories",
+          image:
+            "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752089074276-MADE AT HOME.png",
+        },
+        {
+          text: "Zero Preservatives",
+          image:
+            "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752089074276-ZERO PRESERVATIVES.png",
+        },
+        {
+          text: "No Bad Cholesterol",
+          image:
+            "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752089074276-NO BAD CHOLESTEROL.png",
+        },
       ],
     },
     oils: {
-      banner: "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/product-main/1752142641203-3.png",
+      banner:
+        "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/product-main/1752142641203-3.png",
       badges: [
-        { text: "Cold Pressed" ,image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752142641203-COLD PRESSED.png"},
-        { text: "Zero Adulteration" ,image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752142641203-ZERO ADULTERATION.png"},
-        {text:"Zero Preservatives",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752142641203-ZERO PRESERVATIVES.png"},
-        {text:"Non Refined",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752142641203-NON REFINED.png"},
-        {text:"Sourced from Rural Farmers",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752142641203-SOURCED FROM RURAL FARMERS.png"},
+        {
+          text: "Cold Pressed",
+          image:
+            "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752142641203-COLD PRESSED.png",
+        },
+        {
+          text: "Zero Adulteration",
+          image:
+            "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752142641203-ZERO ADULTERATION.png",
+        },
+        {
+          text: "Zero Preservatives",
+          image:
+            "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752142641203-ZERO PRESERVATIVES.png",
+        },
+        {
+          text: "Non Refined",
+          image:
+            "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752142641203-NON REFINED.png",
+        },
+        {
+          text: "Sourced from Rural Farmers",
+          image:
+            "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752142641203-SOURCED FROM RURAL FARMERS.png",
+        },
       ],
     },
     honey: {
-      banner: "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/product-main/1752143076344-2.png",
+      banner:
+        "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/product-main/1752143076344-2.png",
       badges: [
-      {text:"Zero Adulteration",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752143076344-ZERO ADULTERATION.png"},
-      {text:"No added sugar",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752143076344-NO ADDED SUGAR.png"} ,
-      {text:"Unprocessed",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752143076344-UNPROCESSED.png"},
-      {text:"Immunity Booster",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752143076344-IMMUNITY BOOSTER.png"},
-      {text:"Sourced from Beekeepers ",image:"https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752143076344-SOURCED FROM BEEKEEPERS.png"},
+        {
+          text: "Zero Adulteration",
+          image:
+            "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752143076344-ZERO ADULTERATION.png",
+        },
+        {
+          text: "No added sugar",
+          image:
+            "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752143076344-NO ADDED SUGAR.png",
+        },
+        {
+          text: "Unprocessed",
+          image:
+            "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752143076344-UNPROCESSED.png",
+        },
+        {
+          text: "Immunity Booster",
+          image:
+            "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752143076344-IMMUNITY BOOSTER.png",
+        },
+        {
+          text: "Sourced from Beekeepers",
+          image:
+            "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752143076344-SOURCED FROM BEEKEEPERS.png",
+        },
       ],
     },
   };
 
-  console.log("formData", formData);
-  console.log("images", formData.images);
-  console.log("banner", formData.images.banner);
-  
-
-  console.log("badges", formData.badges);
-
-  // When category changes, set default banner and badges
   useEffect(() => {
     if (!editMode && formData.category && categoryDefaults[formData.category]) {
       setFormData((prev) => ({
         ...prev,
-        images: { ...prev.images, banner: categoryDefaults[formData.category].banner },
-        badges: categoryDefaults[formData.category].badges.map(b => ({ text: b.text, image: b.image || "" })),
+        images: {
+          ...prev.images,
+          banner: categoryDefaults[formData.category].banner,
+        },
+        badges: categoryDefaults[formData.category].badges.map((b) => ({
+          text: b.text,
+          image: b.image || "",
+        })),
       }));
     }
-    // eslint-disable-next-line
   }, [formData.category, editMode]);
 
-  // Fetch products and their variants
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         const fetchedProducts = await productApi.getAllProducts();
         setProducts(fetchedProducts);
+        setFilteredProducts(fetchedProducts);
 
-        // Fetch variants for each product
         const variantsMap: Record<string, Variant[]> = {};
         await Promise.all(
           fetchedProducts.map(async (product) => {
@@ -160,7 +221,23 @@ const AdminProductPage: React.FC = () => {
     fetchData();
   }, []);
 
-  // Handle form changes
+  useEffect(() => {
+    if (searchTerm.trim() === "") {
+      setFilteredProducts(products);
+    } else {
+      const filtered = products.filter(
+        (product) =>
+          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (product.origin &&
+            product.origin.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (product.sku &&
+            product.sku.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+      setFilteredProducts(filtered);
+    }
+  }, [searchTerm, products]);
+
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -168,12 +245,14 @@ const AdminProductPage: React.FC = () => {
   ) => {
     const { name, value } = e.target;
     if (name === "amount") {
-      // Update price input as string
       if (/^\d*\.?\d*$/.test(value)) {
         setPriceInput(value);
         setFormData((prev) => ({
           ...prev,
-          price: { ...prev.price, amount: value === "" ? 0 : parseFloat(value) },
+          price: {
+            ...prev.price,
+            amount: value === "" ? 0 : parseFloat(value),
+          },
         }));
       }
     } else {
@@ -181,7 +260,6 @@ const AdminProductPage: React.FC = () => {
     }
   };
 
-  // Handle image array changes
   const handleImageChange = (
     type: "main" | "gallery" | "banner",
     value: string
@@ -195,27 +273,6 @@ const AdminProductPage: React.FC = () => {
     }));
   };
 
-  // update a single gallery URL
-  // const handleGalleryChange = (idx: number, url: string) => {
-  //   setFormData((prev) => {
-  //     const newGallery = [...prev.images.gallery];
-  //     newGallery[idx] = url;
-  //     return {
-  //       ...prev,
-  //       images: { ...prev.images, gallery: newGallery },
-  //     };
-  //   });
-  // };
-
-  // // add an empty slot
-  // const addGalleryImage = () => {
-  //   setFormData((prev) => ({
-  //     ...prev,
-  //     images: { ...prev.images, gallery: [...prev.images.gallery, ""] },
-  //   }));
-  // };
-
-  // remove one by index
   const removeGalleryImage = (idx: number) => {
     setFormData((prev) => {
       const newGallery = prev.images.gallery.filter((_, i) => i !== idx);
@@ -226,7 +283,6 @@ const AdminProductPage: React.FC = () => {
     });
   };
 
-  // Handle variant form changes
   const handleVariantChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -242,7 +298,6 @@ const AdminProductPage: React.FC = () => {
     }));
   };
 
-  // Create or update product
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormLoading(true);
@@ -269,7 +324,6 @@ const AdminProductPage: React.FC = () => {
     }
   };
 
-  // Handle variant submission
   const handleVariantSubmit = async (productId: string) => {
     try {
       setFormLoading(true);
@@ -283,7 +337,6 @@ const AdminProductPage: React.FC = () => {
         units_in_stock: Number(variantForm.units_in_stock) || 0,
       };
       if (editingVariantId) {
-        // Update existing variant
         const updatedVariant = await variantApi.updateVariant(
           productId,
           editingVariantId,
@@ -297,7 +350,6 @@ const AdminProductPage: React.FC = () => {
         }));
         setSuccess("Variant updated successfully!");
       } else {
-        // Create new variant
         const newVariant = await variantApi.createVariant(productId, {
           ...variantData,
           productId,
@@ -324,14 +376,11 @@ const AdminProductPage: React.FC = () => {
     try {
       await productApi.deleteProduct(id);
       setProducts((prev) => prev.filter((p) => p.id !== id));
-
-      // Remove variants for this product
       setVariants((prev) => {
         const newVariants = { ...prev };
         delete newVariants[id];
         return newVariants;
       });
-
       setSuccess("Product deleted successfully!");
     } catch (err) {
       setError("Failed to delete product. Please try again.");
@@ -357,10 +406,17 @@ const AdminProductPage: React.FC = () => {
   };
 
   const handleEditClick = (product: Product) => {
-    setFormData({ ...product, badges: product.badges?.map(b => ({ image: b.image || "", text: b.text || "" })) || [] });
+    setFormData({
+      ...product,
+      badges:
+        product.badges?.map((b) => ({
+          image: b.image || "",
+          text: b.text || "",
+        })) || [],
+    });
     setEditId(product.id);
     setEditMode(true);
-    setIsModalOpen(true); // Ensure modal opens on edit
+    setIsModalOpen(true);
     setPriceInput(product.price.amount ? String(product.price.amount) : "");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -372,7 +428,9 @@ const AdminProductPage: React.FC = () => {
       originalPrice: variant.originalPrice ? String(variant.originalPrice) : "",
       discount: variant.discount ? String(variant.discount) : "",
       inStock: variant.inStock,
-      units_in_stock: variant.units_in_stock ? String(variant.units_in_stock) : "",
+      units_in_stock: variant.units_in_stock
+        ? String(variant.units_in_stock)
+        : "",
     });
     setEditingVariantId(variant.id);
     setShowVariantForm(variant.productId);
@@ -400,18 +458,16 @@ const AdminProductPage: React.FC = () => {
     }
   };
 
-  // Open modal for new product
   const openCreateModal = () => {
     resetForm();
-    setPriceInput(""); // Reset price input
+    setPriceInput("");
     setIsModalOpen(true);
   };
-  // Close modal
+
   const closeModal = () => {
     setIsModalOpen(false);
   };
 
-  // Navigate to the dedicated variants page
   const viewVariants = (id: string) => {
     navigate(`/admin/products/${id}/variants`);
   };
@@ -420,13 +476,13 @@ const AdminProductPage: React.FC = () => {
     navigate(`/admin/products/${id}`);
   };
 
-  // Open file picker when upload button is clicked
   const handleGalleryButtonClick = () => {
     fileInputRef.current?.click();
   };
 
-  // Handle gallery file selection and upload immediately
-  const handleGalleryFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleGalleryFileSelect = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     if (!e.target.files || e.target.files.length === 0) return;
     setFormLoading(true);
     setError("");
@@ -443,16 +499,13 @@ const AdminProductPage: React.FC = () => {
       setError("Failed to upload images. Please try again.");
     } finally {
       setFormLoading(false);
-      // Reset the file input value so the same file can be selected again if needed
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
-  // const handleMainImageButtonClick = () => {
-  //   mainImageInputRef.current?.click();
-  // };
-
-  const handleMainImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMainImageFileSelect = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     if (!e.target.files || e.target.files.length === 0) return;
     setMainImageUploading(true);
     setMainImageUploadError("");
@@ -470,16 +523,14 @@ const AdminProductPage: React.FC = () => {
     }
   };
 
-  // const handleBannerButtonClick = () => {
-  //   bannerInputRef.current?.click();
-  // };
-
-  const handleBannerFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBannerFileSelect = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     if (!e.target.files || e.target.files.length === 0) return;
     setBannerUploading(true);
     setBannerUploadError("");
     try {
-      const url = await productApi.uploadMainImage(e.target.files[0]); // Reuse main image upload endpoint for banner
+      const url = await productApi.uploadMainImage(e.target.files[0]);
       setFormData((prev) => ({
         ...prev,
         images: { ...prev.images, banner: url },
@@ -488,37 +539,14 @@ const AdminProductPage: React.FC = () => {
       setBannerUploadError("Failed to upload banner image. Please try again.");
     } finally {
       setBannerUploading(false);
-      if (isModalOpen && bannerInputRef.current) bannerInputRef.current.value = "";
+      if (isModalOpen && bannerInputRef.current)
+        bannerInputRef.current.value = "";
     }
   };
 
-  // const handleBadgeImageButtonClick = () => {
-  //   badgeImageInputRef.current?.click();
-  // };
-
-  // const handleBadgeImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  //   if (!e.target.files || e.target.files.length === 0) return;
-  //   setBadgeImageUploading(true);
-  //   setBadgeImageUploadError("");
-  //   try {
-  //     const urls = await productApi.uploadMultipleBadgeImages(e.target.files);
-  //     setFormData((prev) => ({
-  //       ...prev,
-  //       badges: [
-  //         ...(prev.badges || []),
-  //         ...urls.map((url) => ({ image: url, text: "" })),
-  //       ],
-  //     }));
-  //   } catch (err) {
-  //     setBadgeImageUploadError("Failed to upload badge images. Please try again.");
-  //   } finally {
-  //     setBadgeImageUploading(false);
-  //     if (isModalOpen && badgeImageInputRef.current) badgeImageInputRef.current.value = "";
-  //   }
-  // };
-
-  // Replace handleMultipleBadgeFilesSelect to add badges with empty text
-  const handleMultipleBadgeFilesSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMultipleBadgeFilesSelect = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     if (!e.target.files || e.target.files.length === 0) return;
     setBadgeImageUploading(true);
     setBadgeImageUploadError("");
@@ -532,22 +560,25 @@ const AdminProductPage: React.FC = () => {
         ],
       }));
     } catch (err) {
-      setBadgeImageUploadError("Failed to upload badge images. Please try again.");
+      setBadgeImageUploadError(
+        "Failed to upload badge images. Please try again."
+      );
     } finally {
       setBadgeImageUploading(false);
-      if (isModalOpen && badgeImageInputRef.current) badgeImageInputRef.current.value = "";
+      if (isModalOpen && badgeImageInputRef.current)
+        badgeImageInputRef.current.value = "";
     }
   };
 
-  // Handler for badge name change
   const handleBadgeNameChange = (idx: number, value: string) => {
     setFormData((prev) => ({
       ...prev,
-      badges: prev.badges.map((badge, i) => i === idx ? { ...badge, text: value } : badge),
+      badges: prev.badges.map((badge, i) =>
+        i === idx ? { ...badge, text: value } : badge
+      ),
     }));
   };
 
-  // Handler for removing a badge
   const handleRemoveBadge = (idx: number) => {
     setFormData((prev) => ({
       ...prev,
@@ -555,10 +586,6 @@ const AdminProductPage: React.FC = () => {
     }));
   };
 
-  const bannerUrl = typeof formData.images.banner === "string" ? formData.images.banner.trim() : "";
-  console.log("bannerurl", bannerUrl);
-
-  // Banner remove handler
   const handleRemoveBanner = () => {
     setFormData((prev) => ({
       ...prev,
@@ -568,18 +595,33 @@ const AdminProductPage: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <h1 className="text-2xl font-bold text-gray-800">Product Management</h1>
-        <button
-          onClick={openCreateModal}
-          className="button flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
-        >
-          <PlusIcon className="w-5 h-5 mr-2" />
-          Create New Product
-        </button>
+
+        <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+          <div className="relative w-full md:w-64">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search products..."
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <button
+            onClick={openCreateModal}
+            className="button flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+          >
+            <PlusIcon className="w-5 h-5 mr-2" />
+            Create New Product
+          </button>
+        </div>
       </div>
 
-      {/* Status Messages */}
       {error && (
         <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg border border-red-200 flex items-center">
           <XMarkIcon className="w-5 h-5 mr-2" />
@@ -593,7 +635,6 @@ const AdminProductPage: React.FC = () => {
         </div>
       )}
 
-      {/* Product Form Modal */}
       <Transition.Root show={isModalOpen} as={Fragment}>
         <Dialog as="div" className="relative z-10" onClose={closeModal}>
           <Transition.Child
@@ -733,9 +774,15 @@ const AdminProductPage: React.FC = () => {
                                 onChange={handleMainImageFileSelect}
                                 disabled={mainImageUploading}
                               />
-                              {mainImageUploading ? "Uploading..." : "Upload Main Image"}
+                              {mainImageUploading
+                                ? "Uploading..."
+                                : "Upload Main Image"}
                             </label>
-                            {mainImageUploadError && <span className="text-red-500 text-sm">{mainImageUploadError}</span>}
+                            {mainImageUploadError && (
+                              <span className="text-red-500 text-sm">
+                                {mainImageUploadError}
+                              </span>
+                            )}
                           </div>
                         </div>
 
@@ -760,9 +807,16 @@ const AdminProductPage: React.FC = () => {
                             {formLoading ? "Uploading..." : "Upload Images"}
                           </button>
                           {formData.images.gallery.map((url, idx) => (
-                            <div key={idx} className="flex items-center space-x-2">
+                            <div
+                              key={idx}
+                              className="flex items-center space-x-2"
+                            >
                               {typeof url === "string" && url.trim() !== "" && (
-                                <img src={url} alt={`Gallery ${idx + 1}`} className="w-20 h-20 object-contain rounded border" />
+                                <img
+                                  src={url}
+                                  alt={`Gallery ${idx + 1}`}
+                                  className="w-20 h-20 object-contain rounded border"
+                                />
                               )}
                               <input
                                 type="text"
@@ -784,22 +838,39 @@ const AdminProductPage: React.FC = () => {
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Banner Image
                           </label>
-                          {bannerUrl && (
-                            <div className="mb-2 relative group">
-                              <img src={bannerUrl} alt="Banner Preview" className="w-full h-32 object-contain rounded border" />
-                              <button
-                                type="button"
-                                onClick={handleRemoveBanner}
-                                className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:bg-red-200 transition-opacity opacity-0 group-hover:opacity-100"
-                                style={{ zIndex: 10 }}
-                                aria-label="Remove banner"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            </div>
-                          )}
+                          {formData.images.banner &&
+                            typeof formData.images.banner === "string" &&
+                            formData.images.banner.trim() !== "" && (
+                              <div className="mb-2 relative group">
+                                <img
+                                  src={formData.images.banner}
+                                  alt="Banner Preview"
+                                  className="w-full h-32 object-contain rounded border"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={handleRemoveBanner}
+                                  className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:bg-red-200 transition-opacity opacity-0 group-hover:opacity-100"
+                                  style={{ zIndex: 10 }}
+                                  aria-label="Remove banner"
+                                >
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="h-5 w-5"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M6 18L18 6M6 6l12 12"
+                                    />
+                                  </svg>
+                                </button>
+                              </div>
+                            )}
                           <label className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition">
                             <input
                               type="file"
@@ -809,9 +880,15 @@ const AdminProductPage: React.FC = () => {
                               onChange={handleBannerFileSelect}
                               disabled={bannerUploading}
                             />
-                            {bannerUploading ? "Uploading..." : "Upload Banner Image"}
+                            {bannerUploading
+                              ? "Uploading..."
+                              : "Upload Banner Image"}
                           </label>
-                          {bannerUploadError && <span className="text-red-500 text-sm ml-2">{bannerUploadError}</span>}
+                          {bannerUploadError && (
+                            <span className="text-red-500 text-sm ml-2">
+                              {bannerUploadError}
+                            </span>
+                          )}
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -828,20 +905,36 @@ const AdminProductPage: React.FC = () => {
                                 multiple
                                 disabled={badgeImageUploading}
                               />
-                              {badgeImageUploading ? "Uploading..." : "Upload Badge Images"}
+                              {badgeImageUploading
+                                ? "Uploading..."
+                                : "Upload Badge Images"}
                             </label>
                           </div>
-                          {badgeImageUploadError && <span className="text-red-500 text-sm">{badgeImageUploadError}</span>}
+                          {badgeImageUploadError && (
+                            <span className="text-red-500 text-sm">
+                              {badgeImageUploadError}
+                            </span>
+                          )}
                           <div className="flex flex-wrap gap-4 mt-2">
                             {(formData.badges || []).map((badge, idx) => (
-                              <div key={idx} className="flex flex-col items-center">
-                                {typeof badge.image === "string" && badge.image.trim() !== "" && (
-                                  <img src={badge.image} alt="Badge" className="w-20 h-20 object-contain rounded border mb-1" />
-                                )}
+                              <div
+                                key={idx}
+                                className="flex flex-col items-center"
+                              >
+                                {typeof badge.image === "string" &&
+                                  badge.image.trim() !== "" && (
+                                    <img
+                                      src={badge.image}
+                                      alt="Badge"
+                                      className="w-20 h-20 object-contain rounded border mb-1"
+                                    />
+                                  )}
                                 <input
                                   type="text"
                                   value={badge.text || ""}
-                                  onChange={(e) => handleBadgeNameChange(idx, e.target.value)}
+                                  onChange={(e) =>
+                                    handleBadgeNameChange(idx, e.target.value)
+                                  }
                                   placeholder="Badge name"
                                   className="px-2 py-1 border rounded-md text-center"
                                 />
@@ -936,19 +1029,35 @@ const AdminProductPage: React.FC = () => {
         </Dialog>
       </Transition.Root>
 
-      {/* Product List */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
+        <div className="p-6 border-b border-gray-200 flex justify-between items-center">
           <h2 className="text-xl font-semibold text-gray-800">Product List</h2>
+          {searchTerm && (
+            <p className="text-sm text-gray-500">
+              Showing {filteredProducts.length} of {products.length} products
+            </p>
+          )}
         </div>
 
         {loading ? (
           <div className="p-6 flex justify-center">
             <ArrowPathIcon className="w-8 h-8 text-blue-500 animate-spin" />
           </div>
-        ) : products.length === 0 ? (
+        ) : filteredProducts.length === 0 ? (
           <div className="p-6 text-center text-gray-500">
-            No products found. Create your first product.
+            {searchTerm ? (
+              <>
+                No products found matching your search. Try a different term.
+                <button
+                  onClick={() => setSearchTerm("")}
+                  className="mt-2 px-4 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition block mx-auto"
+                >
+                  Clear search
+                </button>
+              </>
+            ) : (
+              "No products found. Create your first product."
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -964,19 +1073,20 @@ const AdminProductPage: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Price
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="relative py-3 pr-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {products.map((product) => (
+                {filteredProducts.map((product) => (
                   <React.Fragment key={product.id}>
                     <tr className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10">
-                            {typeof product.images.main === "string" && product.images.main.trim() !== "" ? (
+                            {typeof product.images.main === "string" &&
+                            product.images.main.trim() !== "" ? (
                               <img
                                 className="h-10 w-10 rounded-md object-cover"
                                 src={product.images.main}
@@ -1018,12 +1128,6 @@ const AdminProductPage: React.FC = () => {
                         >
                           Variants
                         </button>
-                        {/* <button
-                          onClick={() => viewDetails(product.id)}
-                          className="button text-blue-600 hover:text-blue-900 mr-4"
-                        >
-                          View
-                        </button> */}
                         <button
                           onClick={() => handleEditClick(product)}
                           className="button text-indigo-600 hover:text-indigo-900 mr-4"
@@ -1050,7 +1154,6 @@ const AdminProductPage: React.FC = () => {
                       </td>
                     </tr>
 
-                    {/* Quick Variants section (optional in-page view) */}
                     {showVariantForm === product.id && (
                       <tr className="bg-gray-50">
                         <td colSpan={4} className="px-6 py-4">
@@ -1170,7 +1273,6 @@ const AdminProductPage: React.FC = () => {
                             </div>
                           </div>
 
-                          {/* Variants list */}
                           {variants[product.id]?.length > 0 ? (
                             <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">
                               <table className="min-w-full divide-y divide-gray-300">

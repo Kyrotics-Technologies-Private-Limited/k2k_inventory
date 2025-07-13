@@ -36,11 +36,11 @@ const Sidebar = () => {
       icon: <FiUsers size={20} />,
       name: "Customers",
     },
-    {
-      path: "/admin/settings",
-      icon: <FiSettings size={20} />,
-      name: "Settings",
-    },
+    // {
+    //   path: "/admin/settings",
+    //   icon: <FiSettings size={20} />,
+    //   name: "Settings",
+    // },
   ];
 
   return (
