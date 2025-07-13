@@ -10,9 +10,11 @@ import {
   ArrowPathIcon,
   CheckIcon,
   XMarkIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
+  TrashIcon,
+  // ChevronDownIcon,
+  // ChevronUpIcon,
   MagnifyingGlassIcon,
+  EyeIcon
 } from "@heroicons/react/24/outline";
 import { Dialog, Transition } from "@headlessui/react";
 
@@ -32,14 +34,14 @@ const initialForm: Omit<Product, "id"> = {
   benefits: [],
 };
 
-const initialVariantForm = {
-  weight: "",
-   price: "",
-  originalPrice: "",
-  discount: "",
-  inStock: true,
-  units_in_stock: "",
-};
+// const initialVariantForm = {
+//   weight: "",
+//    price: "",
+//   originalPrice: "",
+//   discount: "",
+//   inStock: true,
+//   units_in_stock: "",
+// };
 
 const AdminProductPage: React.FC = () => {
   const navigate = useNavigate();
@@ -52,10 +54,10 @@ const AdminProductPage: React.FC = () => {
   const [formData, setFormData] = useState<Omit<Product, "id">>(initialForm);
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [variants, setVariants] = useState<Record<string, Variant[]>>({});
-  const [variantForm, setVariantForm] = useState(initialVariantForm);
-  const [showVariantForm, setShowVariantForm] = useState<string | null>(null);
-  const [editingVariantId, setEditingVariantId] = useState<string | null>(null);
+  const [, setVariants] = useState<Record<string, Variant[]>>({});
+  // const [variantForm, setVariantForm] = useState(initialVariantForm);
+  // const [showVariantForm, setShowVariantForm] = useState<string | null>(null);
+  // const [editingVariantId, setEditingVariantId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   // const [, setPriceInput] = useState(""); // New state for price input as string
@@ -288,43 +290,43 @@ const AdminProductPage: React.FC = () => {
     });
   };
 
-  const handleVariantChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    const { name, value, type } = e.target;
-    let updatedForm = {
-      ...variantForm,
-      [name]:
-        type === "checkbox"
-          ? (e.target as HTMLInputElement).checked
-          : type === "number"
-          ? value
-          : value,
-    };
-    // Auto-calculate discount if price or originalPrice changes
-    if (name === "price" || name === "originalPrice") {
-      const price = parseFloat(name === "price" ? value : updatedForm.price);
-      const originalPrice = parseFloat(name === "originalPrice" ? value : updatedForm.originalPrice);
-      if (!isNaN(price) && !isNaN(originalPrice) && originalPrice > 0 && price <= originalPrice) {
-        const discount = (((originalPrice - price) / originalPrice) * 100).toFixed(2);
-        updatedForm.discount = discount;
-      } else {
-        updatedForm.discount = "";
-      }
-    }
-    // Auto-calculate price if originalPrice or discount changes
-    if (name === "originalPrice" || name === "discount") {
-      const originalPrice = parseFloat(name === "originalPrice" ? value : updatedForm.originalPrice);
-      const discount = parseFloat(name === "discount" ? value : updatedForm.discount);
-      if (!isNaN(originalPrice) && !isNaN(discount) && originalPrice > 0 && discount >= 0 && discount <= 100) {
-        const price = (originalPrice * (1 - discount / 100)).toFixed(2);
-        updatedForm.price = price;
-      } else {
-        updatedForm.price = "";
-      }
-    }
-    setVariantForm(updatedForm);
-  };
+  // const handleVariantChange = (
+  //   e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  // ) => {
+  //   const { name, value, type } = e.target;
+  //   let updatedForm = {
+  //     ...variantForm,
+  //     [name]:
+  //       type === "checkbox"
+  //         ? (e.target as HTMLInputElement).checked
+  //         : type === "number"
+  //         ? value
+  //         : value,
+  //   };
+  //   // Auto-calculate discount if price or originalPrice changes
+  //   if (name === "price" || name === "originalPrice") {
+  //     const price = parseFloat(name === "price" ? value : updatedForm.price);
+  //     const originalPrice = parseFloat(name === "originalPrice" ? value : updatedForm.originalPrice);
+  //     if (!isNaN(price) && !isNaN(originalPrice) && originalPrice > 0 && price <= originalPrice) {
+  //       const discount = (((originalPrice - price) / originalPrice) * 100).toFixed(2);
+  //       updatedForm.discount = discount;
+  //     } else {
+  //       updatedForm.discount = "";
+  //     }
+  //   }
+  //   // Auto-calculate price if originalPrice or discount changes
+  //   if (name === "originalPrice" || name === "discount") {
+  //     const originalPrice = parseFloat(name === "originalPrice" ? value : updatedForm.originalPrice);
+  //     const discount = parseFloat(name === "discount" ? value : updatedForm.discount);
+  //     if (!isNaN(originalPrice) && !isNaN(discount) && originalPrice > 0 && discount >= 0 && discount <= 100) {
+  //       const price = (originalPrice * (1 - discount / 100)).toFixed(2);
+  //       updatedForm.price = price;
+  //     } else {
+  //       updatedForm.price = "";
+  //     }
+  //   }
+  //   setVariantForm(updatedForm);
+  // };
 
   // Create or update product
   const handleSubmit = async (e: React.FormEvent) => {
@@ -353,61 +355,61 @@ const AdminProductPage: React.FC = () => {
     }
   };
 
-  const handleVariantSubmit = async (productId: string) => {
-    try {
-      setFormLoading(true);
-      setError("");
-      setSuccess("");
-      // Prevent duplicate variant by weight/unit
-      if (!editingVariantId) {
-        const existing = (variants[productId] || []).find(
-          v => v.weight.trim().toLowerCase() === variantForm.weight.trim().toLowerCase()
-        );
-        if (existing) {
-          setError("Variant already exists");
-          setFormLoading(false);
-          return;
-        }
-      }
-      const variantData = {
-        ...variantForm,
-        price: Number(variantForm.price) || 0,
-        originalPrice: Number(variantForm.originalPrice) || 0,
-        discount: Number(variantForm.discount) || 0,
-        units_in_stock: Number(variantForm.units_in_stock) || 0,
-      };
-      if (editingVariantId) {
-        const updatedVariant = await variantApi.updateVariant(
-          productId,
-          editingVariantId,
-          { id: editingVariantId, ...variantData, productId }
-        );
-        setVariants((prev: Record<string, Variant[]>) => ({
-          ...prev,
-          [productId]: prev[productId].map((v) =>
-            v.id === editingVariantId ? updatedVariant : v
-          ),
-        }));
-        setSuccess("Variant updated successfully!");
-      } else {
-        const newVariant = await variantApi.createVariant(productId, {
-          ...variantData,
-          productId,
-        });
-        setVariants((prev: Record<string, Variant[]>) => ({
-          ...prev,
-          [productId]: [...(prev[productId] || []), newVariant],
-        }));
-        setSuccess("Variant created successfully!");
-      }
-      resetVariantForm();
-    } catch (err) {
-      console.error("Variant save error:", err);
-      setError("Failed to save variant. Please try again.");
-    } finally {
-      setFormLoading(false);
-    }
-  };
+  // const handleVariantSubmit = async (productId: string) => {
+  //   try {
+  //     setFormLoading(true);
+  //     setError("");
+  //     setSuccess("");
+  //     // Prevent duplicate variant by weight/unit
+  //     if (!editingVariantId) {
+  //       const existing = (variants[productId] || []).find(
+  //         v => v.weight.trim().toLowerCase() === variantForm.weight.trim().toLowerCase()
+  //       );
+  //       if (existing) {
+  //         setError("Variant already exists");
+  //         setFormLoading(false);
+  //         return;
+  //       }
+  //     }
+  //     const variantData = {
+  //       ...variantForm,
+  //       price: Number(variantForm.price) || 0,
+  //       originalPrice: Number(variantForm.originalPrice) || 0,
+  //       discount: Number(variantForm.discount) || 0,
+  //       units_in_stock: Number(variantForm.units_in_stock) || 0,
+  //     };
+  //     if (editingVariantId) {
+  //       const updatedVariant = await variantApi.updateVariant(
+  //         productId,
+  //         editingVariantId,
+  //         { id: editingVariantId, ...variantData, productId }
+  //       );
+  //       setVariants((prev: Record<string, Variant[]>) => ({
+  //         ...prev,
+  //         [productId]: prev[productId].map((v) =>
+  //           v.id === editingVariantId ? updatedVariant : v
+  //         ),
+  //       }));
+  //       setSuccess("Variant updated successfully!");
+  //     } else {
+  //       const newVariant = await variantApi.createVariant(productId, {
+  //         ...variantData,
+  //         productId,
+  //       });
+  //       setVariants((prev: Record<string, Variant[]>) => ({
+  //         ...prev,
+  //         [productId]: [...(prev[productId] || []), newVariant],
+  //       }));
+  //       setSuccess("Variant created successfully!");
+  //     }
+  //     resetVariantForm();
+  //   } catch (err) {
+  //     console.error("Variant save error:", err);
+  //     setError("Failed to save variant. Please try again.");
+  //   } finally {
+  //     setFormLoading(false);
+  //   }
+  // };
 
   const handleDelete = async (id: string) => {
     if (!window.confirm("Are you sure you want to delete this product?"))
@@ -428,22 +430,22 @@ const AdminProductPage: React.FC = () => {
     }
   };
 
-  const handleVariantDelete = async (productId: string, variantId: string) => {
-    if (!window.confirm("Are you sure you want to delete this variant?"))
-      return;
+  // const handleVariantDelete = async (productId: string, variantId: string) => {
+  //   if (!window.confirm("Are you sure you want to delete this variant?"))
+  //     return;
 
-    try {
-      await variantApi.deleteVariant(productId, variantId);
-      setVariants((prev) => ({
-        ...prev,
-        [productId]: prev[productId].filter((v) => v.id !== variantId),
-      }));
-      setSuccess("Variant deleted successfully!");
-    } catch (err) {
-      console.error("Variant delete error:", err);
-      setError("Failed to delete variant. Please try again.");
-    }
-  };
+  //   try {
+  //     await variantApi.deleteVariant(productId, variantId);
+  //     setVariants((prev) => ({
+  //       ...prev,
+  //       [productId]: prev[productId].filter((v) => v.id !== variantId),
+  //     }));
+  //     setSuccess("Variant deleted successfully!");
+  //   } catch (err) {
+  //     console.error("Variant delete error:", err);
+  //     setError("Failed to delete variant. Please try again.");
+  //   }
+  // };
 
   const handleEditClick = (product: Product) => {
     setFormData({
@@ -461,20 +463,20 @@ const AdminProductPage: React.FC = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleVariantEditClick = (variant: Variant) => {
-    setVariantForm({
-      weight: variant.weight || "",
-      price: variant.price ? String(variant.price) : "",
-      originalPrice: variant.originalPrice ? String(variant.originalPrice) : "",
-      discount: variant.discount ? String(variant.discount) : "",
-      inStock: variant.inStock,
-      units_in_stock: variant.units_in_stock
-        ? String(variant.units_in_stock)
-        : "",
-    });
-    setEditingVariantId(variant.id);
-    setShowVariantForm(variant.productId);
-  };
+  // const handleVariantEditClick = (variant: Variant) => {
+  //   setVariantForm({
+  //     weight: variant.weight || "",
+  //     price: variant.price ? String(variant.price) : "",
+  //     originalPrice: variant.originalPrice ? String(variant.originalPrice) : "",
+  //     discount: variant.discount ? String(variant.discount) : "",
+  //     inStock: variant.inStock,
+  //     units_in_stock: variant.units_in_stock
+  //       ? String(variant.units_in_stock)
+  //       : "",
+  //   });
+  //   setEditingVariantId(variant.id);
+  //   setShowVariantForm(variant.productId);
+  // };
 
   const resetForm = () => {
     setFormData(initialForm);
@@ -482,21 +484,21 @@ const AdminProductPage: React.FC = () => {
     setEditId(null);
   };
 
-  const resetVariantForm = () => {
-    setVariantForm(initialVariantForm);
-    setEditingVariantId(null);
-    setShowVariantForm(null);
-  };
+  // const resetVariantForm = () => {
+  //   setVariantForm(initialVariantForm);
+  //   setEditingVariantId(null);
+  //   setShowVariantForm(null);
+  // };
 
-  const toggleVariantForm = (productId: string) => {
-    if (showVariantForm === productId) {
-      resetVariantForm();
-    } else {
-      setShowVariantForm(productId);
-      setEditingVariantId(null);
-      setVariantForm(initialVariantForm);
-    }
-  };
+  // const toggleVariantForm = (productId: string) => {
+  //   if (showVariantForm === productId) {
+  //     resetVariantForm();
+  //   } else {
+  //     setShowVariantForm(productId);
+  //     setEditingVariantId(null);
+  //     setVariantForm(initialVariantForm);
+  //   }
+  // };
 
   const openCreateModal = () => {
     resetForm();
@@ -1143,8 +1145,9 @@ const AdminProductPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => viewVariants(product.id)}
-                          className="button text-blue-600 hover:text-blue-900 mr-4"
+                          className="button inline-flex items-center px-2 py-1 text-xs text-white bg-blue-500 hover:bg-blue-600 rounded mx-2"
                         >
+                          <EyeIcon className="w-4 h-4 mr-1" />
                           Variants
                         </button>
                         {/* <button
@@ -1155,17 +1158,17 @@ const AdminProductPage: React.FC = () => {
                           View
                         </button> */}
                         <button
-                          type="button"
                           onClick={() => handleEditClick(product)}
-                          className="button text-indigo-600 hover:text-indigo-900 mr-4"
+                          className="button inline-flex items-center px-2 py-1 text-xs text-white bg-green-500 hover:bg-green-600 rounded mx-2"
                         >
+                          <PencilIcon className="w-4 h-4 mr-1" />
                           Edit
                         </button>
                         <button
-                          type="button"
                           onClick={() => handleDelete(product.id)}
-                          className="button text-red-600 hover:text-red-900"
+                          className="button inline-flex items-center px-2 py-1 text-xs text-white bg-red-500 hover:bg-red-600 rounded"
                         >
+                          <TrashIcon className="w-4 h-4 mr-1" />
                           Delete
                         </button>
                         {/* <button
