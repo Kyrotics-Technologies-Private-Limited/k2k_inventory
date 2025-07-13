@@ -3,11 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { orderApi } from "../../services/api/orderApi";
 import type { Order } from "../../types/order";
 import { toast } from "react-toastify";
-import { FiEye, FiSearch } from "react-icons/fi";
+import { FiEye, FiSearch, FiCalendar } from "react-icons/fi";
 import { auth } from "../../services/firebase/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 const ORDER_STATUSES = [
   "placed",
@@ -46,68 +48,34 @@ const formatDate = (timestamp: any) => {
   }
 };
 
-// const formatTime = (timestamp: any) => {
-//   if (!timestamp) return "-";
-//   try {
-//     // Handle Firestore Timestamp
-//     if (timestamp?.seconds) {
-//       const date = new Date(timestamp.seconds * 1000);
-//       return date.toLocaleTimeString("en-IN", {
-//         hour: "2-digit",
-//         minute: "2-digit",
-//         hour12: true,
-//       });
-//     }
-//     // Handle ISO string or number
-//     const date = new Date(timestamp);
-//     if (isNaN(date.getTime())) return "-";
-//     return date.toLocaleTimeString("en-IN", {
-//       hour: "2-digit",
-//       minute: "2-digit",
-//       hour12: true,
-//     });
-//   } catch (error) {
-//     console.error("Error formatting time:", error);
-//     return "-";
-//   }
-// };
-
-// Helper to flatten nested objects/arrays for Excel export
-const flattenObject = (obj: any, prefix = ""): any => {
-  let result: any = {};
-  for (const key in obj) {
-    if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
-    const value = obj[key];
-    const newKey = prefix ? `${prefix}.${key}` : key;
-    if (
-      value &&
-      typeof value === "object" &&
-      !Array.isArray(value) &&
-      !(value instanceof Date)
-    ) {
-      Object.assign(result, flattenObject(value, newKey));
-    } else if (Array.isArray(value)) {
-      result[newKey] = JSON.stringify(value);
-    } else {
-      result[newKey] = value;
+const formatDateForDatePicker = (timestamp: any) => {
+  if (!timestamp) return null;
+  try {
+    if (timestamp?.seconds) {
+      return new Date(timestamp.seconds * 1000);
     }
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return null;
+    return date;
+  } catch (error) {
+    console.error("Error formatting date for picker:", error);
+    return null;
   }
-  return result;
 };
 
 const AdminOrdersPage: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  //const [isAuthReady, setIsAuthReady] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
   const navigate = useNavigate();
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      //setIsAuthReady(true);
       if (user) {
         fetchOrders();
       } else {
@@ -129,10 +97,6 @@ const AdminOrdersPage: React.FC = () => {
       setLoading(true);
       setError(null);
       const data = await orderApi.getAllOrdersForAdmin();
-      console.log("Orders received:", data);
-      if (data.length > 0) {
-        console.log("First order created_at:", data[0].created_at);
-      }
       setOrders(data);
     } catch (err: any) {
       console.error("Error fetching admin orders:", err);
@@ -145,20 +109,13 @@ const AdminOrdersPage: React.FC = () => {
 
   const handleStatusUpdate = async (
     orderId: string,
-    status:
-      | "placed"
-      | "confirmed"
-      | "processing"
-      | "shipped"
-      | "delivered"
-      | "cancelled"
-      | "returned"
+    status: (typeof ORDER_STATUSES)[number]
   ) => {
     try {
       await orderApi.updateOrderStatus(orderId, { status });
       await fetchOrders();
       toast.success("Order status updated successfully");
-      setEditingOrderId(null); // Close the dropdown after update
+      setEditingOrderId(null);
     } catch (err: any) {
       console.error("Failed to update order status:", err);
       toast.error(err.message || "Failed to update order status");
@@ -177,40 +134,24 @@ const AdminOrdersPage: React.FC = () => {
       (order.userId &&
         order.userId.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    return statusMatch && searchMatch;
+    // Apply date filter
+    let dateMatch = true;
+    if (startDate || endDate) {
+      const orderDate = formatDateForDatePicker(order.created_at);
+      if (!orderDate) {
+        dateMatch = false;
+      } else {
+        if (startDate && orderDate < startDate) {
+          dateMatch = false;
+        }
+        if (endDate && orderDate > endDate) {
+          dateMatch = false;
+        }
+      }
+    }
+
+    return statusMatch && searchMatch && dateMatch;
   });
-
-  // Excel export handler (selected backend fields)
-  // const handleExportExcel = () => {
-  //   const exportData = filteredOrders.map((order) => ({
-
-  //     const fullAddress = order.address
-  //     ? `${order.address.first_name} ${order.address.last_name}, ${order.address.street}, ${order.address.city}, ${order.address.state}, ${order.address.postal_code}, ${order.address.country}, Phone: ${order.address.phone}`
-  //     : "";
-  //     "Order ID": order.id,
-  //     "User ID": order.userId,
-  //     "Username": order.username || "",
-  //     "Address": order.address,
-  //     "Total Amount": order.total_amount,
-  //     "Payment Method": order.payment_method,
-  //     "Shipping Method": order.shipping_method,
-  //     Items: Array.isArray(order.items)
-  //       ? order.items
-  //           .map((item: any) => item.name || item.title || "")
-  //           .join(", ")
-  //       : "",
-  //   }));
-  //   const worksheet = XLSX.utils.json_to_sheet(exportData);
-  //   const workbook = XLSX.utils.book_new();
-  //   XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
-  //   const excelBuffer = XLSX.write(workbook, {
-  //     bookType: "xlsx",
-  //     type: "array",
-  //   });
-  //   const data = new Blob([excelBuffer], { type: "application/octet-stream" });
-  //   saveAs(data, "orders_selected_fields.xlsx");
-  // };
-
 
   const handleExportExcel = () => {
     const exportData = filteredOrders.map((order) => {
@@ -222,14 +163,20 @@ const AdminOrdersPage: React.FC = () => {
         "Order ID": order.id,
         "User ID": order.userId,
         Username: order.username || "",
-        Address: fullAddress, 
+        Address: fullAddress,
         "Total Amount": order.total_amount,
         "Payment Method": order.payment_method,
         "Shipping Method": order.shipping_method,
-        "Order Creation Date": formatDate(order.created_at),
+        Status: order.status,
+        "Order Date": formatDate(order.created_at),
         Items: Array.isArray(order.items)
           ? order.items
-              .map((item: any) => item.name || item.title || "")
+              .map(
+                (item: any) =>
+                  `${item.name || item.title || ""} (Qty: ${
+                    item.quantity || 1
+                  })`
+              )
               .join(", ")
           : "",
       };
@@ -243,9 +190,14 @@ const AdminOrdersPage: React.FC = () => {
       type: "array",
     });
     const data = new Blob([excelBuffer], { type: "application/octet-stream" });
-    saveAs(data, "orders_selected_fields.xlsx");
+    saveAs(data, `orders_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
-  
+
+  const clearDateFilters = () => {
+    setStartDate(null);
+    setEndDate(null);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -294,68 +246,144 @@ const AdminOrdersPage: React.FC = () => {
   return (
     <div className="p-4">
       <h2 className="text-xl font-bold mb-4">All Orders</h2>
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-        <div className="flex items-center gap-2">
-          <label
-            htmlFor="statusFilter"
-            className="text-sm font-medium text-gray-700"
-          >
-            <span className="inline-block mr-1">Filter by Status:</span>
-          </label>
-          <div className="relative">
-            <select
-              id="statusFilter"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="button appearance-none border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white pr-8 min-w-[120px]"
+
+      {/* Filters Section */}
+      <div className="mb-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+          {/* Status Filter */}
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor="statusFilter"
+              className="text-sm font-medium text-gray-700"
             >
-              <option value="all">All</option>
-              {ORDER_STATUSES.map((status) => (
-                <option key={status} value={status}>
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
-                </option>
-              ))}
-            </select>
-            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
-              ▼
-            </span>
+              Filter by Status:
+            </label>
+            <div className="relative">
+              <select
+                id="statusFilter"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="button appearance-none border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white pr-8 min-w-[120px]"
+              >
+                <option value="all">All</option>
+                {ORDER_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
+                ▼
+              </span>
+            </div>
           </div>
+
+          {/* Search Bar */}
+          <div className="relative flex-grow max-w-md">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <FiSearch className="text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search by username or user ID..."
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          {/* Clear Filters */}
+          {(statusFilter !== "all" || searchQuery || startDate || endDate) && (
+            <button
+              onClick={() => {
+                setStatusFilter("all");
+                setSearchQuery("");
+                clearDateFilters();
+              }}
+              className="button inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 transition"
+            >
+              Clear All Filters
+              <span className="ml-1">✕</span>
+            </button>
+          )}
         </div>
 
-        {/* Search Bar */}
-        <div className="relative flex-grow max-w-md">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <FiSearch className="text-gray-400" />
+        {/* Date Range Filter */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700">
+              <FiCalendar className="inline-block mr-1" />
+              Date Range:
+            </label>
+            <div className="flex items-center gap-2">
+              <DatePicker
+                selected={startDate}
+                onChange={(date) => setStartDate(date)}
+                selectsStart
+                startDate={startDate}
+                endDate={endDate}
+                placeholderText="Start date"
+                className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                maxDate={endDate || new Date()}
+              />
+              <span>to</span>
+              <DatePicker
+                selected={endDate}
+                onChange={(date) => setEndDate(date)}
+                selectsEnd
+                startDate={startDate}
+                endDate={endDate}
+                minDate={startDate ?? undefined}
+                placeholderText="End date"
+                className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                maxDate={new Date()}
+              />
+            </div>
+            {(startDate || endDate) && (
+              <button
+                onClick={clearDateFilters}
+                className="button inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 transition"
+              >
+                Clear Dates
+              </button>
+            )}
           </div>
-          <input
-            type="text"
-            placeholder="Search by username or user ID..."
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
 
-        {statusFilter !== "all" && (
+          {/* Export Button */}
           <button
-            onClick={() => setStatusFilter("all")}
-            className="button inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 transition"
+            onClick={handleExportExcel}
+            className="button px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
+            disabled={filteredOrders.length === 0}
           >
-            Clear Filter
-            <span className="ml-1">✕</span>
+            Export to Excel
           </button>
-        )}
-        <button
-          onClick={handleExportExcel}
-          className="button px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
-        >
-          Export to Excel
-        </button>
+        </div>
       </div>
+
+      {/* Orders Table */}
       {filteredOrders.length === 0 ? (
-        <p className="text-gray-500">No orders found</p>
+        <div className="bg-white p-8 rounded-lg shadow-sm text-center">
+          <p className="text-gray-500 text-lg">
+            No orders found matching your criteria
+          </p>
+          {(statusFilter !== "all" || searchQuery || startDate || endDate) && (
+            <button
+              onClick={() => {
+                setStatusFilter("all");
+                setSearchQuery("");
+                clearDateFilters();
+              }}
+              className="mt-4 px-4 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition"
+            >
+              Clear all filters
+            </button>
+          )}
+        </div>
       ) : (
         <div className="overflow-x-auto ring-1 ring-gray-200 rounded-lg bg-white shadow-sm">
+          <div className="p-2 bg-gray-50 text-right text-sm text-gray-500">
+            Showing {filteredOrders.length} of {orders.length} orders
+          </div>
           <table className="min-w-full divide-y divide-gray-200">
             <thead>
               <tr>
@@ -368,18 +396,12 @@ const AdminOrdersPage: React.FC = () => {
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b">
                   Date
                 </th>
-                {/* <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b">
-                  Time
-                </th> */}
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b">
                   Status
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b">
                   Total
                 </th>
-                {/* <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b">
-                  Shipping Address
-                </th> */}
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 border-b">
                   Actions
                 </th>
@@ -396,12 +418,12 @@ const AdminOrdersPage: React.FC = () => {
                       onClick={() => viewDetails(order.id)}
                       className="text-sm font-medium text-blue-600 hover:text-blue-800 hover cursor-pointer transition-colors duration-150"
                     >
-                      {order.id}
+                      {order.id.substring(0, 8)}...
                     </button>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
-                      {order.username || order.userId}
+                      {order.username || order.userId.substring(0, 8) + "..."}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -409,11 +431,6 @@ const AdminOrdersPage: React.FC = () => {
                       {formatDate(order.created_at)}
                     </div>
                   </td>
-                  {/* <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {formatTime(order.created_at)}
-                    </div>
-                  </td> */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     {editingOrderId === order.id ? (
                       <select
@@ -423,6 +440,7 @@ const AdminOrdersPage: React.FC = () => {
                           handleStatusUpdate(order.id, newStatus);
                         }}
                         className="button border rounded px-2 py-1 text-sm"
+                        autoFocus
                       >
                         {ORDER_STATUSES.map((status) => (
                           <option key={status} value={status}>
@@ -440,14 +458,13 @@ const AdminOrdersPage: React.FC = () => {
                             ? "bg-green-100 text-green-800"
                             : order.status === "returned"
                             ? "bg-yellow-100 text-yellow-800"
-                            
                             : order.status === "confirmed"
                             ? "bg-blue-100 text-blue-800"
                             : order.status === "processing"
                             ? "bg-purple-100 text-purple-800"
                             : order.status === "shipped"
                             ? "bg-indigo-100 text-indigo-800"
-                            : "bg-blue-100 text-blue-800"
+                            : "bg-gray-100 text-gray-800"
                         }`}
                       >
                         {order.status.charAt(0).toUpperCase() +
@@ -456,17 +473,13 @@ const AdminOrdersPage: React.FC = () => {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    ₹{order.total_amount}
+                    ₹{order.total_amount.toFixed(2)}
                   </td>
-                  {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {order.address
-                      ? `${order.address.street || ""},${order.address.address || ""}, ${order.address.city || ""}, ${order.address.state || ""} ${order.address.postal_code || ""}, ${order.address.country || ""}`
-                      : "-"}
-                  </td> */}
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
                       onClick={() => viewDetails(order.id)}
                       className="button text-indigo-600 hover:text-indigo-900 mr-4"
+                      title="View order details"
                     >
                       <FiEye className="inline-block" /> View
                     </button>
@@ -479,10 +492,9 @@ const AdminOrdersPage: React.FC = () => {
                             )
                           }
                           className="button text-blue-600 hover:text-blue-900"
+                          title="Update order status"
                         >
-                          {editingOrderId === order.id
-                            ? "Cancel"
-                            : "Update Status"}
+                          {editingOrderId === order.id ? "Cancel" : "Update"}
                         </button>
                       )}
                   </td>
