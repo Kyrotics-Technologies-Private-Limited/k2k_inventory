@@ -53,4 +53,36 @@ export const productApi = {
     });
     return response.data.urls as string[];
   },
+
+  // UPLOAD main image
+  uploadMainImage: async (file: File) => {
+    const formData = new FormData();
+    formData.append("mainImage", file);
+    const response = await api.post(`/products/upload-main-image`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data.url as string;
+  },
+
+  // UPLOAD badge image
+  uploadBadgeImage: async (file: File) => {
+    const formData = new FormData();
+    formData.append("badgeImage", file);
+    const response = await api.post(`/products/upload-badge-image`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data.url as string;
+  },
+
+  // UPLOAD multiple badge images
+  uploadMultipleBadgeImages: async (files: FileList | File[]) => {
+    const formData = new FormData();
+    Array.from(files).forEach((file) => {
+      formData.append("badgeImages", file);
+    });
+    const response = await api.post(`/products/upload-multiple-badge-images`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data.urls as string[];
+  },
 };
