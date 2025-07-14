@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate} from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import type { Product } from "../../types/index";
 import type { Variant } from "../../types/variant";
 import { productApi } from "../../services/api/productApi";
@@ -15,6 +15,8 @@ import {
 
 interface EditVariantForm {
   weight: string;
+  weightNumber: string;
+  weightUnit: string;
   price: number;
   originalPrice: number;
   discount: number;
@@ -38,6 +40,8 @@ const VariantDetailsPage: React.FC = () => {
   const [editingVariant, setEditingVariant] = useState<Variant | null>(null);
   const [editFormData, setEditFormData] = useState<EditVariantForm>({
     weight: "",
+    weightNumber: "",
+    weightUnit: "g",
     price: 0,
     originalPrice: 0,
     discount: 0,
@@ -47,6 +51,8 @@ const VariantDetailsPage: React.FC = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [addFormData, setAddFormData] = useState({
     weight: "",
+    weightNumber: "",
+    weightUnit: "g",
     price: "",
     originalPrice: "",
     discount: "",
@@ -55,6 +61,8 @@ const VariantDetailsPage: React.FC = () => {
   });
   const [addError, setAddError] = useState("");
   const [addLoading, setAddLoading] = useState(false);
+
+  const WEIGHT_UNITS = ["g", "kg", "ml", "l"];
 
   useEffect(() => {
     const fetchData = async () => {
@@ -112,9 +120,14 @@ const VariantDetailsPage: React.FC = () => {
   };
 
   const handleEditVariant = (variant: Variant) => {
+    // Split weight into number and unit
+    const [weightNumber, weightUnit] = variant.weight.split(/\s+/);
+
     setEditingVariant(variant);
     setEditFormData({
       weight: variant.weight,
+      weightNumber: weightNumber || "",
+      weightUnit: weightUnit || "g",
       price: variant.price,
       originalPrice: variant.originalPrice || 0,
       discount: variant.discount || 0,
@@ -124,22 +137,54 @@ const VariantDetailsPage: React.FC = () => {
     });
   };
 
-  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
+  const handleEditInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
 
-    setEditFormData((prev) => ({
-      ...prev,
-      [name]:
-        type === "checkbox"
-          ? checked
-          : ["price", "originalPrice", "discount", "units_in_stock"].includes(
-              name
-            )
-          ? value === ""
-            ? 0
-            : Number(value)
-          : value,
-    }));
+    if (name === "weightNumber" || name === "weightUnit") {
+      const updatedValue =
+        name === "weightNumber"
+          ? `${value} ${editFormData.weightUnit}`
+          : `${editFormData.weightNumber} ${value}`;
+
+      setEditFormData((prev) => ({
+        ...prev,
+        weight: updatedValue,
+        [name]: value,
+      }));
+    } else {
+      setEditFormData((prev) => {
+        const updatedData = {
+          ...prev,
+          [name]:
+            type === "checkbox"
+              ? checked
+              : ["price", "originalPrice", "units_in_stock"].includes(name)
+              ? value === ""
+                ? 0
+                : Number(value)
+              : value,
+        };
+
+        // Automatically calculate discount when price or originalPrice changes
+        if (name === "price" || name === "originalPrice") {
+          const price = name === "price" ? Number(value) : prev.price;
+          const originalPrice =
+            name === "originalPrice" ? Number(value) : prev.originalPrice;
+
+          if (originalPrice > 0 && price > 0) {
+            const discountPercent = ((originalPrice - price) / originalPrice) * 100;
+            updatedData.discount = Math.round(discountPercent * 100) / 100;
+          } else {
+            updatedData.discount = 0;
+          }
+        }
+
+        return updatedData;
+      });
+    }
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -153,7 +198,7 @@ const VariantDetailsPage: React.FC = () => {
         {
           id: editingVariant.id,
           ...editFormData,
-          productId
+          productId,
         } // payload: use the value from the form, not the old variant
       );
 
@@ -192,17 +237,51 @@ const VariantDetailsPage: React.FC = () => {
     setEditingVariant(null);
   };
 
-  const handleAddInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
-    setAddFormData((prev) => ({
-      ...prev,
-      [name]:
-        type === "checkbox"
-          ? checked
-          : ["price", "originalPrice", "discount", "units_in_stock"].includes(name)
-          ? value === "" ? 0 : Number(value)
-          : value,
-    }));
+  const handleAddInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+
+    setAddFormData((prev) => {
+      const updatedData = {
+        ...prev,
+        [name]:
+          type === "checkbox"
+            ? checked
+            : ["price", "originalPrice", "units_in_stock"].includes(name)
+            ? value === ""
+              ? 0
+              : Number(value)
+            : value,
+      };
+
+      // Update combined weight string when either number or unit changes
+      if (name === "weightNumber" || name === "weightUnit") {
+        const number = name === "weightNumber" ? value : prev.weightNumber;
+        const unit = name === "weightUnit" ? value : prev.weightUnit;
+        updatedData.weight = number && unit ? `${number} ${unit}` : "";
+      }
+
+      // Automatically calculate discount when price or originalPrice changes
+      if (name === "price" || name === "originalPrice") {
+        const price = name === "price" ? Number(value) : Number(prev.price);
+        const originalPrice =
+          name === "originalPrice" ? Number(value) : Number(prev.originalPrice);
+
+        if (originalPrice > 0 && price > 0) {
+          const discountPercent =
+            ((originalPrice - price) / originalPrice) * 100;
+          updatedData.discount = (
+            Math.round(discountPercent * 100) / 100
+          ).toString(); // Round to 2 decimal places
+        } else {
+          updatedData.discount = "0";
+        }
+      }
+
+      return updatedData;
+    });
   };
 
   const handleAddSubmit = async (e: React.FormEvent) => {
@@ -210,23 +289,32 @@ const VariantDetailsPage: React.FC = () => {
     setAddError("");
     setAddLoading(true);
     // Prevent duplicate variant by weight
-    if (variants.find(v => v.weight.trim().toLowerCase() === addFormData.weight.trim().toLowerCase())) {
+    if (
+      variants.find(
+        (v) =>
+          v.weight.trim().toLowerCase() ===
+          addFormData.weight.trim().toLowerCase()
+      )
+    ) {
       setAddError("Variant already exists");
       setAddLoading(false);
       return;
     }
     try {
       const newVariant = await variantApi.createVariant(productId as string, {
-        ...addFormData,
+        weight: addFormData.weight, // This is the combined string from handleAddInputChange
         productId: productId as string,
         price: Number(addFormData.price),
         originalPrice: Number(addFormData.originalPrice),
         discount: Number(addFormData.discount),
+        inStock: addFormData.inStock,
         units_in_stock: Number(addFormData.units_in_stock),
       });
       setVariants((prev) => [...prev, newVariant]);
       setAddFormData({
         weight: "",
+        weightNumber: "",
+        weightUnit: "",
         price: "",
         originalPrice: "",
         discount: "",
@@ -288,23 +376,55 @@ const VariantDetailsPage: React.FC = () => {
         </button>
       </div>
       {showAddForm && (
-        <form onSubmit={handleAddSubmit} className="mb-6 bg-white p-6 rounded shadow">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Add New Variant</h3>
+        <form
+          onSubmit={handleAddSubmit}
+          className="mb-6 bg-white p-6 rounded shadow"
+        >
+          <h3 className="text-lg font-medium text-gray-900 mb-4">
+            Add New Variant
+          </h3>
           {addError && <div className="mb-2 text-red-600">{addError}</div>}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Weight</label>
-              <input
-                name="weight"
-                value={addFormData.weight}
-                onChange={handleAddInputChange}
-                placeholder="e.g., 500g, 1kg"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                required
-              />
+            <div className="grid grid-cols-3 gap-2">
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Weight
+                </label>
+                <input
+                  type="number"
+                  name="weightNumber"
+                  value={addFormData.weightNumber}
+                  onChange={handleAddInputChange}
+                  min="0"
+                  step="0.01"
+                  placeholder="Enter weight"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Unit
+                </label>
+                <select
+                  name="weightUnit"
+                  value={addFormData.weightUnit}
+                  onChange={handleAddInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  required
+                >
+                  {WEIGHT_UNITS.map((unit) => (
+                    <option key={unit} value={unit}>
+                      {unit}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Price (₹)
+              </label>
               <input
                 name="price"
                 type="number"
@@ -317,7 +437,9 @@ const VariantDetailsPage: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Original Price (₹)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Striked-Through Price (₹)
+              </label>
               <input
                 name="originalPrice"
                 type="number"
@@ -329,19 +451,22 @@ const VariantDetailsPage: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Discount (%)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Discount (%)
+              </label>
               <input
                 name="discount"
                 type="number"
-                min="0"
-                max="100"
                 value={addFormData.discount}
-                onChange={handleAddInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                readOnly
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
+                placeholder="Automatically calculated"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Units in Stock</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Units in Stock
+              </label>
               <input
                 type="number"
                 name="units_in_stock"
@@ -360,7 +485,9 @@ const VariantDetailsPage: React.FC = () => {
                 onChange={handleAddInputChange}
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
-              <label className="ml-2 block text-sm text-gray-700">In Stock</label>
+              <label className="ml-2 block text-sm text-gray-700">
+                In Stock
+              </label>
             </div>
           </div>
           <div className="mt-4 flex justify-end">
@@ -374,7 +501,6 @@ const VariantDetailsPage: React.FC = () => {
           </div>
         </form>
       )}
-
       {/* Product Info */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
         <div className="p-6 border-b border-gray-200">
@@ -391,14 +517,13 @@ const VariantDetailsPage: React.FC = () => {
                 {product.name}
               </h1>
               <p className="text-gray-600 capitalize">{product.category}</p>
-              <p className="text-gray-900 font-medium mt-1">
+              {/* <p className="text-gray-900 font-medium mt-1">
                 Base Price: ₹{product.price?.amount?.toFixed(2) || "0.00"}
-              </p>
+              </p> */}
             </div>
           </div>
         </div>
       </div>
-
       {/* Errors */}
       {error.variants && (
         <div className="mb-6 p-4 bg-yellow-50 text-yellow-700 rounded-lg border border-yellow-200 flex items-center justify-between">
@@ -415,8 +540,7 @@ const VariantDetailsPage: React.FC = () => {
           </button>
         </div>
       )}
-
-      {/* Edit Modal */}
+      {/* Edit Modal */}{" "}
       {editingVariant && (
         <div className="fixed inset-0 bg-gray-900/60 bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
@@ -426,18 +550,40 @@ const VariantDetailsPage: React.FC = () => {
               </h2>
               <form onSubmit={handleEditSubmit}>
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Weight
-                    </label>
-                    <input
-                      type="text"
-                      name="weight"
-                      value={editFormData.weight}
-                      onChange={handleEditInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      required
-                    />
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Weight
+                      </label>
+                      <input
+                        type="number"
+                        name="weightNumber"
+                        value={editFormData.weightNumber || ""}
+                        onChange={handleEditInputChange}
+                        min="0"
+                        step="0.01"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Unit
+                      </label>
+                      <select
+                        name="weightUnit"
+                        value={editFormData.weightUnit}
+                        onChange={handleEditInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      >
+                        {WEIGHT_UNITS.map((unit) => (
+                          <option key={unit} value={unit}>
+                            {unit}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
                   <div>
@@ -458,7 +604,7 @@ const VariantDetailsPage: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Original Price (₹)
+                      Strike-Through Price (₹)
                     </label>
                     <input
                       type="number"
@@ -479,10 +625,9 @@ const VariantDetailsPage: React.FC = () => {
                       type="number"
                       name="discount"
                       value={editFormData.discount}
-                      onChange={handleEditInputChange}
-                      min="0"
-                      max="100"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      readOnly
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-gray-50"
+                      placeholder="Automatically calculated"
                     />
                   </div>
 
@@ -535,7 +680,6 @@ const VariantDetailsPage: React.FC = () => {
           </div>
         </div>
       )}
-
       {/* Variants Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <div className="p-6 border-b border-gray-200 flex justify-between items-center">
