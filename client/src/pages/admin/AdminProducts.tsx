@@ -218,18 +218,22 @@ const AdminProductPage: React.FC = () => {
       [name]:
         type === "checkbox"
           ? (e.target as HTMLInputElement).checked
-          : type === "number"
-          ? value
           : value,
     };
-    // Auto-calculate discount if price or originalPrice changes
-    if (name === "price" || name === "originalPrice") {
-      const price = parseFloat(name === "price" ? value : updatedForm.price);
-      const originalPrice = parseFloat(name === "originalPrice" ? value : updatedForm.originalPrice);
-      if (!isNaN(price) && !isNaN(originalPrice) && originalPrice > 0 && price <= originalPrice) {
-        const discount = (((originalPrice - price) / originalPrice) * 100).toFixed(2);
+
+    // If the value is blank for price, originalPrice, or discount, set to ""
+    if ((name === "price" || name === "originalPrice" || name === "discount") && value === "") {
+      updatedForm[name] = "";
+    }
+
+    // Auto-calculate discount if originalPrice changes
+    if (name === "originalPrice") {
+      const originalPrice = parseFloat(value);
+      const currentPrice = parseFloat(updatedForm.price);
+      if (!isNaN(originalPrice) && originalPrice > 0 && !isNaN(currentPrice) && currentPrice > 0 && currentPrice <= originalPrice) {
+        const discount = (((originalPrice - currentPrice) / originalPrice) * 100).toFixed(2);
         updatedForm.discount = discount;
-      } else {
+      } else if (value === "" || isNaN(originalPrice)) {
         updatedForm.discount = "";
       }
     }
@@ -237,11 +241,23 @@ const AdminProductPage: React.FC = () => {
     if (name === "originalPrice" || name === "discount") {
       const originalPrice = parseFloat(name === "originalPrice" ? value : updatedForm.originalPrice);
       const discount = parseFloat(name === "discount" ? value : updatedForm.discount);
-      if (!isNaN(originalPrice) && !isNaN(discount) && originalPrice > 0 && discount >= 0 && discount <= 100) {
-        const price = (originalPrice * (1 - discount / 100)).toFixed(2);
-        updatedForm.price = price;
-      } else {
+      if (!isNaN(originalPrice) && originalPrice > 0 && !isNaN(discount) && discount >= 0 && discount <= 100) {
+        const calculatedPrice = (originalPrice * (1 - discount / 100)).toFixed(2);
+        updatedForm.price = calculatedPrice;
+      } else if ((name === "originalPrice" && (value === "" || isNaN(originalPrice))) || 
+                 (name === "discount" && (value === "" || isNaN(discount)))) {
         updatedForm.price = "";
+      }
+    }
+    // Auto-calculate discount if price changes manually
+    if (name === "price") {
+      const price = parseFloat(value);
+      const originalPrice = parseFloat(updatedForm.originalPrice);
+      if (!isNaN(price) && price > 0 && !isNaN(originalPrice) && originalPrice > 0 && price <= originalPrice) {
+        const discount = (((originalPrice - price) / originalPrice) * 100).toFixed(2);
+        updatedForm.discount = discount;
+      } else if (value === "" || isNaN(price)) {
+        updatedForm.discount = "";
       }
     }
     setVariantForm(updatedForm);
@@ -1084,7 +1100,7 @@ const AdminProductPage: React.FC = () => {
                                   value={variantForm.price || ""}
                                   onChange={handleVariantChange}
                                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                  readOnly
+                                  placeholder="Enter price or let it auto-calculate"
                                 />
                               </div>
                               <div>

@@ -27,13 +27,21 @@ const VariantEditPage: React.FC = () => {
   const [variant, setVariant] = useState<Variant | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [formData, setFormData] = useState<Partial<Variant>>({
+  const [formData, setFormData] = useState({
     weight: "",
-    price: 0,
-    originalPrice: 0,
-    discount: 0,
+    price: "",
+    originalPrice: "",
+    discount: "",
     inStock: true,
-    units_in_stock: 0,
+    units_in_stock: "",
+  });
+  const [originalFormData, setOriginalFormData] = useState({
+    weight: "",
+    price: "",
+    originalPrice: "",
+    discount: "",
+    inStock: true,
+    units_in_stock: "",
   });
 
   useEffect(() => {
@@ -42,14 +50,16 @@ const VariantEditPage: React.FC = () => {
         setLoading(true);
         const data = await variantApi.getVariantById(variantId!);
         setVariant(data);
-        setFormData({
+        const loadedForm = {
           weight: data.weight,
-          price: data.price,
-          originalPrice: data.originalPrice || 0,
-          discount: data.discount || 0,
+          price: data.price ? String(data.price) : "",
+          originalPrice: data.originalPrice ? String(data.originalPrice) : "",
+          discount: data.discount ? String(data.discount) : "",
           inStock: data.inStock,
-          units_in_stock: data.units_in_stock || 0,
-        });
+          units_in_stock: data.units_in_stock ? String(data.units_in_stock) : "",
+        };
+        setFormData(loadedForm);
+        setOriginalFormData(loadedForm);
         setLoading(false);
       } catch (err) {
         console.error("Failed to fetch variant:", err);
@@ -57,32 +67,40 @@ const VariantEditPage: React.FC = () => {
         setLoading(false);
       }
     };
-
     fetchVariant();
   }, [variantId]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
-      [name]:
-        type === "checkbox"
-          ? checked
-          : type === "number"
-          ? Number(value)
-          : value,
-    });
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await variantApi.updateVariant(productId!, variantId!, formData as Variant);
+      const variantData = {
+        id: variantId!,
+        productId: productId!,
+        weight: formData.weight,
+        price: Number(formData.price) || 0,
+        originalPrice: Number(formData.originalPrice) || 0,
+        discount: Number(formData.discount) || 0,
+        inStock: formData.inStock,
+        units_in_stock: Number(formData.units_in_stock) || 0,
+      };
+      await variantApi.updateVariant(productId!, variantId!, variantData);
       navigate(`/admin/products/${productId}/variants`);
     } catch (err) {
       console.error("Update error:", err);
       setError("Failed to update variant");
     }
+  };
+
+  const handleReset = () => {
+    setFormData(originalFormData);
   };
 
   if (loading) {
@@ -124,15 +142,13 @@ const VariantEditPage: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-md overflow-hidden p-6">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6">Edit Variant</h1>
-
+        <h3 className="text-lg font-medium text-gray-900 mb-2">Edit Variant</h3>
         {error && (
           <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-lg border border-red-200 flex items-center">
             <ExclamationTriangleIcon className="w-5 h-5 mr-2" />
             {error}
           </div>
         )}
-
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -144,98 +160,94 @@ const VariantEditPage: React.FC = () => {
                 name="weight"
                 value={formData.weight || ""}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g., 500g, 1kg"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 required
               />
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Price (₹)
               </label>
               <input
-                type="number"
                 name="price"
-                value={formData.price || 0}
-                onChange={handleInputChange}
-                step="0.01"
+                type="text"
                 min="0"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                required
+                step="0.01"
+                value={formData.price || ""}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                placeholder="Enter price or let it auto-calculate"
               />
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Original Price (₹)
               </label>
               <input
-                type="number"
                 name="originalPrice"
-                value={formData.originalPrice || 0}
-                onChange={handleInputChange}
-                step="0.01"
+                type="text"
                 min="0"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                step="0.01"
+                value={formData.originalPrice || ""}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
               />
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Discount (%)
               </label>
               <input
-                type="number"
                 name="discount"
-                value={formData.discount || 0}
-                onChange={handleInputChange}
+                type="text"
                 min="0"
                 max="100"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                value={formData.discount || ""}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
               />
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Units in Stock
               </label>
               <input
-                type="number"
+                type="text"
                 name="units_in_stock"
-                value={formData.units_in_stock || 0}
+                value={formData.units_in_stock || ""}
                 onChange={handleInputChange}
-                min="0"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 required
               />
             </div>
+            <div className="flex items-center">
+              <input
+                name="inStock"
+                type="checkbox"
+                checked={formData.inStock}
+                onChange={handleInputChange}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label className="ml-2 block text-sm text-gray-700">
+                In Stock
+              </label>
+            </div>
           </div>
-
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              name="inStock"
-              checked={formData.inStock || false}
-              onChange={handleInputChange}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label className="ml-2 block text-sm text-gray-700">In Stock</label>
-          </div>
-
-          <div className="flex justify-end space-x-4 pt-4">
+          <div className="mt-4 flex justify-end space-x-3">
             <button
               type="button"
-              onClick={() => navigate(-1)}
-              className="button px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              onClick={handleReset}
+              className="button px-3 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="button inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="button px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
             >
               <CheckIcon className="w-4 h-4 mr-2" />
-              Save Changes
+              Update Variant
             </button>
           </div>
         </form>
