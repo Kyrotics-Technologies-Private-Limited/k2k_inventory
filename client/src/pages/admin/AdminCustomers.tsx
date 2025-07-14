@@ -11,6 +11,8 @@ import {
 } from "@heroicons/react/24/outline";
 
 import api from "../../services/api/api";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
 interface Customer {
   id: string;
@@ -81,6 +83,28 @@ const CustomersManagement: React.FC = () => {
     navigate(`/admin/customers/${customerId}`);
   };
 
+  const handleExportExcel = () => {
+    if (filteredCustomers.length === 0) return;
+    const exportData = filteredCustomers.map((customer) => ({
+      "Customer ID": customer.id,
+      Name: customer.name,
+      Email: customer.email,
+      Phone: customer.phone,
+      "Join Date": customer.joinDate ? new Date(customer.joinDate).toLocaleDateString() : "",
+      Orders: customer.orders,
+      "Total Spent": customer.totalSpent,
+      "Last Order": customer.lastOrder ? new Date(customer.lastOrder).toLocaleDateString() : "",
+      Status: customer.status.charAt(0).toUpperCase() + customer.status.slice(1),
+      Location: customer.location,
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Customers");
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const data = new Blob([excelBuffer], { type: "application/octet-stream" });
+    saveAs(data, `customers_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8">
       <div className="sm:flex sm:items-center sm:justify-between mb-8">
@@ -96,6 +120,8 @@ const CustomersManagement: React.FC = () => {
           <button
             type="button"
             className="button inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            onClick={handleExportExcel}
+            disabled={filteredCustomers.length === 0}
           >
             <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
             Export
