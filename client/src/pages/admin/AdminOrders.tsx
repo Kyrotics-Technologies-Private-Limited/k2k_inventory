@@ -63,6 +63,14 @@ const formatDateForDatePicker = (timestamp: any) => {
   }
 };
 
+// const isSameDay = (date1: Date, date2: Date) => {
+//   return (
+//     date1.getFullYear() === date2.getFullYear() &&
+//     date1.getMonth() === date2.getMonth() &&
+//     date1.getDate() === date2.getDate()
+//   );
+// };
+
 const AdminOrdersPage: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -141,11 +149,20 @@ const AdminOrdersPage: React.FC = () => {
       if (!orderDate) {
         dateMatch = false;
       } else {
-        if (startDate && orderDate < startDate) {
-          dateMatch = false;
+        // Reset time components for comparison
+        const orderDateAtMidnight = new Date(orderDate);
+        orderDateAtMidnight.setHours(0, 0, 0, 0);
+
+        if (startDate) {
+          const startDateAtMidnight = new Date(startDate);
+          startDateAtMidnight.setHours(0, 0, 0, 0);
+          dateMatch = orderDateAtMidnight >= startDateAtMidnight;
         }
-        if (endDate && orderDate > endDate) {
-          dateMatch = false;
+
+        if (endDate && dateMatch) {
+          const endDateAtMidnight = new Date(endDate);
+          endDateAtMidnight.setHours(23, 59, 59, 999);
+          dateMatch = orderDateAtMidnight <= endDateAtMidnight;
         }
       }
     }
@@ -153,64 +170,61 @@ const AdminOrdersPage: React.FC = () => {
     return statusMatch && searchMatch && dateMatch;
   });
 
- const handleExportExcel = () => {
-   const maxItemsCount = Math.max(
-     ...filteredOrders.map((order) =>
-       Array.isArray(order.items) ? order.items.length : 0
-     )
-   );
+  const handleExportExcel = () => {
+    const maxItemsCount = Math.max(
+      ...filteredOrders.map((order) =>
+        Array.isArray(order.items) ? order.items.length : 0
+      )
+    );
 
-   const exportData = filteredOrders.map((order) => {
-     const fullAddress = order.address
-       ? `${order.address.first_name} ${order.address.last_name}, ${order.address.street}, ${order.address.city}, ${order.address.state}, ${order.address.postal_code}, ${order.address.country}, Phone: ${order.address.phone}`
-       : "";
+    const exportData = filteredOrders.map((order) => {
+      const fullAddress = order.address
+        ? `${order.address.first_name} ${order.address.last_name}, ${order.address.street}, ${order.address.city}, ${order.address.state}, ${order.address.postal_code}, ${order.address.country}, Phone: ${order.address.phone}`
+        : "";
 
-     const row: Record<string, any> = {
-       "Order ID": order.id,
-       "User ID": order.userId,
-       Username: order.username || "",
-       Address: fullAddress,
-       "Total Amount": order.total_amount,
-       "Payment Method": order.payment_method,
-       "Shipping Method": order.shipping_method,
-       Status: order.status,
-       "Order Date": formatDate(order.created_at),
-     };
+      const row: Record<string, any> = {
+        "Order ID": order.id,
+        "User ID": order.userId,
+        Username: order.username || "",
+        Address: fullAddress,
+        "Total Amount": order.total_amount,
+        "Payment Method": order.payment_method,
+        "Shipping Method": order.shipping_method,
+        Status: order.status,
+        "Order Date": formatDate(order.created_at),
+      };
 
-     // Dynamically add item columns
-     if (Array.isArray(order.items)) {
-       order.items.forEach((item: any, index: number) => {
-         row[`Item ${index + 1} Name`] = item.name || "Unnamed Product";
-         row[`Item ${index + 1} Qty`] = item.quantity || 1;
-         row[`Item ${index + 1} Variant`] = item.variant_name || "";
-       });
-     }
+      // Dynamically add item columns
+      if (Array.isArray(order.items)) {
+        order.items.forEach((item: any, index: number) => {
+          row[`Item ${index + 1} Name`] = item.name || "Unnamed Product";
+          row[`Item ${index + 1} Qty`] = item.quantity || 1;
+          row[`Item ${index + 1} Variant`] = item.variant_name || "";
+        });
+      }
 
-     // Fill empty columns if fewer items than max
-     for (let i = order.items?.length || 0; i < maxItemsCount; i++) {
-       row[`Item ${i + 1} Name`] = "";
-       row[`Item ${i + 1} Qty`] = "";
-       row[`Item ${i + 1} Variant`] = "";
-     }
+      // Fill empty columns if fewer items than max
+      for (let i = order.items?.length || 0; i < maxItemsCount; i++) {
+        row[`Item ${i + 1} Name`] = "";
+        row[`Item ${i + 1} Qty`] = "";
+        row[`Item ${i + 1} Variant`] = "";
+      }
 
-     return row;
-   });
+      return row;
+    });
 
-   const worksheet = XLSX.utils.json_to_sheet(exportData);
-   const workbook = XLSX.utils.book_new();
-   XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
 
-   const excelBuffer = XLSX.write(workbook, {
-     bookType: "xlsx",
-     type: "array",
-   });
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
 
-   const data = new Blob([excelBuffer], { type: "application/octet-stream" });
-   saveAs(data, `orders_${new Date().toISOString().slice(0, 10)}.xlsx`);
- };
-
-
-
+    const data = new Blob([excelBuffer], { type: "application/octet-stream" });
+    saveAs(data, `orders_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
 
   const clearDateFilters = () => {
     setStartDate(null);
