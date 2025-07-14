@@ -248,7 +248,7 @@ const ProductDetailsPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+            {/* <div className="mb-6 p-4 bg-gray-50 rounded-lg">
               <h2 className="text-lg font-semibold text-gray-700 mb-2">
                 Pricing
               </h2>
@@ -270,7 +270,7 @@ const ProductDetailsPage: React.FC = () => {
                   </span>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
               <h2 className="text-lg font-semibold text-gray-700 mb-2">
