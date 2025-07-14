@@ -702,7 +702,7 @@ const AdminProductPage: React.FC = () => {
                 leaveFrom="opacity-100 translate-y-0 sm:scale-100"
                 leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
               >
-                <Dialog.Panel className="relative bg-white rounded-lg px-6 pt-6 pb-4 text-left shadow-xl transform transition-all sm:my-8 sm:max-w-2xl w-full">
+                <Dialog.Panel className="relative bg-white rounded-lg px-6 pt-6 pb-4 text-left shadow-xl transform transition-all sm:my-8 sm:max-w-4xl w-full">
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold text-gray-800">
                       {editMode ? "Edit Product" : "Create New Product"}
@@ -834,10 +834,7 @@ const AdminProductPage: React.FC = () => {
                             {formLoading ? "Uploading..." : "Upload Images"}
                           </button>
                           {formData.images.gallery.map((url, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center space-x-2"
-                            >
+                            <div key={idx} className="flex items-center space-x-2">
                               {typeof url === "string" && url.trim() !== "" && (
                                 <img
                                   src={url}
@@ -854,9 +851,10 @@ const AdminProductPage: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => removeGalleryImage(idx)}
-                                className="button px-2 py-1 text-red-600 hover:underline"
+                                className="ml-1 p-1 rounded-full hover:bg-red-500  focus:outline-none"
+                                aria-label="Remove image"
                               >
-                                Remove
+                                <XMarkIcon className="w-5 h-5 text-red-500 hover:text-white" />
                               </button>
                             </div>
                           ))}
@@ -944,33 +942,28 @@ const AdminProductPage: React.FC = () => {
                           )}
                           <div className="flex flex-wrap gap-4 mt-2">
                             {(formData.badges || []).map((badge, idx) => (
-                              <div
-                                key={idx}
-                                className="flex flex-col items-center"
-                              >
-                                {typeof badge.image === "string" &&
-                                  badge.image.trim() !== "" && (
-                                    <img
-                                      src={badge.image}
-                                      alt="Badge"
-                                      className="w-20 h-20 object-contain rounded border mb-1"
-                                    />
-                                  )}
+                              <div key={idx} className="flex flex-col items-center relative">
+                                {typeof badge.image === "string" && badge.image.trim() !== "" && (
+                                  <img
+                                    src={badge.image}
+                                    alt="Badge"
+                                    className="w-20 h-20 object-contain rounded border mb-1"
+                                  />
+                                )}
                                 <input
                                   type="text"
                                   value={badge.text || ""}
-                                  onChange={(e) =>
-                                    handleBadgeNameChange(idx, e.target.value)
-                                  }
+                                  onChange={(e) => handleBadgeNameChange(idx, e.target.value)}
                                   placeholder="Badge name"
                                   className="px-2 py-1 border rounded-md text-center"
                                 />
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveBadge(idx)}
-                                  className="mt-1 text-red-500 hover:text-red-700 text-xs"
+                                  className="absolute top-0 right-0 mt-1 mr-1 p-1 rounded-full hover:bg-red-100 focus:outline-none"
+                                  aria-label="Remove badge"
                                 >
-                                  Remove
+                                  <XMarkIcon className="w-4 h-4 text-red-500" />
                                 </button>
                               </div>
                             ))}
