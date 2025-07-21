@@ -56,7 +56,10 @@ const VariantEditPage: React.FC = () => {
           originalPrice: data.originalPrice ? String(data.originalPrice) : "",
           discount: data.discount ? String(data.discount) : "",
           inStock: data.inStock,
-          units_in_stock: data.units_in_stock ? String(data.units_in_stock) : "",
+          units_in_stock:
+            data.units_in_stock !== undefined && data.units_in_stock !== null
+              ? String(data.units_in_stock)
+              : "",
         };
         setFormData(loadedForm);
         setOriginalFormData(loadedForm);
@@ -72,10 +75,24 @@ const VariantEditPage: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value
-    }));
+
+    if (name === "units_in_stock") {
+      // Remove all non-digit characters
+      let sanitized = value.replace(/\D/g, "");
+      // Remove leading zeros (but allow a single zero)
+      if (sanitized.length > 1) {
+        sanitized = sanitized.replace(/^0+/, "");
+      }
+      setFormData(prev => ({
+        ...prev,
+        [name]: sanitized
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: type === "checkbox" ? checked : value
+      }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -215,7 +232,7 @@ const VariantEditPage: React.FC = () => {
               <input
                 type="text"
                 name="units_in_stock"
-                value={formData.units_in_stock || ""}
+                value={formData.units_in_stock === "" ? "0" : formData.units_in_stock}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 required
