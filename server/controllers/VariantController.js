@@ -10,9 +10,12 @@ exports.createVariant = async (req, res) => {
     const productRef = db.collection('products').doc(productId);
     
     // Create a subcollection 'variants' under the product
+    const units = typeof variantData.units_in_stock === "number" ? variantData.units_in_stock : 0;
+    const inStock = units > 0;
     const variantRef = await productRef.collection('variants').add({
       ...variantData,
-      units_in_stock: variantData.units_in_stock || 0,
+      units_in_stock: units,
+      inStock: inStock,
       createdAt: new Date()
     });
 
@@ -80,6 +83,8 @@ exports.updateVariant = async (req, res) => {
     const { productId, variantId } = req.params;  // Get productId and variantId
     const updateData = req.body;  // Get update data from the request body
 
+    const units = typeof updateData.units_in_stock === "number" ? updateData.units_in_stock : 0;
+    const inStock = units > 0;
     await db
       .collection('products')
       .doc(productId)
@@ -87,7 +92,8 @@ exports.updateVariant = async (req, res) => {
       .doc(variantId)
       .update({
         ...updateData,
-        units_in_stock: updateData.units_in_stock || 0,
+        units_in_stock: units,
+        inStock: inStock,
         updatedAt: new Date()
       });
 
