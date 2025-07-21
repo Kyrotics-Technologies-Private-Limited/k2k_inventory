@@ -221,14 +221,14 @@ const VariantEditPage: React.FC = () => {
                 required
               />
             </div>
-            <div className="flex items-center">
-              <input
+          <div className="flex items-center">
+            <input
                 name="inStock"
-                type="checkbox"
+              type="checkbox"
                 checked={formData.inStock}
-                onChange={handleInputChange}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
+              onChange={handleInputChange}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
               <label className="ml-2 block text-sm text-gray-700">
                 In Stock
               </label>

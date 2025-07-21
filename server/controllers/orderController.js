@@ -31,6 +31,27 @@ exports.createOrder = async (req, res) => {
       return res.status(400).json({ message: 'No items in order.' });
     }
 
+    // Inventory update logic
+    for (const item of items) {
+      const { productId, variantId, quantity } = item;
+      const variantRef = db.collection('products').doc(productId).collection('variants').doc(variantId);
+      const variantDoc = await variantRef.get();
+      if (!variantDoc.exists) {
+        return res.status(404).json({ message: `Variant not found for product ${productId}` });
+      }
+      const variantData = variantDoc.data();
+      if (!variantData.inStock || variantData.units_in_stock < quantity) {
+        return res.status(400).json({ message: `Not enough stock for variant ${variantId}` });
+      }
+      const newStock = variantData.units_in_stock - quantity;
+      await variantRef.update({
+        units_in_stock: newStock,
+        inStock: newStock > 0,
+        stockStatus: newStock > 0 ? 'in_stock' : 'out_of_stock',
+        updatedAt: getTimestamp(),
+      });
+    }
+
     const newOrder = {
       userId,
       address_id,
