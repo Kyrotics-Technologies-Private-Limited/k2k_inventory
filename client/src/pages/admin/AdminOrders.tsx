@@ -25,23 +25,22 @@ const ORDER_STATUSES = [
 const formatDate = (timestamp: any) => {
   if (!timestamp) return "-";
   try {
+    let date;
     // Handle Firestore Timestamp
     if (timestamp?.seconds) {
-      const date = new Date(timestamp.seconds * 1000);
-      return date.toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
+      date = new Date(timestamp.seconds * 1000);
+    } else {
+      // Handle ISO string or number
+      date = new Date(timestamp);
     }
-    // Handle ISO string or number
-    const date = new Date(timestamp);
+
     if (isNaN(date.getTime())) return "-";
-    return date.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = date.toLocaleString("default", { month: "short" });
+    const year = date.getFullYear();
+
+    return `${day}-${month}-${year}`;
   } catch (error) {
     console.error("Error formatting date:", error);
     return "-";
@@ -51,11 +50,17 @@ const formatDate = (timestamp: any) => {
 const formatDateForDatePicker = (timestamp: any) => {
   if (!timestamp) return null;
   try {
+    let date;
     if (timestamp?.seconds) {
-      return new Date(timestamp.seconds * 1000);
+      date = new Date(timestamp.seconds * 1000);
+    } else {
+      date = new Date(timestamp);
     }
-    const date = new Date(timestamp);
+
     if (isNaN(date.getTime())) return null;
+
+    // Set the time to start of day for consistent comparison
+    date.setHours(0, 0, 0, 0);
     return date;
   } catch (error) {
     console.error("Error formatting date for picker:", error);
@@ -475,11 +480,42 @@ const AdminOrdersPage: React.FC = () => {
                         className="button border rounded px-2 py-1 text-sm"
                         autoFocus
                       >
-                        {ORDER_STATUSES.map((status) => (
-                          <option key={status} value={status}>
-                            {status.charAt(0).toUpperCase() + status.slice(1)}
-                          </option>
-                        ))}
+                        {(() => {
+                          // Define available status options based on current status
+                          let availableStatuses: (typeof ORDER_STATUSES)[number][] =
+                            [];
+
+                          switch (order.status) {
+                            case "placed":
+                              availableStatuses = ["processing", "cancelled"];
+                              break;
+                            // case "confirmed":
+                            //   availableStatuses = ["processing", "cancelled"];
+                            //   break;
+                            case "processing":
+                              availableStatuses = ["shipped", "cancelled"];
+                              break;
+                            case "shipped":
+                              availableStatuses = [
+                                "delivered",
+                                "returned",
+                                "cancelled",
+                              ];
+                              break;
+                            // No options for final states
+                            case "delivered":
+                            case "cancelled":
+                            case "returned":
+                              availableStatuses = [];
+                              break;
+                          }
+
+                          return availableStatuses.map((status) => (
+                            <option key={status} value={status}>
+                              {status.charAt(0).toUpperCase() + status.slice(1)}
+                            </option>
+                          ));
+                        })()}
                       </select>
                     ) : (
                       <span
