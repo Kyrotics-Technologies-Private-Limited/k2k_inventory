@@ -172,13 +172,11 @@ exports.addCartItem = async (req, res) => {
       // Update existing item's quantity
       cartItemRef = existingItemSnapshot.docs[0].ref;
       const existingItem = existingItemSnapshot.docs[0].data();
-      
       updatedCartItem = {
         ...existingItem,
         quantity: existingItem.quantity + quantity,
         updatedAt: new Date()
       };
-
       await cartItemRef.update(updatedCartItem);
     } else {
       // Add new item
@@ -187,7 +185,6 @@ exports.addCartItem = async (req, res) => {
         createdAt: new Date(),
         updatedAt: new Date()
       };
-
       cartItemRef = await db
         .collection("carts")
         .doc(cartId)
