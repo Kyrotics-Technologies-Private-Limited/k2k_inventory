@@ -24,6 +24,22 @@ interface EditVariantForm {
   units_in_stock: number;
 }
 
+const WEIGHT_UNITS = ["g", "kg", "ml", "l"];
+
+// Helper to sort variants by numeric weight (ascending)
+function sortVariantsByWeight(variants: Variant[]): Variant[] {
+  return [...variants].sort((a, b) => {
+    const parseWeight = (w: string) => {
+      const [num, unit] = w.split(/\s+/);
+      let n = parseFloat(num);
+      if (isNaN(n)) return 0;
+      if (unit === "kg" || unit === "l") n *= 1000;
+      return n;
+    };
+    return parseWeight(a.weight) - parseWeight(b.weight);
+  });
+}
+
 const VariantDetailsPage: React.FC = () => {
   const { productId } = useParams<{ productId: string }>();
   const navigate = useNavigate();
@@ -62,8 +78,6 @@ const VariantDetailsPage: React.FC = () => {
   const [addError, setAddError] = useState("");
   const [addLoading, setAddLoading] = useState(false);
 
-  const WEIGHT_UNITS = ["g", "kg", "ml", "l"];
-
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -79,7 +93,7 @@ const VariantDetailsPage: React.FC = () => {
         const variantsData = await variantApi.getVariantsByProductId(
           productId!
         );
-        setVariants(variantsData);
+        setVariants(sortVariantsByWeight(variantsData));
         setLoading((prev) => ({ ...prev, variants: false }));
       } catch (err) {
         console.error("Fetch error:", err);
@@ -90,13 +104,11 @@ const VariantDetailsPage: React.FC = () => {
         setLoading({ product: false, variants: false });
       }
     };
-
     fetchData();
   }, [productId]);
 
   const handleDeleteVariant = async (variantId: string) => {
-    if (!window.confirm("Are you sure you want to delete this variant?"))
-      return;
+    if (!window.confirm("Are you sure you want to delete this variant?")) return;
 
     try {
       if (!productId) {
@@ -108,8 +120,8 @@ const VariantDetailsPage: React.FC = () => {
         return;
       }
 
-      await variantApi.deleteVariant(productId, variantId); // ✅ uses both IDs
-      setVariants((prev) => prev.filter((v) => v.id !== variantId)); // remove from UI
+      await variantApi.deleteVariant(productId, variantId);
+      setVariants((prev) => sortVariantsByWeight(prev.filter((v) => v.id !== variantId)));
     } catch (err) {
       console.error("Delete error:", err);
       setError((prev) => ({
@@ -120,6 +132,9 @@ const VariantDetailsPage: React.FC = () => {
   };
 
   const handleEditVariant = (variant: Variant) => {
+    // Remove variant from UI optimistically
+    setVariants((prev) => sortVariantsByWeight(prev.filter((v) => v.id !== variant.id))); // remove from UI
+
     // Split weight into number and unit
     const [weightNumber, weightUnit] = variant.weight.split(/\s+/);
 
@@ -203,8 +218,8 @@ const VariantDetailsPage: React.FC = () => {
       );
 
       setVariants((prev) =>
-        prev.map((v) =>
-          v.id === editingVariant.id ? { ...v, ...updatedVariant } : v
+        sortVariantsByWeight(
+          prev.map((v) => (v.id === editingVariant.id ? { ...v, ...updatedVariant } : v))
         )
       );
       setEditingVariant(null);
@@ -224,7 +239,7 @@ const VariantDetailsPage: React.FC = () => {
       setLoading((prev) => ({ ...prev, variants: true }));
       setError((prev) => ({ ...prev, variants: "" }));
       const variantsData = await variantApi.getVariantsByProductId(productId!);
-      setVariants(variantsData);
+      setVariants(sortVariantsByWeight(variantsData));
       setLoading((prev) => ({ ...prev, variants: false }));
     } catch (err) {
       console.error("Retry error:", err);
@@ -288,6 +303,7 @@ const VariantDetailsPage: React.FC = () => {
     e.preventDefault();
     setAddError("");
     setAddLoading(true);
+
     // Prevent duplicate variant by weight
     if (
       variants.find(
@@ -310,11 +326,11 @@ const VariantDetailsPage: React.FC = () => {
         inStock: addFormData.inStock,
         units_in_stock: Number(addFormData.units_in_stock),
       });
-      setVariants((prev) => [...prev, newVariant]);
+      setVariants((prev) => sortVariantsByWeight([...prev, newVariant]));
       setAddFormData({
         weight: "",
         weightNumber: "",
-        weightUnit: "",
+        weightUnit: "g",
         price: "",
         originalPrice: "",
         discount: "",

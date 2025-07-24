@@ -1,5 +1,9 @@
-
 import api from "./api";
+
+export interface outOfStockVariants {
+  product: string;
+  variant: string;
+}
 
 export interface DashboardStatsResponse {
   totalRevenue: number;
@@ -16,6 +20,7 @@ export interface DashboardStatsResponse {
     date: string;
     revenue: number;
   }[];
+  outOfStockVariants: outOfStockVariants[];
 }
 
 // API call function

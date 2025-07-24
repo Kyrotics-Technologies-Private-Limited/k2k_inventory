@@ -5,6 +5,8 @@ import {
   FiShoppingCart,
   FiUser,
   FiTrendingUp,
+  FiX,
+  FiAlertTriangle,
 } from "react-icons/fi";
 import {
   LineChart,
@@ -15,33 +17,104 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { fetchDashboardStats } from "../../services/api/dashApi";
-interface DashboardStatsResponse {
-  totalRevenue: number;
-  monthlyRevenue: number;
-  monthlyOrders: number;
-  totalOrders: number;
-  totalCustomers: number;
-  orderStatusCounts: {
-    placed: number;
-    delivered: number;
-    cancelled: number;
-  };
-  revenueChart: {
-    date: string;
-    revenue: number;
-  }[];
-}
+import { fetchDashboardStats, type outOfStockVariants, type DashboardStatsResponse } from "../../services/api/dashApi";
 
 const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showOutOfStockModal, setShowOutOfStockModal] = useState(false);
+
+  // Helper to render out-of-stock warning
+  const renderOutOfStockWarning = () => {
+    if (!stats || !stats.outOfStockVariants || stats.outOfStockVariants.length === 0) return null;
+    
+    return (
+      <>
+        {/* Warning Banner */}
+        <div 
+          className="bg-red-50 border border-red-200 text-red-800 p-4 mb-4 rounded-lg cursor-pointer hover:bg-red-100 transition-colors"
+          onClick={() => setShowOutOfStockModal(true)}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <FiAlertTriangle className="mr-3 text-red-600" size={20} />
+              <div>
+                <div className="font-bold">⚠️ Stock Alert</div>
+                <div className="text-sm">
+                  {stats.outOfStockVariants.length} variant{stats.outOfStockVariants.length > 1 ? 's' : ''} out of stock
+                </div>
+              </div>
+            </div>
+            <button className="text-red-600 hover:text-red-800 font-medium text-sm">
+              View Details →
+            </button>
+          </div>
+        </div>
+
+        {/* Modal */}
+        {showOutOfStockModal && (
+          <div className="fixed inset-0  bg-opacity-30 backdrop-blur-md flex items-center justify-center z-50 p-4">
+            <div className="bg-white bg-opacity-90 backdrop-blur-xl border border-white border-opacity-20 rounded-lg shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden">
+              {/* Header */}
+              <div className="bg-red-50 bg-opacity-70 backdrop-blur-sm px-6 py-4 border-b border-red-200 border-opacity-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <FiAlertTriangle className="text-red-600 mr-3" size={24} />
+                    <h3 className="text-lg font-semibold text-red-800">
+                      Out of Stock Alert
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setShowOutOfStockModal(false)}
+                    className="text-red-600 hover:text-red-800 transition-colors"
+                  >
+                    <FiX size={24} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-6">
+                <p className="text-gray-600 mb-4">
+                  The following product variants are currently out of stock:
+                </p>
+                <div className="max-h-60 overflow-y-auto">
+                  <div className="space-y-3">
+                    {stats.outOfStockVariants.map((item: outOfStockVariants, idx: number) => (
+                      <div key={idx} className="bg-gray-50 p-3 rounded-lg border-l-4 border-red-400">
+                        <div className="font-semibold text-gray-800">{item.product}</div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          Variant: <span className="font-medium">{item.variant}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="bg-gray-50 bg-opacity-70 backdrop-blur-sm px-6 py-4 border-t border-gray-200 border-opacity-50">
+                <button
+                  onClick={() => setShowOutOfStockModal(false)}
+                  className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors font-medium"
+                >
+                  Got it
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  };
 
   useEffect(() => {
     const loadStats = async () => {
       try {
         const data = await fetchDashboardStats();
         setStats(data);
+
+        console.log("Dashboard stats loaded:", data);
       } catch (error) {
         console.error("Error fetching dashboard stats:", error);
       } finally {
@@ -102,6 +175,9 @@ const AdminDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Dashboard Overview</h1>
+
+      {/* Out of Stock Warning */}
+      {renderOutOfStockWarning()}
 
       {/* Summary Cards */}
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">

@@ -54,39 +54,7 @@ const ProductDetailsPage: React.FC = () => {
     }
   };
 
-  // const handleEdit = () => {
-  //   if (!id) return;
-  //   navigate(`/admin/products/edit/${id}`);
-  // };
-
-  // const renderRatingStars = () => {
-  //   if (!product) return null;
-
-  //   const stars = [];
-  //   const fullStars = Math.floor(product.ratings);
-  //   const hasHalfStar = product.ratings % 1 >= 0.5;
-
-  //   for (let i = 0; i < fullStars; i++) {
-  //     stars.push(
-  //       <StarIcon key={`full-${i}`} className="w-5 h-5 text-yellow-400" />
-  //     );
-  //   }
-
-  //   if (hasHalfStar) {
-  //     stars.push(
-  //       <StarIcon key="half" className="w-5 h-5 text-yellow-400 opacity-50" />
-  //     );
-  //   }
-
-  //   const remainingStars = 5 - stars.length;
-  //   for (let i = 0; i < remainingStars; i++) {
-  //     stars.push(
-  //       <StarIcon key={`empty-${i}`} className="w-5 h-5 text-gray-300" />
-  //     );
-  //   }
-
-  //   return stars;
-  // };
+  
 
   const getStockStatusText = () => {
     if (!product) return "";
@@ -248,29 +216,7 @@ const ProductDetailsPage: React.FC = () => {
               </div>
             </div>
 
-            {/* <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <h2 className="text-lg font-semibold text-gray-700 mb-2">
-                Pricing
-              </h2>
-              <div className="space-y-3">
-                <div>
-                  <span className="text-sm font-medium text-gray-500">
-                    Price:
-                  </span>
-                  <span className="ml-2 text-gray-900">
-                    ₹{product.price.amount.toLocaleString()}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-gray-500">
-                    Currency:
-                  </span>
-                  <span className="ml-2 text-gray-900">
-                    {product.price.currency}
-                  </span>
-                </div>
-              </div>
-            </div> */}
+            
 
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
               <h2 className="text-lg font-semibold text-gray-700 mb-2">
@@ -288,43 +234,7 @@ const ProductDetailsPage: React.FC = () => {
               </div>
             </div>
 
-            {/* <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <h2 className="text-lg font-semibold text-gray-700 mb-2">
-                Ratings & Reviews
-              </h2>
-              <div className="flex items-center">
-                <div className="flex mr-2">{renderRatingStars()}</div>
-                <span className="text-gray-600 text-sm">
-                  {product.ratings.toFixed(1)} ({product.reviews} reviews)
-                </span>
-              </div>
-            </div>
-
-            {product.badges && product.badges.length > 0 && (
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                <h2 className="text-lg font-semibold text-gray-700 mb-2">
-                  Badges
-                </h2>
-                <div className="flex flex-wrap gap-2">
-                  {product.badges.map((badge, index) => (
-                    <span
-                      key={index}
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        badge.type === "organic"
-                          ? "bg-green-100 text-green-800"
-                          : badge.type === "natural"
-                          ? "bg-blue-100 text-blue-800"
-                          : badge.type === "premium"
-                          ? "bg-purple-100 text-purple-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {badge.text}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}*/}
+            
           </div>
         </div>
 
@@ -338,47 +248,7 @@ const ProductDetailsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Benefits Section 
-        // {product.benefits && product.benefits.length > 0 && (
-        //   <div className="p-6 border-t border-gray-200 bg-gray-50">
-        //     <h2 className="text-xl font-semibold text-gray-900 mb-6">
-        //       Product Benefits
-        //     </h2>
-        //     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        //       {product.benefits.map((benefit, index) => (
-        //         <div key={index} className="bg-white p-4 rounded-lg shadow-sm">
-        //           <div className="flex items-center mb-3">
-        //             {benefit.icon && (
-        //               <img
-        //                 src={benefit.icon}
-        //                 alt={benefit.title}
-        //                 className="w-8 h-8 mr-3"
-        //               />
-        //             )}
-        //             <h3 className="text-lg font-medium text-gray-900">
-        //               {benefit.title}
-        //             </h3>
-        //           </div>
-        //           <p className="text-gray-600">{benefit.description}</p>
-        //         </div>
-        //       ))}
-        //     </div>
-        //   </div>
-        // )} */}
-
-        {/* Additional Images
-        {product.images.banner && (
-          <div className="p-6 border-t border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Banner Image
-            </h2>
-            <img
-              src={product.images.banner}
-              alt={`${product.name} banner`}
-              className="w-full h-auto rounded-lg"
-            />
-          </div>
-        )} */}
+        
       </div>
     </div>
   );
