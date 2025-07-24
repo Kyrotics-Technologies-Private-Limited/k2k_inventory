@@ -1,8 +1,8 @@
 import React, { Fragment, useEffect, useState } from "react";
-import type { Variant } from "../../types/variant";
+//import type { Variant } from "../../types/variant";
 import type { Product } from "../../types";
 import { productApi } from "../../services/api/productApi";
-import variantApi from "../../services/api/variantApi";
+//import variantApi from "../../services/api/variantApi";
 import { membershipApi } from "../../services/api/membershipApi";
 import { useNavigate } from "react-router-dom";
 import {
@@ -69,13 +69,13 @@ const AdminProductPage: React.FC = () => {
   const [editId, setEditId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMembershipModalOpen, setIsMembershipModalOpen] = useState(false);
-  const [membershipSettings, setMembershipSettings] =
+  const [, setMembershipSettings] =
     useState<MembershipSettings | null>(null);
   const [membershipForm, setMembershipForm] = useState<MembershipSettings>(
     initialMembershipForm
   );
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const [priceInput, setPriceInput] = useState("");
+  const [, setPriceInput] = useState("");
   const [mainImageUploading, setMainImageUploading] = useState(false);
   const [mainImageUploadError, setMainImageUploadError] = useState("");
   const mainImageInputRef = React.useRef<HTMLInputElement>(null);
