@@ -1,8 +1,9 @@
 import React, { Fragment, useEffect, useState } from "react";
-import type { Variant } from "../../types/variant";
+//import type { Variant } from "../../types/variant";
 import type { Product } from "../../types";
 import { productApi } from "../../services/api/productApi";
-import variantApi from "../../services/api/variantApi";
+//import variantApi from "../../services/api/variantApi";
+import { membershipApi } from "../../services/api/membershipApi";
 import { useNavigate } from "react-router-dom";
 import {
   PencilIcon,
@@ -11,12 +12,22 @@ import {
   CheckIcon,
   XMarkIcon,
   TrashIcon,
-  // ChevronDownIcon,
-  // ChevronUpIcon,
   MagnifyingGlassIcon,
-  EyeIcon
+  EyeIcon,
+  UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { Dialog, Transition } from "@headlessui/react";
+
+interface MembershipSettings {
+  discountPercentage: number;
+  monthlyPrice: number;
+  quarterlyPrice: number;
+  yearlyPrice: number;
+  monthlyDuration: number;
+  quarterlyDuration: number;
+  yearlyDuration: number;
+  updatedAt: Date;
+}
 
 const initialForm: Omit<Product, "id"> = {
   name: "",
@@ -34,14 +45,16 @@ const initialForm: Omit<Product, "id"> = {
   benefits: [],
 };
 
-// const initialVariantForm = {
-//   weight: "",
-//    price: "",
-//   originalPrice: "",
-//   discount: "",
-//   inStock: true,
-//   units_in_stock: "",
-// };
+const initialMembershipForm: MembershipSettings = {
+  discountPercentage: 10,
+  monthlyPrice: 299,
+  quarterlyPrice: 799,
+  yearlyPrice: 2499,
+  monthlyDuration: 1,
+  quarterlyDuration: 3,
+  yearlyDuration: 12,
+  updatedAt: new Date(),
+};
 
 const AdminProductPage: React.FC = () => {
   const navigate = useNavigate();
@@ -54,22 +67,21 @@ const AdminProductPage: React.FC = () => {
   const [formData, setFormData] = useState<Omit<Product, "id">>(initialForm);
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [, setVariants] = useState<Record<string, Variant[]>>({});
-  // const [variantForm, setVariantForm] = useState(initialVariantForm);
-  // const [showVariantForm, setShowVariantForm] = useState<string | null>(null);
-  // const [editingVariantId, setEditingVariantId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isMembershipModalOpen, setIsMembershipModalOpen] = useState(false);
+  const [, setMembershipSettings] =
+    useState<MembershipSettings | null>(null);
+  const [membershipForm, setMembershipForm] = useState<MembershipSettings>(
+    initialMembershipForm
+  );
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  // const [, setPriceInput] = useState(""); // New state for price input as string
+  const [, setPriceInput] = useState("");
   const [mainImageUploading, setMainImageUploading] = useState(false);
   const [mainImageUploadError, setMainImageUploadError] = useState("");
   const mainImageInputRef = React.useRef<HTMLInputElement>(null);
   const [bannerUploading, setBannerUploading] = useState(false);
   const [bannerUploadError, setBannerUploadError] = useState("");
   const bannerInputRef = React.useRef<HTMLInputElement>(null);
-  const [, setPriceInput] = useState(""); // Add this missing state
-
-  // BADGES STATE (for image + name per badge)
   const [badgeImageUploading, setBadgeImageUploading] = useState(false);
   const [badgeImageUploadError, setBadgeImageUploadError] = useState("");
   const badgeImageInputRef = React.useRef<HTMLInputElement>(null);
@@ -194,30 +206,21 @@ const AdminProductPage: React.FC = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const fetchedProducts = await productApi.getAllProducts();
+        const [fetchedProducts, membershipData] = await Promise.all([
+          productApi.getAllProducts(),
+          membershipApi.getMembershipSettings(),
+        ]);
+
         setProducts(fetchedProducts);
         setFilteredProducts(fetchedProducts);
 
-        const variantsMap: Record<string, Variant[]> = {};
-        await Promise.all(
-          fetchedProducts.map(async (product) => {
-            try {
-              const productVariants = await variantApi.getVariantsByProductId(
-                product.id
-              );
-              variantsMap[product.id] = productVariants;
-            } catch (err) {
-              console.error(
-                `Error fetching variants for product ${product.id}:`,
-                err
-              );
-              variantsMap[product.id] = [];
-            }
-          })
-        );
-        setVariants(variantsMap);
+        if (membershipData) {
+          setMembershipSettings(membershipData);
+          setMembershipForm(membershipData);
+        }
+
       } catch (e) {
-        setError("Failed to fetch products. Please try again.");
+        setError("Failed to fetch data. Please try again.");
         console.error("Fetch error:", e);
       } finally {
         setLoading(false);
@@ -278,8 +281,6 @@ const AdminProductPage: React.FC = () => {
     }));
   };
 
-  
-  // remove one by index
   const removeGalleryImage = (idx: number) => {
     setFormData((prev) => {
       const newGallery = prev.images.gallery.filter((_, i) => i !== idx);
@@ -290,45 +291,6 @@ const AdminProductPage: React.FC = () => {
     });
   };
 
-  // const handleVariantChange = (
-  //   e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  // ) => {
-  //   const { name, value, type } = e.target;
-  //   let updatedForm = {
-  //     ...variantForm,
-  //     [name]:
-  //       type === "checkbox"
-  //         ? (e.target as HTMLInputElement).checked
-  //         : type === "number"
-  //         ? value
-  //         : value,
-  //   };
-  //   // Auto-calculate discount if price or originalPrice changes
-  //   if (name === "price" || name === "originalPrice") {
-  //     const price = parseFloat(name === "price" ? value : updatedForm.price);
-  //     const originalPrice = parseFloat(name === "originalPrice" ? value : updatedForm.originalPrice);
-  //     if (!isNaN(price) && !isNaN(originalPrice) && originalPrice > 0 && price <= originalPrice) {
-  //       const discount = (((originalPrice - price) / originalPrice) * 100).toFixed(2);
-  //       updatedForm.discount = discount;
-  //     } else {
-  //       updatedForm.discount = "";
-  //     }
-  //   }
-  //   // Auto-calculate price if originalPrice or discount changes
-  //   if (name === "originalPrice" || name === "discount") {
-  //     const originalPrice = parseFloat(name === "originalPrice" ? value : updatedForm.originalPrice);
-  //     const discount = parseFloat(name === "discount" ? value : updatedForm.discount);
-  //     if (!isNaN(originalPrice) && !isNaN(discount) && originalPrice > 0 && discount >= 0 && discount <= 100) {
-  //       const price = (originalPrice * (1 - discount / 100)).toFixed(2);
-  //       updatedForm.price = price;
-  //     } else {
-  //       updatedForm.price = "";
-  //     }
-  //   }
-  //   setVariantForm(updatedForm);
-  // };
-
-  // Create or update product
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormLoading(true);
@@ -355,62 +317,6 @@ const AdminProductPage: React.FC = () => {
     }
   };
 
-  // const handleVariantSubmit = async (productId: string) => {
-  //   try {
-  //     setFormLoading(true);
-  //     setError("");
-  //     setSuccess("");
-  //     // Prevent duplicate variant by weight/unit
-  //     if (!editingVariantId) {
-  //       const existing = (variants[productId] || []).find(
-  //         v => v.weight.trim().toLowerCase() === variantForm.weight.trim().toLowerCase()
-  //       );
-  //       if (existing) {
-  //         setError("Variant already exists");
-  //         setFormLoading(false);
-  //         return;
-  //       }
-  //     }
-  //     const variantData = {
-  //       ...variantForm,
-  //       price: Number(variantForm.price) || 0,
-  //       originalPrice: Number(variantForm.originalPrice) || 0,
-  //       discount: Number(variantForm.discount) || 0,
-  //       units_in_stock: Number(variantForm.units_in_stock) || 0,
-  //     };
-  //     if (editingVariantId) {
-  //       const updatedVariant = await variantApi.updateVariant(
-  //         productId,
-  //         editingVariantId,
-  //         { id: editingVariantId, ...variantData, productId }
-  //       );
-  //       setVariants((prev: Record<string, Variant[]>) => ({
-  //         ...prev,
-  //         [productId]: prev[productId].map((v) =>
-  //           v.id === editingVariantId ? updatedVariant : v
-  //         ),
-  //       }));
-  //       setSuccess("Variant updated successfully!");
-  //     } else {
-  //       const newVariant = await variantApi.createVariant(productId, {
-  //         ...variantData,
-  //         productId,
-  //       });
-  //       setVariants((prev: Record<string, Variant[]>) => ({
-  //         ...prev,
-  //         [productId]: [...(prev[productId] || []), newVariant],
-  //       }));
-  //       setSuccess("Variant created successfully!");
-  //     }
-  //     resetVariantForm();
-  //   } catch (err) {
-  //     console.error("Variant save error:", err);
-  //     setError("Failed to save variant. Please try again.");
-  //   } finally {
-  //     setFormLoading(false);
-  //   }
-  // };
-
   const handleDelete = async (id: string) => {
     if (!window.confirm("Are you sure you want to delete this product?"))
       return;
@@ -418,34 +324,12 @@ const AdminProductPage: React.FC = () => {
     try {
       await productApi.deleteProduct(id);
       setProducts((prev) => prev.filter((p) => p.id !== id));
-      setVariants((prev) => {
-        const newVariants = { ...prev };
-        delete newVariants[id];
-        return newVariants;
-      });
       setSuccess("Product deleted successfully!");
     } catch (err) {
       setError("Failed to delete product. Please try again.");
       console.error("Delete error:", err);
     }
   };
-
-  // const handleVariantDelete = async (productId: string, variantId: string) => {
-  //   if (!window.confirm("Are you sure you want to delete this variant?"))
-  //     return;
-
-  //   try {
-  //     await variantApi.deleteVariant(productId, variantId);
-  //     setVariants((prev) => ({
-  //       ...prev,
-  //       [productId]: prev[productId].filter((v) => v.id !== variantId),
-  //     }));
-  //     setSuccess("Variant deleted successfully!");
-  //   } catch (err) {
-  //     console.error("Variant delete error:", err);
-  //     setError("Failed to delete variant. Please try again.");
-  //   }
-  // };
 
   const handleEditClick = (product: Product) => {
     setFormData({
@@ -463,42 +347,11 @@ const AdminProductPage: React.FC = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // const handleVariantEditClick = (variant: Variant) => {
-  //   setVariantForm({
-  //     weight: variant.weight || "",
-  //     price: variant.price ? String(variant.price) : "",
-  //     originalPrice: variant.originalPrice ? String(variant.originalPrice) : "",
-  //     discount: variant.discount ? String(variant.discount) : "",
-  //     inStock: variant.inStock,
-  //     units_in_stock: variant.units_in_stock
-  //       ? String(variant.units_in_stock)
-  //       : "",
-  //   });
-  //   setEditingVariantId(variant.id);
-  //   setShowVariantForm(variant.productId);
-  // };
-
   const resetForm = () => {
     setFormData(initialForm);
     setEditMode(false);
     setEditId(null);
   };
-
-  // const resetVariantForm = () => {
-  //   setVariantForm(initialVariantForm);
-  //   setEditingVariantId(null);
-  //   setShowVariantForm(null);
-  // };
-
-  // const toggleVariantForm = (productId: string) => {
-  //   if (showVariantForm === productId) {
-  //     resetVariantForm();
-  //   } else {
-  //     setShowVariantForm(productId);
-  //     setEditingVariantId(null);
-  //     setVariantForm(initialVariantForm);
-  //   }
-  // };
 
   const openCreateModal = () => {
     resetForm();
@@ -635,6 +488,38 @@ const AdminProductPage: React.FC = () => {
     }));
   };
 
+  // Membership functions
+  const handleMembershipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setMembershipForm((prev) => ({
+      ...prev,
+      [name]: Number(value),
+    }));
+  };
+
+  const handleMembershipSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await membershipApi.updateMembershipSettings(membershipForm);
+      const updatedSettings = await membershipApi.getMembershipSettings();
+      if (updatedSettings) {
+        setMembershipSettings(updatedSettings);
+        setMembershipForm(updatedSettings);
+      }
+      setSuccess("Membership settings updated successfully!");
+      setIsMembershipModalOpen(false);
+    } catch (err) {
+      setError("Failed to update membership settings. Please try again.");
+      console.error("Membership update error:", err);
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
@@ -654,13 +539,22 @@ const AdminProductPage: React.FC = () => {
             />
           </div>
 
-        <button
-          onClick={openCreateModal}
-          className="button flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
-        >
-          <PlusIcon className="w-5 h-5 mr-2" />
-          Create New Product
-        </button>
+          <div className="flex gap-2">
+            <button
+              onClick={openCreateModal}
+              className="button flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+            >
+              <PlusIcon className="w-5 h-5 mr-2" />
+              New Product
+            </button>
+            <button
+              onClick={() => setIsMembershipModalOpen(true)}
+              className="button flex items-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition"
+            >
+              <UserGroupIcon className="w-5 h-5 mr-2" />
+              Membership
+            </button>
+          </div>
         </div>
       </div>
 
@@ -677,6 +571,7 @@ const AdminProductPage: React.FC = () => {
         </div>
       )}
 
+      {/* Product Modal */}
       <Transition.Root show={isModalOpen} as={Fragment}>
         <Dialog as="div" className="relative z-10" onClose={closeModal}>
           <Transition.Child
@@ -715,7 +610,7 @@ const AdminProductPage: React.FC = () => {
                     </button>
                   </div>
                   <form onSubmit={handleSubmit} className="space-y-6">
-                      <div className="space-y-4">
+                    <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Category
@@ -731,19 +626,19 @@ const AdminProductPage: React.FC = () => {
                           <option value="honey">Honey</option>
                         </select>
                       </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Product Name
-                          </label>
-                          <input
-                            name="name"
-                            value={formData.name || ""}
-                            onChange={handleChange}
-                            placeholder="Enter product name"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                            required
-                          />
-                        </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Product Name
+                        </label>
+                        <input
+                          name="name"
+                          value={formData.name || ""}
+                          onChange={handleChange}
+                          placeholder="Enter product name"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                          required
+                        />
+                      </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Origin
@@ -756,19 +651,19 @@ const AdminProductPage: React.FC = () => {
                           className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                         />
                       </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Description
-                          </label>
-                          <textarea
-                            name="description"
-                            value={formData.description || ""}
-                            onChange={handleChange}
-                            placeholder="Enter product description"
-                            rows={3}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                          />
-                        </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Description
+                        </label>
+                        <textarea
+                          name="description"
+                          value={formData.description || ""}
+                          onChange={handleChange}
+                          placeholder="Enter product description"
+                          rows={3}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -801,112 +696,114 @@ const AdminProductPage: React.FC = () => {
                           </datalist>
                         </div>
                       </div>
-                        </div>
+                    </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Main Image URL
-                          </label>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Main Image URL
+                      </label>
+                      <input
+                        name="images.main"
+                        value={formData.images.main || ""}
+                        onChange={(e) =>
+                          handleImageChange("main", e.target.value)
+                        }
+                        placeholder="Enter main image URL"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <div className="mt-2 flex items-center space-x-2">
+                        <label className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition">
                           <input
-                            name="images.main"
-                            value={formData.images.main || ""}
-                            onChange={(e) =>
-                              handleImageChange("main", e.target.value)
-                            }
-                            placeholder="Enter main image URL"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            ref={mainImageInputRef}
+                            onChange={handleMainImageFileSelect}
+                            disabled={mainImageUploading}
                           />
-                          <div className="mt-2 flex items-center space-x-2">
-                            <label className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition">
-                              <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                ref={mainImageInputRef}
-                                onChange={handleMainImageFileSelect}
-                                disabled={mainImageUploading}
-                              />
                           {mainImageUploading
                             ? "Uploading..."
                             : "Upload Main Image"}
-                            </label>
+                        </label>
                         {mainImageUploadError && (
                           <span className="text-red-500 text-sm">
                             {mainImageUploadError}
                           </span>
                         )}
-                          </div>
-                        </div>
+                      </div>
+                    </div>
 
-                    {/* Gallery Images below Warehouse Name */}
                     <div className="mt-4 space-y-4">
-                          <label className="block text-sm font-medium">
-                            Gallery Images
-                          </label>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            ref={fileInputRef}
-                            onChange={handleGalleryFileSelect}
-                            className="hidden"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleGalleryButtonClick}
-                            disabled={formLoading}
-                            className="button mb-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-                          >
-                            {formLoading ? "Uploading..." : "Upload Images"}
-                          </button>
+                      <label className="block text-sm font-medium">
+                        Gallery Images
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        ref={fileInputRef}
+                        onChange={handleGalleryFileSelect}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleGalleryButtonClick}
+                        disabled={formLoading}
+                        className="button mb-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {formLoading ? "Uploading..." : "Upload Images"}
+                      </button>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          {formData.images.gallery.map((url, idx) => (
-                            <div key={idx} className="flex items-center space-x-2">
-                              {typeof url === "string" && url.trim() !== "" && (
+                        {formData.images.gallery.map((url, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center space-x-2"
+                          >
+                            {typeof url === "string" && url.trim() !== "" && (
                               <img
                                 src={url}
                                 alt={`Gallery ${idx + 1}`}
                                 className="w-20 h-20 object-contain rounded border"
                               />
-                              )}
-                              <input
-                                type="text"
-                                value={url || ""}
-                                readOnly
-                                className="flex-1 px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 bg-gray-100 cursor-not-allowed"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => removeGalleryImage(idx)}
-                              className="ml-1 p-1 rounded-full hover:bg-red-500  focus:outline-none"
+                            )}
+                            <input
+                              type="text"
+                              value={url || ""}
+                              readOnly
+                              className="flex-1 px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 bg-gray-100 cursor-not-allowed"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeGalleryImage(idx)}
+                              className="ml-1 p-1 rounded-full hover:bg-red-500 focus:outline-none"
                               aria-label="Remove image"
-                              >
+                            >
                               <XMarkIcon className="w-5 h-5 text-red-500 hover:text-white" />
-                              </button>
-                            </div>
-                          ))}
+                            </button>
+                          </div>
+                        ))}
                       </div>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Banner Image
-                          </label>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Banner Image
+                      </label>
                       {formData.images.banner &&
                         typeof formData.images.banner === "string" &&
                         formData.images.banner.trim() !== "" && (
-                            <div className="mb-2 relative group">
+                          <div className="mb-2 relative group">
                             <img
                               src={formData.images.banner}
                               alt="Banner Preview"
                               className="w-full h-32 object-contain rounded border"
                             />
-                              <button
-                                type="button"
-                                onClick={handleRemoveBanner}
-                                className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:bg-red-200 transition-opacity opacity-0 group-hover:opacity-100"
-                                style={{ zIndex: 10 }}
-                                aria-label="Remove banner"
-                              >
+                            <button
+                              type="button"
+                              onClick={handleRemoveBanner}
+                              className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:bg-red-200 transition-opacity opacity-0 group-hover:opacity-100"
+                              style={{ zIndex: 10 }}
+                              aria-label="Remove banner"
+                            >
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 className="h-5 w-5"
@@ -920,84 +817,89 @@ const AdminProductPage: React.FC = () => {
                                   strokeWidth={2}
                                   d="M6 18L18 6M6 6l12 12"
                                 />
-                                </svg>
-                              </button>
-                            </div>
-                          )}
-                          <label className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition">
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              ref={bannerInputRef}
-                              onChange={handleBannerFileSelect}
-                              disabled={bannerUploading}
-                            />
+                              </svg>
+                            </button>
+                          </div>
+                        )}
+                      <label className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          ref={bannerInputRef}
+                          onChange={handleBannerFileSelect}
+                          disabled={bannerUploading}
+                        />
                         {bannerUploading
                           ? "Uploading..."
                           : "Upload Banner Image"}
-                          </label>
+                      </label>
                       {bannerUploadError && (
                         <span className="text-red-500 text-sm ml-2">
                           {bannerUploadError}
                         </span>
                       )}
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Badges
-                          </label>
-                          <div className="flex space-x-2 mb-2 items-center">
-                            <label className="inline-block px-3 py-1 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition">
-                              <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                ref={badgeImageInputRef}
-                                onChange={handleMultipleBadgeFilesSelect}
-                                multiple
-                                disabled={badgeImageUploading}
-                              />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Badges
+                      </label>
+                      <div className="flex space-x-2 mb-2 items-center">
+                        <label className="inline-block px-3 py-1 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            ref={badgeImageInputRef}
+                            onChange={handleMultipleBadgeFilesSelect}
+                            multiple
+                            disabled={badgeImageUploading}
+                          />
                           {badgeImageUploading
                             ? "Uploading..."
                             : "Upload Badge Images"}
-                            </label>
-                          </div>
+                        </label>
+                      </div>
                       {badgeImageUploadError && (
                         <span className="text-red-500 text-sm">
                           {badgeImageUploadError}
                         </span>
                       )}
-                          <div className="flex flex-wrap gap-4 mt-2">
-                            {(formData.badges || []).map((badge, idx) => (
-                          <div key={idx} className="flex flex-col items-center relative">
-                                {typeof badge.image === "string" && badge.image.trim() !== "" && (
-                              <img
-                                src={badge.image}
-                                alt="Badge"
-                                className="w-20 h-20 object-contain rounded border mb-1"
-                              />
-                                )}
-                                <input
-                                  type="text"
-                                  value={badge.text || ""}
-                                  onChange={(e) => handleBadgeNameChange(idx, e.target.value)}
-                                  placeholder="Badge name"
-                                  className="px-2 py-1 border rounded-md text-center"
+                      <div className="flex flex-wrap gap-4 mt-2">
+                        {(formData.badges || []).map((badge, idx) => (
+                          <div
+                            key={idx}
+                            className="flex flex-col items-center relative"
+                          >
+                            {typeof badge.image === "string" &&
+                              badge.image.trim() !== "" && (
+                                <img
+                                  src={badge.image}
+                                  alt="Badge"
+                                  className="w-20 h-20 object-contain rounded border mb-1"
                                 />
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveBadge(idx)}
+                              )}
+                            <input
+                              type="text"
+                              value={badge.text || ""}
+                              onChange={(e) =>
+                                handleBadgeNameChange(idx, e.target.value)
+                              }
+                              placeholder="Badge name"
+                              className="px-2 py-1 border rounded-md text-center"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveBadge(idx)}
                               className="absolute top-0 right-0 mt-1 mr-1 p-1 rounded-full hover:bg-red-100 focus:outline-none"
                               aria-label="Remove badge"
-                                >
+                            >
                               <XMarkIcon className="w-4 h-4 text-red-500" />
-                                </button>
-                              </div>
-                            ))}
+                            </button>
                           </div>
-                        </div>
-                  </form>
+                        ))}
+                      </div>
+                    </div>
                     <div className="mt-6 flex justify-end space-x-3">
                       {editMode && (
                         <button
@@ -1035,6 +937,195 @@ const AdminProductPage: React.FC = () => {
                         )}
                       </button>
                     </div>
+                  </form>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition.Root>
+
+      {/* Membership Modal */}
+      <Transition.Root show={isMembershipModalOpen} as={Fragment}>
+        <Dialog
+          as="div"
+          className="relative z-10"
+          onClose={() => setIsMembershipModalOpen(false)}
+        >
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-gray-800/50 bg-opacity-75 transition-opacity" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 z-10 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                enterTo="opacity-100 translate-y-0 sm:scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+                leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              >
+                <Dialog.Panel className="relative bg-white rounded-lg px-6 pt-6 pb-4 text-left shadow-xl transform transition-all sm:my-8 sm:max-w-2xl w-full">
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold text-gray-800">
+                      Kishan Parivar Membership Settings
+                    </h2>
+                    <button
+                      onClick={() => setIsMembershipModalOpen(false)}
+                      className="button text-gray-400 hover:text-gray-600 focus:outline-none"
+                    >
+                      <XMarkIcon className="w-6 h-6" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleMembershipSubmit} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Discount Percentage (%)
+                        </label>
+                        <input
+                          type="number"
+                          name="discountPercentage"
+                          value={membershipForm.discountPercentage || 0}
+                          onChange={handleMembershipChange}
+                          min="0"
+                          max="100"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Monthly Price (₹)
+                        </label>
+                        <input
+                          type="number"
+                          name="monthlyPrice"
+                          value={membershipForm.monthlyPrice || 0}
+                          onChange={handleMembershipChange}
+                          min="0"
+                          step="0.01"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Quarterly Price (₹)
+                        </label>
+                        <input
+                          type="number"
+                          name="quarterlyPrice"
+                          value={membershipForm.quarterlyPrice || 0}
+                          onChange={handleMembershipChange}
+                          min="0"
+                          step="0.01"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Yearly Price (₹)
+                        </label>
+                        <input
+                          type="number"
+                          name="yearlyPrice"
+                          value={membershipForm.yearlyPrice || 0}
+                          onChange={handleMembershipChange}
+                          min="0"
+                          step="0.01"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Monthly Duration (months)
+                        </label>
+                        <input
+                          type="number"
+                          name="monthlyDuration"
+                          value={membershipForm.monthlyDuration || 1}
+                          onChange={handleMembershipChange}
+                          min="1"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Quarterly Duration (months)
+                        </label>
+                        <input
+                          type="number"
+                          name="quarterlyDuration"
+                          value={membershipForm.quarterlyDuration || 3}
+                          onChange={handleMembershipChange}
+                          min="1"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Yearly Duration (months)
+                        </label>
+                        <input
+                          type="number"
+                          name="yearlyDuration"
+                          value={membershipForm.yearlyDuration || 12}
+                          onChange={handleMembershipChange}
+                          min="1"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end space-x-3 mt-6">
+                      <button
+                        type="button"
+                        onClick={() => setIsMembershipModalOpen(false)}
+                        className="button px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={formLoading}
+                        className={`button px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition ${
+                          formLoading ? "opacity-75 cursor-not-allowed" : ""
+                        }`}
+                      >
+                        {formLoading ? (
+                          <>
+                            <ArrowPathIcon className="w-5 h-5 mr-2 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          "Save Settings"
+                        )}
+                      </button>
+                    </div>
+                  </form>
                 </Dialog.Panel>
               </Transition.Child>
             </div>
@@ -1136,13 +1227,6 @@ const AdminProductPage: React.FC = () => {
                           <EyeIcon className="w-4 h-4 mr-1" />
                           Variants
                         </button>
-                        {/* <button
-                          type="button"
-                          onClick={() => viewDetails(product.id)}
-                          className="button text-blue-600 hover:text-blue-900 mr-4"
-                        >
-                          View
-                        </button> */}
                         <button
                           onClick={() => handleEditClick(product)}
                           className="button inline-flex items-center px-2 py-1 text-xs text-white bg-green-500 hover:bg-green-600 rounded mx-2"
@@ -1157,240 +1241,8 @@ const AdminProductPage: React.FC = () => {
                           <TrashIcon className="w-4 h-4 mr-1" />
                           Delete
                         </button>
-                        {/* <button
-                          onClick={() => toggleVariantForm(product.id)}
-                          className="button ml-4 text-green-600 hover:text-green-900 flex items-center"
-                        >
-                          {showVariantForm === product.id ? (
-                            <ChevronUpIcon className="w-4 h-4 mr-1" />
-                          ) : (
-                            <ChevronDownIcon className="w-4 h-4 mr-1" />
-                          )}
-                          Add Variants
-                        </button> */}
                       </td>
                     </tr>
-
-                    {/* {showVariantForm === product.id && (
-                      <tr className="bg-gray-50">
-                        <td colSpan={4} className="px-6 py-4">
-                          <div className="mb-4">
-                            <h3 className="text-lg font-medium text-gray-900 mb-2">
-                              {editingVariantId
-                                ? "Edit Variant"
-                                : "Add New Variant"}
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                  Weight
-                                </label>
-                                <input
-                                  name="weight"
-                                  value={variantForm.weight}
-                                  onChange={handleVariantChange}
-                                  placeholder="e.g., 500g, 1kg"
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                  required
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                  Price (₹)
-                                </label>
-                                <input
-                                  name="price"
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={variantForm.price || ""}
-                                  onChange={handleVariantChange}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                  placeholder="Enter price or let it auto-calculate"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                  Original Price (₹)
-                                </label>
-                                <input
-                                  name="originalPrice"
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={variantForm.originalPrice || ""}
-                                  onChange={handleVariantChange}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                  Discount (%)
-                                </label>
-                                <input
-                                  name="discount"
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  value={variantForm.discount || ""}
-                                  onChange={handleVariantChange}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                  Units in Stock
-                                </label>
-                                <input
-                                  type="number"
-                                  name="units_in_stock"
-                                  value={variantForm.units_in_stock || ""}
-                                  onChange={handleVariantChange}
-                                  min="0"
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                  required
-                                />
-                              </div>
-                              <div className="flex items-center">
-                                <input
-                                  name="inStock"
-                                  type="checkbox"
-                                  checked={variantForm.inStock}
-                                  onChange={handleVariantChange}
-                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                />
-                                <label className="ml-2 block text-sm text-gray-700">
-                                  In Stock
-                                </label>
-                              </div>
-                            </div>
-                            <div className="mt-4 flex justify-end space-x-3">
-                              <button
-                                type="button"
-                                onClick={resetVariantForm}
-                                className="button px-3 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleVariantSubmit(product.id)}
-                                disabled={formLoading}
-                                className={`button px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition ${
-                                  formLoading
-                                    ? "opacity-75 cursor-not-allowed"
-                                    : ""
-                                }`}
-                              >
-                                {formLoading ? (
-                                  <ArrowPathIcon className="w-4 h-4 animate-spin inline mr-1" />
-                                ) : null}
-                                {editingVariantId ? "Update" : "Add"} Variant
-                              </button>
-                            </div>
-                          </div>
-
-                          {variants[product.id]?.length > 0 ? (
-                            <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">
-                              <table className="min-w-full divide-y divide-gray-300">
-                                <thead className="bg-gray-100">
-                                  <tr>
-                                    <th className="py-3 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
-                                      Weight
-                                    </th>
-                                    <th className="px-3 py-3 text-left text-sm font-semibold text-gray-900">
-                                      Price
-                                    </th>
-                                    <th className="px-3 py-3 text-left text-sm font-semibold text-gray-900">
-                                      Original Price
-                                    </th>
-                                    <th className="px-3 py-3 text-left text-sm font-semibold text-gray-900">
-                                      Discount
-                                    </th>
-                                    <th className="px-3 py-3 text-left text-sm font-semibold text-gray-900">
-                                      Stock
-                                    </th>
-                                    <th className="px-3 py-3 text-left text-sm font-semibold text-gray-900">
-                                      Units in Stock
-                                    </th>
-                                    <th className="relative py-3 pl-3 pr-4 text-right text-sm font-semibold text-gray-900">
-                                      Actions
-                                    </th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200 bg-white">
-                                  {variants[product.id].map((variant) => (
-                                    <tr key={variant.id}>
-                                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
-                                        {variant.weight}
-                                      </td>
-                                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                        ₹{variant.price.toFixed(2)}
-                                      </td>
-                                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                        {variant.originalPrice
-                                          ? `₹${variant.originalPrice.toFixed(
-                                              2
-                                            )}`
-                                          : "-"}
-                                      </td>
-                                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                        {variant.discount
-                                          ? `${variant.discount}%`
-                                          : "-"}
-                                      </td>
-                                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                        <span
-                                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                            variant.inStock
-                                              ? "bg-green-100 text-green-800"
-                                              : "bg-red-100 text-red-800"
-                                          }`}
-                                        >
-                                          {variant.inStock
-                                            ? "In Stock"
-                                            : "Out of Stock"}
-                                        </span>
-                                      </td>
-                                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-900 font-semibold">
-                                        {variant.units_in_stock}
-                                      </td>
-                                      <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium">
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            handleVariantEditClick(variant)
-                                          }
-                                          className="text-indigo-600 hover:text-indigo-900 mr-4"
-                                        >
-                                          Edit
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            handleVariantDelete(
-                                              product.id,
-                                              variant.id
-                                            )
-                                          }
-                                          className="text-red-600 hover:text-red-900"
-                                        >
-                                          Delete
-                                        </button>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          ) : (
-                            <p className="text-sm text-gray-500">
-                              No variants added yet.
-                            </p>
-                          )}
-                        </td>
-                      </tr>
-                    )} */}
                   </React.Fragment>
                 ))}
               </tbody>
@@ -1403,4 +1255,3 @@ const AdminProductPage: React.FC = () => {
 };
 
 export default AdminProductPage;
-

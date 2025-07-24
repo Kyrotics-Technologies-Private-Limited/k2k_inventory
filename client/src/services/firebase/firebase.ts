@@ -44,3 +44,5 @@ try {
 */
 
 export { app, analytics, auth, db, storage };
+
+export { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
