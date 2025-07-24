@@ -63,6 +63,27 @@ router.get("/stats", async (req, res) => {
       }
     });
 
+    // Fetch out-of-stock variants from all products (using subcollection logic)
+    const productsSnapshot = await db.collection("products").get();
+    let outOfStockVariants = [];
+    // For each product, fetch its variants subcollection
+    const variantFetches = productsSnapshot.docs.map(async (productDoc) => {
+      const productData = productDoc.data();
+      const productName = productData.name || productDoc.id;
+      const variantsSnapshot = await db.collection("products").doc(productDoc.id).collection("variants").get();
+      variantsSnapshot.forEach((variantDoc) => {
+        const variant = variantDoc.data();
+        // Consider out of stock if units_in_stock is 0 or falsy
+        if (variant.units_in_stock === 0 || variant.units_in_stock === undefined || variant.units_in_stock === null) {
+          outOfStockVariants.push({
+            product: productName,
+            variant: variant.name || variant.weight || variantDoc.id || "Unnamed Variant"
+          });
+        }
+      });
+    });
+    await Promise.all(variantFetches);
+
     const chartArray = Object.entries(chartData).map(([date, revenue]) => ({
       date,
       revenue,
@@ -76,6 +97,7 @@ router.get("/stats", async (req, res) => {
       totalCustomers: usersSnapshot.size,
       orderStatusCounts,
       revenueChart: chartArray, // for charts
+      outOfStockVariants, // new field for dashboard warning
     };
 
     return res.status(200).json(response);
