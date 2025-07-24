@@ -5,7 +5,8 @@ require('dotenv').config({ path: './config.env' }); // ✅ Correct usage
 
 const app = express();
 app.use(cors());
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
 const PORT = process.env.PORT || 5567;
 
@@ -19,6 +20,7 @@ const variantRoutes = require("./routes/variantRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const dashboardRoutes = require("./routes/dashboard");
+const membershipRoutes = require("./routes/membershipRoutes");
 
 app.use('/api/products', productRoutes);
 app.use("/api/carts", cartRoutes);
@@ -28,6 +30,7 @@ app.use("/api/addresses", addressRoutes);
 app.use("/api/variants", variantRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/membership", membershipRoutes);
 app.use('/api/dashboard', require('./routes/dashboard'));
 
 
