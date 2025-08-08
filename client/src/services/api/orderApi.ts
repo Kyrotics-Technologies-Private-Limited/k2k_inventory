@@ -72,5 +72,32 @@ export const orderApi = {
   updateOrderStatus: async (orderId: string, payload: UpdateOrderStatusPayload): Promise<void> => {
     //const token = await getAuthToken();
     await api.patch(`/orders/${orderId}/status`, payload);
+  },
+
+  // Function to refresh inventory data after order cancellation
+  refreshInventoryAfterCancellation: async (orderId: string): Promise<void> => {
+    try {
+      // Get the order details to know which variants were affected
+      const order = await orderApi.getOrderById(orderId);
+      
+      if (order.items && order.items.length > 0) {
+        // Import variantApi dynamically to avoid circular dependencies
+        const { default: variantApi } = await import('./variantApi');
+        
+        // Refresh inventory data for affected products
+        for (const item of order.items) {
+          if (item.productId) {
+            try {
+              // Refresh variants for this product
+              await variantApi.getVariantsByProductId(item.productId);
+            } catch (error) {
+              console.warn(`Failed to refresh inventory for product ${item.productId}:`, error);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to refresh inventory data:', error);
+    }
   }
 };

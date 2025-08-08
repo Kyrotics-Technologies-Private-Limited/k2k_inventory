@@ -110,7 +110,19 @@ const AdminOrderDetailsPage: React.FC = () => {
       await orderApi.updateOrderStatus(currentOrderId, { status: newStatus });
       await fetchOrderDetails(currentOrderId);
       setIsUpdateModalOpen(false);
-      toast.success("Order status updated successfully");
+      
+      // Show specific message for cancellation and refresh inventory
+      if (newStatus.toLowerCase() === 'cancelled') {
+        toast.success("Order cancelled successfully. Inventory has been restocked.");
+        // Refresh inventory data in the background
+        try {
+          await orderApi.refreshInventoryAfterCancellation(currentOrderId);
+        } catch (error) {
+          console.warn('Failed to refresh inventory data:', error);
+        }
+      } else {
+        toast.success("Order status updated successfully");
+      }
     } catch (err: any) {
       console.error("Failed to update order status:", err);
       toast.error(err.message || "Failed to update order status");

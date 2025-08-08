@@ -6,6 +6,7 @@ import ProductDetailsPage from "./pages/admin/ProductDetailsPage";
 import ProductListPage from "./pages/admin/ProductListPage";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminCustomers from "./pages/admin/AdminCustomers";
+import MembershipPage from "./pages/admin/MembershipPage";
 import { ToastContainer, Bounce } from "react-toastify";
 import VariantDetailsPage from "./pages/admin/Variantdetailspage";
 import VariantEditPage from "./pages/admin/VariantEditPage";
@@ -150,6 +151,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <AdminCustomers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="membership"
+            element={
+              <ProtectedRoute>
+                <MembershipPage />
               </ProtectedRoute>
             }
           />
