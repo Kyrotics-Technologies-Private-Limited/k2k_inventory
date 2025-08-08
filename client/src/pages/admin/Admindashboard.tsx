@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import {
   FiDollarSign,
   FiShoppingCart,
   FiUser,
-  FiTrendingUp,
   FiX,
   FiAlertTriangle,
 } from "react-icons/fi";
@@ -23,6 +23,7 @@ const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [showOutOfStockModal, setShowOutOfStockModal] = useState(false);
+  const navigate = useNavigate();
 
   // Helper to render out-of-stock warning
   const renderOutOfStockWarning = () => {
@@ -132,25 +133,27 @@ const AdminDashboard: React.FC = () => {
         ? `₹${stats.totalRevenue.toLocaleString()}`
         : "₹0",
       icon: <FiDollarSign size={24} />,
-      // change: "+12% from last month",
+      onClick: () => {
+        const revenueChart = document.getElementById('revenue-chart');
+        if (revenueChart) {
+          revenueChart.scrollIntoView({ behavior: 'smooth' });
+        }
+      },
+      clickable: true,
     },
     {
       title: "Total Orders",
       value: stats?.totalOrders?.toString() ?? "0",
       icon: <FiShoppingCart size={24} />,
-      //change: "+8% from last month",
+      onClick: () => navigate("/admin/orders"),
+      clickable: true,
     },
     {
       title: "Customers",
       value: stats?.totalCustomers?.toString() ?? "0",
       icon: <FiUser size={24} />,
-      //change: "+5% from last month",
-    },
-    {
-      title: "Conversion Rate",
-      value: "3.2%",
-      icon: <FiTrendingUp size={24} />,
-      //change: "+0.8% from last month",
+      onClick: () => navigate("/admin/customers"),
+      clickable: true,
     },
   ];
 
@@ -159,16 +162,26 @@ const AdminDashboard: React.FC = () => {
       title: "Pending Orders",
       value: stats?.orderStatusCounts?.placed ?? 0,
       color: "text-yellow-600",
+      status: "placed",
     },
     {
       title: "Delivered Orders",
       value: stats?.orderStatusCounts?.delivered ?? 0,
       color: "text-green-600",
+      status: "delivered",
     },
     {
       title: "Cancelled Orders",
       value: stats?.orderStatusCounts?.cancelled ?? 0,
       color: "text-red-600",
+      status: "cancelled",
+    },
+    {
+      title: "Out of Stock Variants",
+      value: stats?.outOfStockVariants?.length ?? 0,
+      color: "text-red-600",
+      status: "outOfStock",
+      onClick: () => navigate("/admin/products?fromDashboard=true"),
     },
   ];
 
@@ -180,11 +193,14 @@ const AdminDashboard: React.FC = () => {
       {renderOutOfStockWarning()}
 
       {/* Summary Cards */}
-      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
         {summaryCards.map((card, index) => (
           <div
             key={index}
-            className="bg-white p-6 rounded-lg shadow flex flex-col justify-between h-36"
+            className={`bg-white p-6 rounded-lg shadow flex flex-col justify-between h-36 ${
+              card.clickable ? 'cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50' : ''
+            }`}
+            onClick={card.onClick}
           >
             <div className="flex justify-between items-start">
               <div>
@@ -192,9 +208,10 @@ const AdminDashboard: React.FC = () => {
                 <p className="text-2xl font-bold mt-1">
                   {loading ? "Loading..." : card.value}
                 </p>
-                {/* <p className="text-sm text-green-500 mt-1">{card.change}</p> */}
               </div>
-              <div className="bg-blue-100 p-3 rounded-full text-blue-600">
+              <div className={`p-3 rounded-full ${
+                card.clickable ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
+              }`}>
                 {card.icon}
               </div>
             </div>
@@ -203,11 +220,18 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Order Status Cards */}
-      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 mt-4">
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-4 mt-4">
         {statusCards.map((card, index) => (
           <div
             key={index}
-            className="bg-white p-6 rounded-lg shadow flex flex-col justify-center h-32"
+            className="bg-white p-6 rounded-lg shadow flex flex-col justify-center h-32 cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50"
+            onClick={() => {
+              if (card.status === "outOfStock") {
+                navigate("/admin/products?fromDashboard=true");
+              } else {
+                navigate(`/admin/orders?status=${card.status}`);
+              }
+            }}
           >
             <p className="text-gray-500">{card.title}</p>
             <p className={`text-3xl font-bold mt-2 ${card.color}`}>
@@ -217,27 +241,27 @@ const AdminDashboard: React.FC = () => {
         ))}
       </div>
 
-      {/* Revenue Chart */}
-      <div className="bg-white p-6 rounded-lg shadow mt-6">
-        <h2 className="text-xl font-semibold mb-4">Revenue This Month</h2>
-        <div className="w-full h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={stats?.revenueChart || []}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis tickFormatter={(value) => `₹${value}`} />
-              <Tooltip formatter={(value) => `₹${value}`} />
-              <Line
-                type="monotone"
-                dataKey="revenue"
-                stroke="#3b82f6"
-                strokeWidth={2}
-                dot={{ r: 3 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+                    {/* Revenue Chart */}
+       <div id="revenue-chart" className="bg-white p-6 rounded-lg shadow mt-6">
+         <h2 className="text-xl font-semibold mb-4">Revenue This Month</h2>
+         <div className="w-full h-[300px]">
+           <ResponsiveContainer width="100%" height="100%">
+             <LineChart data={stats?.revenueChart || []}>
+               <CartesianGrid strokeDasharray="3 3" />
+               <XAxis dataKey="date" />
+               <YAxis tickFormatter={(value) => `₹${value}`} />
+               <Tooltip formatter={(value) => `₹${value}`} />
+               <Line
+                 type="monotone"
+                 dataKey="revenue"
+                 stroke="#3b82f6"
+                 strokeWidth={2}
+                 dot={{ r: 3 }}
+               />
+             </LineChart>
+           </ResponsiveContainer>
+         </div>
+       </div>
     </div>
   );
 };

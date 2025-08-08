@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { orderApi } from "../../services/api/orderApi";
 import type { Order } from "../../types/order";
 import { toast } from "react-toastify";
@@ -85,6 +85,7 @@ const AdminOrdersPage: React.FC = () => {
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -99,6 +100,14 @@ const AdminOrdersPage: React.FC = () => {
 
     return () => unsubscribe();
   }, [navigate]);
+
+  // Handle URL parameters for status filtering
+  useEffect(() => {
+    const statusFromUrl = searchParams.get('status');
+    if (statusFromUrl && ORDER_STATUSES.includes(statusFromUrl as any)) {
+      setStatusFilter(statusFromUrl);
+    }
+  }, [searchParams]);
 
   const fetchOrders = async () => {
     if (!auth.currentUser) {
@@ -127,7 +136,20 @@ const AdminOrdersPage: React.FC = () => {
     try {
       await orderApi.updateOrderStatus(orderId, { status });
       await fetchOrders();
-      toast.success("Order status updated successfully");
+      
+      // Show specific message for cancellation and refresh inventory
+      if (status.toLowerCase() === 'cancelled') {
+        toast.success("Order cancelled successfully. Inventory has been restocked.");
+        // Refresh inventory data in the background
+        try {
+          await orderApi.refreshInventoryAfterCancellation(orderId);
+        } catch (error) {
+          console.warn('Failed to refresh inventory data:', error);
+        }
+      } else {
+        toast.success("Order status updated successfully");
+      }
+      
       setEditingOrderId(null);
     } catch (err: any) {
       console.error("Failed to update order status:", err);

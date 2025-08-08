@@ -14,6 +14,33 @@ function toISO(ts) {
   return ts;
 }
 
+// Helper function to restock inventory for order items
+const restockOrderItems = async (items) => {
+  if (!items || items.length === 0) return;
+  
+  for (const item of items) {
+    const { productId, variantId, quantity } = item;
+    
+    if (productId && variantId && quantity) {
+      const variantRef = db.collection('products').doc(productId).collection('variants').doc(variantId);
+      const variantDoc = await variantRef.get();
+      
+      if (variantDoc.exists) {
+        const variantData = variantDoc.data();
+        const currentStock = variantData.units_in_stock || 0;
+        const newStock = currentStock + quantity;
+        
+        await variantRef.update({
+          units_in_stock: newStock,
+          inStock: newStock > 0,
+          stockStatus: newStock > 0 ? 'in_stock' : 'out_of_stock',
+          updatedAt: getTimestamp(),
+        });
+      }
+    }
+  }
+};
+
 // Create a new order
 exports.createOrder = async (req, res) => {
   try {
@@ -131,6 +158,11 @@ exports.cancelOrder = async (req, res) => {
       return res.status(400).json({ message: `Order cannot be cancelled. Current status: ${currentStatus}` });
     }
 
+    const orderData = doc.data();
+    
+    // Restock inventory for all items in the order
+    await restockOrderItems(orderData.items);
+
     await docRef.update({
       status: 'Cancelled',
       updatedAt: getTimestamp(),
@@ -240,6 +272,22 @@ exports.adminUpdateOrderStatus = async (req, res) => {
     const { status } = req.body;
 
     const orderRef = ordersCollection.doc(orderId);
+    const orderDoc = await orderRef.get();
+
+    if (!orderDoc.exists) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    const orderData = orderDoc.data();
+    const previousStatus = orderData.status;
+
+    // If status is being changed to 'Cancelled' and it wasn't cancelled before
+    if (status.toLowerCase() === 'cancelled' && previousStatus.toLowerCase() !== 'cancelled') {
+      // Restock inventory for all items in the order
+      await restockOrderItems(orderData.items);
+    }
+
+    // Update the order status
     await orderRef.update({
       status,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),

@@ -4,7 +4,8 @@ import type { Product } from "../../types";
 import { productApi } from "../../services/api/productApi";
 //import variantApi from "../../services/api/variantApi";
 import { membershipApi } from "../../services/api/membershipApi";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { fetchDashboardStats, type outOfStockVariants } from "../../services/api/dashApi";
 import {
   PencilIcon,
   PlusIcon,
@@ -58,12 +59,15 @@ const initialMembershipForm: MembershipSettings = {
 
 const AdminProductPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [formLoading, setFormLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [outOfStockVariants, setOutOfStockVariants] = useState<outOfStockVariants[]>([]);
+  const [showOutOfStockModal, setShowOutOfStockModal] = useState(false);
   const [formData, setFormData] = useState<Omit<Product, "id">>(initialForm);
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -206,13 +210,15 @@ const AdminProductPage: React.FC = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [fetchedProducts, membershipData] = await Promise.all([
+        const [fetchedProducts, membershipData, dashboardStats] = await Promise.all([
           productApi.getAllProducts(),
           membershipApi.getMembershipSettings(),
+          fetchDashboardStats(),
         ]);
 
         setProducts(fetchedProducts);
         setFilteredProducts(fetchedProducts);
+        setOutOfStockVariants(dashboardStats.outOfStockVariants || []);
 
         if (membershipData) {
           setMembershipSettings(membershipData);
@@ -228,6 +234,14 @@ const AdminProductPage: React.FC = () => {
     };
     fetchData();
   }, []);
+
+  // Check if we should show the out-of-stock modal from dashboard navigation
+  useEffect(() => {
+    const fromDashboard = searchParams.get('fromDashboard');
+    if (fromDashboard === 'true' && outOfStockVariants.length > 0) {
+      setShowOutOfStockModal(true);
+    }
+  }, [searchParams, outOfStockVariants]);
 
   useEffect(() => {
     if (searchTerm.trim() === "") {
@@ -568,6 +582,83 @@ const AdminProductPage: React.FC = () => {
         <div className="mb-6 p-4 bg-green-50 text-green-700 rounded-lg border border-green-200 flex items-center">
           <CheckIcon className="w-5 h-5 mr-2" />
           {success}
+        </div>
+      )}
+
+      {/* Out of Stock Notification */}
+      {outOfStockVariants.length > 0 && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-800 rounded-lg cursor-pointer hover:bg-red-100 transition-colors">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+                             <XMarkIcon className="mr-3 text-red-600 w-5 h-5" />
+              <div>
+                <div className="font-bold">⚠️ Stock Alert</div>
+                <div className="text-sm">
+                  {outOfStockVariants.length} variant{outOfStockVariants.length > 1 ? 's' : ''} out of stock
+                </div>
+              </div>
+            </div>
+            <button 
+              className="text-red-600 hover:text-red-800 font-medium text-sm"
+              onClick={() => setShowOutOfStockModal(true)}
+            >
+              View Details →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Out of Stock Modal */}
+      {showOutOfStockModal && (
+        <div className="fixed inset-0 bg-opacity-30 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-white bg-opacity-90 backdrop-blur-xl border border-white border-opacity-20 rounded-lg shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden">
+            {/* Header */}
+            <div className="bg-red-50 bg-opacity-70 backdrop-blur-sm px-6 py-4 border-b border-red-200 border-opacity-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                                     <XMarkIcon className="text-red-600 mr-3 w-6 h-6" />
+                  <h3 className="text-lg font-semibold text-red-800">
+                    Out of Stock Alert
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowOutOfStockModal(false)}
+                  className="text-red-600 hover:text-red-800 transition-colors"
+                >
+                  <XMarkIcon className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <p className="text-gray-600 mb-4">
+                The following product variants are currently out of stock:
+              </p>
+              <div className="max-h-60 overflow-y-auto">
+                <div className="space-y-3">
+                  {outOfStockVariants.map((item: outOfStockVariants, idx: number) => (
+                    <div key={idx} className="bg-gray-50 p-3 rounded-lg border-l-4 border-red-400">
+                      <div className="font-semibold text-gray-800">{item.product}</div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        Variant: <span className="font-medium">{item.variant}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="bg-gray-50 bg-opacity-70 backdrop-blur-sm px-6 py-4 border-t border-gray-200 border-opacity-50">
+              <button
+                onClick={() => setShowOutOfStockModal(false)}
+                className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { productApi } from "../../services/api/productApi";
 import type { Product } from "../../types";
+import variantApi from "../../services/api/variantApi";
 import {
   //StarIcon,
   //PencilIcon,
@@ -19,6 +20,7 @@ const ProductDetailsPage: React.FC = () => {
   const [error, setError] = useState("");
   const [selectedImage, setSelectedImage] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [variants, setVariants] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchProductDetails = async () => {
@@ -27,6 +29,9 @@ const ProductDetailsPage: React.FC = () => {
           const fetchedProduct = await productApi.getProductById(id);
           setProduct(fetchedProduct);
           setSelectedImage(fetchedProduct.images.main);
+          // Fetch variants for this product
+          const fetchedVariants = await variantApi.getVariantsByProductId(id);
+          setVariants(fetchedVariants);
         }
       } catch (err) {
         setError("Failed to fetch product details. Please try again later.");
@@ -56,35 +61,7 @@ const ProductDetailsPage: React.FC = () => {
 
   
 
-  const getStockStatusText = () => {
-    if (!product) return "";
 
-    switch (product.stockStatus) {
-      case "in_stock":
-        return "In Stock";
-      case "low_stock":
-        return "Low Stock";
-      case "out_of_stock":
-        return "Out of Stock";
-      default:
-        return product.stockStatus;
-    }
-  };
-
-  const getStockStatusColor = () => {
-    if (!product) return "";
-
-    switch (product.stockStatus) {
-      case "in_stock":
-        return "text-green-600";
-      case "low_stock":
-        return "text-yellow-600";
-      case "out_of_stock":
-        return "text-red-600";
-      default:
-        return "text-gray-600";
-    }
-  };
 
   if (loading) {
     return (
@@ -222,16 +199,36 @@ const ProductDetailsPage: React.FC = () => {
               <h2 className="text-lg font-semibold text-gray-700 mb-2">
                 Inventory
               </h2>
-              <div className="space-y-3">
-                <div>
-                  <span className="text-sm font-medium text-gray-500">
-                    Stock Status:
-                  </span>
-                  <span className={`ml-2 font-medium ${getStockStatusColor()}`}>
-                    {getStockStatusText()}
-                  </span>
-                </div>
-              </div>
+              {variants && variants.length > 0 ? (
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead>
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Variant</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Units in Stock</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {variants.map((variant: any) => (
+                      <tr key={variant.id || variant.name || variant.weight}>
+                        <td className="px-4 py-2 whitespace-nowrap">{variant.name || variant.weight}</td>
+                        <td className="px-4 py-2 whitespace-nowrap">{variant.units_in_stock}</td>
+                        <td className="px-4 py-2 whitespace-nowrap">
+                          <span className={
+                            variant.units_in_stock > 0
+                              ? "text-green-600 font-medium"
+                              : "text-red-600 font-medium"
+                          }>
+                            {variant.units_in_stock > 0 ? "In Stock" : "Out of Stock"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="text-gray-500">No variants found.</div>
+              )}
             </div>
 
             
