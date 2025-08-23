@@ -1,15 +1,8 @@
 import React, { useEffect, useState } from "react";
-// import { useNavigate } from "react-router-dom";
 import { productApi } from "../../services/api/productApi";
 import variantApi from "../../services/api/variantApi";
+import type { Variant } from "../../types/variant";
 import { useNavigate } from "react-router-dom";
-
-interface Variant {
-  id?: string;
-  name?: string;
-  units_in_stock: number;
-  image?: string;
-}
 
 interface Product {
   id: string;
@@ -40,8 +33,14 @@ const OutOfStockPage: React.FC = () => {
           map[product.id] = (allVariants[idx] as Variant[]);
         });
         setVariantsMap(map);
+        
+        // Debug: Log the first product's variants to see the structure
+        if (allProducts.length > 0 && allVariants.length > 0) {
+          console.log('Sample variant data:', allVariants[0]);
+          console.log('Sample product:', allProducts[0]);
+        }
       } catch (err) {
-        // handle error
+        console.error('Error fetching data:', err);
       } finally {
         setLoading(false);
       }
@@ -65,62 +64,118 @@ const OutOfStockPage: React.FC = () => {
     })
     .filter((p) => (p.outOfStock?.length ?? 0) > 0 || (p.lowStock?.length ?? 0) > 0);
 
+  // Create a flat list of all problematic variants for easier table rendering
+  const allProblemVariants = filtered.flatMap((product) => [
+    ...product.outOfStock.map(variant => ({
+      ...variant,
+      product,
+      issueType: 'outOfStock' as const
+    })),
+    ...product.lowStock.map(variant => ({
+      ...variant,
+      product,
+      issueType: 'lowStock' as const
+    }))
+  ]);
+
+  // Sort: out of stock first, then low stock
+  allProblemVariants.sort((a, b) => {
+    if (a.issueType === 'outOfStock' && b.issueType === 'lowStock') return -1;
+    if (a.issueType === 'lowStock' && b.issueType === 'outOfStock') return 1;
+    return 0;
+  });
+
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Out of Stock & Low Stock Products</h1>
+      <div className="mb-6">
+        <div className="mb-2">
+          <span
+            onClick={() => navigate('/admin/products')}
+            className="text-blue-600 hover:text-blue-800 cursor-pointer transition-colors"
+          >
+            ← Back to Products
+          </span>
+        </div>
+        <h1 className="text-2xl font-bold">Out of Stock & Low Stock Products</h1>
+      </div>
       {loading ? (
         <div className="flex justify-center items-center h-40">Loading...</div>
       ) : filtered.length === 0 ? (
         <div className="text-gray-500">All products are sufficiently stocked.</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((product) => (
-            <div key={product.id} className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center mb-4">
-                <img
-                  src={product.images.main}
-                  alt={product.name}
-                  className="w-20 h-20 object-cover rounded mr-4 border"
-                />
-                <div>
-                  <h2 className="text-lg font-semibold">{product.name}</h2>
-                  <div className="text-sm text-gray-500 capitalize">{product.category}</div>
-                </div>
-              </div>
-              {product.outOfStock.length > 0 && (
-                <div className="mb-2">
-                  <div className="font-bold text-red-600">Out of Stock Variants:</div>
-                  <ul className="list-disc ml-6">
-                    {product.outOfStock.map((variant) => (
-                      <li key={variant.id} className="flex items-center">
-                        {variant.image && (
-                          <img src={variant.image} alt={variant.name} className="w-8 h-8 object-cover rounded mr-2 border" />
-                        )}
-                        <span>{variant.name}</span>
-                        <span className="ml-2 text-xs text-gray-400">(0 in stock)</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {product.lowStock.length > 0 && (
-                <div>
-                  <div className="font-bold text-yellow-600">Low Stock Variants:</div>
-                  <ul className="list-disc ml-6">
-                    {product.lowStock.map((variant) => (
-                      <li key={variant.id} className="flex items-center">
-                        {variant.image && (
-                          <img src={variant.image} alt={variant.name} className="w-8 h-8 object-cover rounded mr-2 border" />
-                        )}
-                        <span>{variant.name}</span>
-                        <span className="ml-2 text-xs text-gray-400">({variant.units_in_stock} left)</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          ))}
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Product
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Variant
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Stock Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Current Stock
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {allProblemVariants.map((variant, variantIdx) => {
+                  // Debug: Log variant data for each row
+                  console.log('Rendering variant:', variant);
+                  return (
+                    <tr 
+                      key={`${variant.id || variantIdx}-${variant.issueType}`} 
+                      className={variant.issueType === 'outOfStock' ? 'hover:bg-red-50' : 'hover:bg-yellow-50'}
+                    >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <img
+                          src={variant.product.images.main}
+                          alt={variant.product.name}
+                          className="w-10 h-10 object-cover rounded mr-3 border"
+                        />
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{variant.product.name}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900 capitalize">{variant.product.category}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div>
+                          <span className="text-sm text-gray-900">
+                            {variant.weight || 'Unnamed Variant'}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        variant.issueType === 'outOfStock' 
+                          ? 'bg-red-100 text-red-800' 
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {variant.issueType === 'outOfStock' ? 'Out of Stock' : 'Low Stock'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {variant.issueType === 'outOfStock' ? 0 : variant.units_in_stock}
+                    </td>
+                  </tr>
+                );
+              })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
