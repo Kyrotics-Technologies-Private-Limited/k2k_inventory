@@ -87,6 +87,8 @@ const AdminOrdersPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<Order['status'] | null>(null);
+
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -492,77 +494,80 @@ const AdminOrdersPage: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {editingOrderId === order.id ? (
-                      <select
-                        value={order.status}
-                        onChange={(e) => {
-                          const newStatus = e.target.value as Order["status"];
-                          handleStatusUpdate(order.id, newStatus);
-                        }}
-                        className="button border rounded px-2 py-1 text-sm"
-                        autoFocus
-                      >
-                        {(() => {
-                          // Define available status options based on current status
-                          let availableStatuses: (typeof ORDER_STATUSES)[number][] =
-                            [];
+  {editingOrderId === order.id ? (
+    (() => {
+      // Build allowed statuses based on current order.status
+      let availableStatuses: Order['status'][] = [];
+      switch (order.status) {
+        case "placed":
+          availableStatuses = ["processing", "cancelled"];
+          break;
+        case "processing":
+          availableStatuses = ["shipped", "cancelled"];
+          break;
+        case "shipped":
+          availableStatuses = ["delivered", "returned", "cancelled"];
+          break;
+        case "delivered":
+        case "cancelled":
+        case "returned":
+          availableStatuses = [];
+          break;
+      }
 
-                          switch (order.status) {
-                            case "placed":
-                              availableStatuses = ["processing", "cancelled"];
-                              break;
-                            // case "confirmed":
-                            //   availableStatuses = ["processing", "cancelled"];
-                            //   break;
-                            case "processing":
-                              availableStatuses = ["shipped", "cancelled"];
-                              break;
-                            case "shipped":
-                              availableStatuses = [
-                                "delivered",
-                                "returned",
-                                "cancelled",
-                              ];
-                              break;
-                            // No options for final states
-                            case "delivered":
-                            case "cancelled":
-                            case "returned":
-                              availableStatuses = [];
-                              break;
-                          }
+      // Ensure the current status is present in the option list (so select value always matches an option)
+      const options = [order.status, ...availableStatuses.filter((s) => s !== order.status)];
 
-                          return availableStatuses.map((status) => (
-                            <option key={status} value={status}>
-                              {status.charAt(0).toUpperCase() + status.slice(1)}
-                            </option>
-                          ));
-                        })()}
-                      </select>
-                    ) : (
-                      <span
-                        className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
-                        ${
-                          order.status === "cancelled"
-                            ? "bg-red-100 text-red-800"
-                            : order.status === "delivered"
-                            ? "bg-green-100 text-green-800"
-                            : order.status === "returned"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : order.status === "confirmed"
-                            ? "bg-blue-100 text-blue-800"
-                            : order.status === "processing"
-                            ? "bg-purple-100 text-purple-800"
-                            : order.status === "shipped"
-                            ? "bg-indigo-100 text-indigo-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {order.status.charAt(0).toUpperCase() +
-                          order.status.slice(1)}
-                      </span>
-                    )}
-                  </td>
+      const currentValue = selectedStatus ?? order.status;
+
+      return (
+        <select
+          value={currentValue}
+          onChange={async (e) => {
+            const newStatus = e.target.value as Order['status'];
+            setSelectedStatus(newStatus);
+
+            // Immediately update the status (if desired). handleStatusUpdate will fetch orders & clear edit mode.
+            await handleStatusUpdate(order.id, newStatus);
+            // handleStatusUpdate already calls setEditingOrderId(null) when done.
+            setSelectedStatus(null);
+          }}
+          className="border rounded px-2 py-1 text-sm"
+          autoFocus
+        >
+          {options.map((s) => (
+            <option key={s} value={s}>
+              {s.charAt(0).toUpperCase() + s.slice(1)}
+            </option>
+          ))}
+        </select>
+      );
+    })()
+  ) : (
+    <span
+      className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+        ${
+          order.status === "cancelled"
+            ? "bg-red-100 text-red-800"
+            : order.status === "delivered"
+            ? "bg-green-100 text-green-800"
+            : order.status === "returned"
+            ? "bg-yellow-100 text-yellow-800"
+            : order.status === "confirmed"
+            ? "bg-blue-100 text-blue-800"
+            : order.status === "processing"
+            ? "bg-purple-100 text-purple-800"
+            : order.status === "shipped"
+            ? "bg-indigo-100 text-indigo-800"
+            : "bg-gray-100 text-gray-800"
+        }`}
+    >
+      {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+    </span>
+  )}
+</td>
+
+
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     ₹{order.total_amount.toFixed(2)}
                   </td>
@@ -577,16 +582,21 @@ const AdminOrdersPage: React.FC = () => {
                     {order.status !== "delivered" &&
                       order.status !== "cancelled" && (
                         <button
-                          onClick={() =>
-                            setEditingOrderId(
-                              editingOrderId === order.id ? null : order.id
-                            )
-                          }
-                          className="button text-blue-600 hover:text-blue-900"
-                          title="Update order status"
-                        >
-                          {editingOrderId === order.id ? "Cancel" : "Update"}
-                        </button>
+  onClick={() => {
+    if (editingOrderId === order.id) {
+      setEditingOrderId(null);
+      setSelectedStatus(null);
+    } else {
+      setEditingOrderId(order.id);
+      setSelectedStatus(order.status); // init local selection
+    }
+  }}
+  className="button text-blue-600 hover:text-blue-900"
+  title="Update order status"
+>
+  {editingOrderId === order.id ? "Cancel" : "Update"}
+</button>
+
                       )}
                   </td>
                 </tr>

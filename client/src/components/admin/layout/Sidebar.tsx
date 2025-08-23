@@ -8,6 +8,7 @@ import {
   //FiSettings,
   FiChevronLeft,
   FiChevronRight,
+  FiBarChart2,
 } from "react-icons/fi";
 
 interface MenuItem {
@@ -40,6 +41,16 @@ const Sidebar = () => {
       path: "/admin/membership",
       icon: <FiUsers size={20} />,
       name: "Membership",
+    },
+    {
+      path: "/admin/finance",
+      icon: <FiBarChart2 size={20} />,
+      name: "Finance Analysis",
+    },
+    {
+      path: "/admin/product-analysis",
+      icon: <FiBarChart2 size={20} />,
+      name: "Product Analysis",
     },
     // {
     //   path: "/admin/settings",

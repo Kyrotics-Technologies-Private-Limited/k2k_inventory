@@ -1,11 +1,37 @@
 // models/membership.ts
-export interface MembershipSettings {
+export interface Membership {
+  id: string;
+  type: string;
+  description: string;
+  price: number;
+  duration: number; // in months
   discountPercentage: number;
-  monthlyPrice: number;
-  quarterlyPrice: number;
-  yearlyPrice: number;
-  monthlyDuration: number; // in months
-  quarterlyDuration: number; // in months
-  yearlyDuration: number; // in months
+  createdAt: Date;
   updatedAt: Date;
+}
+
+export interface CreateMembershipInput {
+  type: string;
+  description: string;
+  price: number;
+  duration: number;
+  discountPercentage: number;
+}
+
+export interface UpdateMembershipInput {
+  type?: string;
+  description?: string;
+  price?: number;
+  duration?: number;
+  discountPercentage?: number;
+}
+
+export interface UserMembership {
+  id: string;
+  active: boolean;
+  purchasedAt: Date;
+  expiresAt: Date;
+  membershipType: string;
+  discountPercentage: number;
+  cancelledAt?: Date;
 }

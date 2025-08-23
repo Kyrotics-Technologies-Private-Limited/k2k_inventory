@@ -3,6 +3,14 @@ import api from "./api";
 export interface outOfStockVariants {
   product: string;
   variant: string;
+  image?: string | null;
+}
+
+export interface StockVariant {
+  product: string;
+  variant: string;
+  unitsInStock: number;
+  image?: string | null;
 }
 
 export interface DashboardStatsResponse {
@@ -21,6 +29,14 @@ export interface DashboardStatsResponse {
     revenue: number;
   }[];
   outOfStockVariants: outOfStockVariants[];
+  bestsellersLast3Months: { productId: string; productName: string; totalSold: number; image?: string | null }[];
+  top5BestsellersLast3Months: { productId: string; productName: string; totalSold: number; image?: string | null }[];
+  quickSellersLastWeek: { productId: string; productName: string; totalSold: number; image?: string | null; variants?: { variantId: string; variantName: string; totalSold: number }[] }[];
+  leastSellersLast3Months: { productId: string; productName: string; totalSold: number; image?: string | null }[];
+  slowMoversLastWeek: { productId: string; productName: string; totalSold: number; image?: string | null; variants?: { variantId: string; variantName: string; totalSold: number }[] }[];
+  lowStockVariants: StockVariant[];
+  overstockVariants: StockVariant[];
+  demandingProducts: { productId: string; productName: string; image?: string | null; lastWeekSales: number; percentile: number }[];
 }
 
 // API call function
