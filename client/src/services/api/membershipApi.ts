@@ -1,32 +1,9 @@
 import api from './api';
-import type { MembershipSettings } from '../../types/MembershipSettings';
+import type { Membership, CreateMembershipInput, UpdateMembershipInput, UserMembership } from '../../types/MembershipSettings';
 
 export const membershipApi = {
-  // Get membership settings
-  getMembershipSettings: async (): Promise<MembershipSettings | null> => {
-    try {
-      const response = await api.get('/membership/settings');
-      return response.data;
-    } catch (error) {
-      console.error('Error getting membership settings:', error);
-      return null;
-    }
-  },
-
-  // Update membership settings
-  updateMembershipSettings: async (
-    settings: Partial<MembershipSettings>
-  ): Promise<void> => {
-    try {
-      await api.put('/membership/settings', settings);
-    } catch (error) {
-      console.error('Error updating membership settings:', error);
-      throw error;
-    }
-  },
-
-  // Create a new membership type
-  createMembership: async (membership: any): Promise<any> => {
+  // Create a new membership
+  createMembership: async (membership: CreateMembershipInput): Promise<Membership> => {
     try {
       const response = await api.post('/membership', membership);
       return response.data;
@@ -37,7 +14,7 @@ export const membershipApi = {
   },
 
   // Get all memberships
-  getMemberships: async (): Promise<any[]> => {
+  getMemberships: async (): Promise<Membership[]> => {
     try {
       const response = await api.get('/membership');
       return response.data;
@@ -47,18 +24,19 @@ export const membershipApi = {
     }
   },
 
-  // Delete a membership type
-  deleteMembership: async (membershipId: string): Promise<void> => {
+  // Get a single membership by ID
+  getMembership: async (membershipId: string): Promise<Membership | null> => {
     try {
-      await api.delete(`/membership/${membershipId}`);
+      const response = await api.get(`/membership/${membershipId}`);
+      return response.data;
     } catch (error) {
-      console.error('Error deleting membership:', error);
-      throw error;
+      console.error('Error getting membership:', error);
+      return null;
     }
   },
 
-  // Update a membership type
-  updateMembership: async (membershipId: string, updates: any): Promise<any> => {
+  // Update a membership
+  updateMembership: async (membershipId: string, updates: UpdateMembershipInput): Promise<Membership> => {
     try {
       const response = await api.put(`/membership/${membershipId}`, updates);
       return response.data;
@@ -68,10 +46,20 @@ export const membershipApi = {
     }
   },
 
+  // Delete a membership
+  deleteMembership: async (membershipId: string): Promise<void> => {
+    try {
+      await api.delete(`/membership/${membershipId}`);
+    } catch (error) {
+      console.error('Error deleting membership:', error);
+      throw error;
+    }
+  },
+
   // Buy membership (for a user)
   buyMembership: async (userId: string, membershipId: string): Promise<any> => {
     try {
-      const response = await api.post(`/membership/buy`, { userId, membershipId });
+      const response = await api.post('/membership/buy', { userId, membershipId });
       return response.data;
     } catch (error) {
       console.error('Error buying membership:', error);
@@ -82,11 +70,22 @@ export const membershipApi = {
   // Cancel membership (for a user)
   cancelMembership: async (userId: string, membershipId: string): Promise<any> => {
     try {
-      const response = await api.post(`/membership/cancel`, { userId, membershipId });
+      const response = await api.post('/membership/cancel', { userId, membershipId });
       return response.data;
     } catch (error) {
       console.error('Error cancelling membership:', error);
       throw error;
+    }
+  },
+
+  // Get user's active memberships
+  getUserMemberships: async (userId: string): Promise<UserMembership[]> => {
+    try {
+      const response = await api.get(`/membership/user/${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error getting user memberships:', error);
+      return [];
     }
   },
 };

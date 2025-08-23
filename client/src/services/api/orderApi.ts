@@ -86,12 +86,12 @@ export const orderApi = {
         
         // Refresh inventory data for affected products
         for (const item of order.items) {
-          if (item.productId) {
+          if (item.product_id) {
             try {
               // Refresh variants for this product
-              await variantApi.getVariantsByProductId(item.productId);
+              await variantApi.getVariantsByProductId(item.product_id);
             } catch (error) {
-              console.warn(`Failed to refresh inventory for product ${item.productId}:`, error);
+              console.warn(`Failed to refresh inventory for product ${item.product_id}:`, error);
             }
           }
         }

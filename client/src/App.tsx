@@ -16,6 +16,9 @@ import AdminLogin from "./pages/admin/AdminLogin";
 import ProtectedRoute from "./utils/ProtectedRoute";
 import CustomerDetailsPage from "./pages/admin/CustomerDetailsPage";
 import ForgotPassword from "./pages/admin/ForgotPassword";
+import OutOfStockPage from "./pages/admin/OutOfStockPage";
+import FinanceAnalysis from "./pages/admin/FinanceAnalysis";
+import ProductAnalysis from "./pages/admin/ProductAnalysis";
 
 function App() {
   return (
@@ -167,6 +170,30 @@ function App() {
             element={
               <ProtectedRoute>
                 <CustomerDetailsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="out-of-stock"
+            element={
+              <ProtectedRoute>
+                <OutOfStockPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="finance"
+            element={
+              <ProtectedRoute>
+                <FinanceAnalysis />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="product-analysis"
+            element={
+              <ProtectedRoute>
+                <ProductAnalysis />
               </ProtectedRoute>
             }
           />

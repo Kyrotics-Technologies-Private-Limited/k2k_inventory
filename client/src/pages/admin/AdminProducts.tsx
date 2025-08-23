@@ -3,7 +3,6 @@ import React, { Fragment, useEffect, useState } from "react";
 import type { Product } from "../../types";
 import { productApi } from "../../services/api/productApi";
 //import variantApi from "../../services/api/variantApi";
-import { membershipApi } from "../../services/api/membershipApi";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { fetchDashboardStats, type outOfStockVariants } from "../../services/api/dashApi";
 import {
@@ -15,20 +14,8 @@ import {
   TrashIcon,
   MagnifyingGlassIcon,
   EyeIcon,
-  UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { Dialog, Transition } from "@headlessui/react";
-
-interface MembershipSettings {
-  discountPercentage: number;
-  monthlyPrice: number;
-  quarterlyPrice: number;
-  yearlyPrice: number;
-  monthlyDuration: number;
-  quarterlyDuration: number;
-  yearlyDuration: number;
-  updatedAt: Date;
-}
 
 const initialForm: Omit<Product, "id"> = {
   name: "",
@@ -46,17 +33,6 @@ const initialForm: Omit<Product, "id"> = {
   benefits: [],
 };
 
-const initialMembershipForm: MembershipSettings = {
-  discountPercentage: 10,
-  monthlyPrice: 299,
-  quarterlyPrice: 799,
-  yearlyPrice: 2499,
-  monthlyDuration: 1,
-  quarterlyDuration: 3,
-  yearlyDuration: 12,
-  updatedAt: new Date(),
-};
-
 const AdminProductPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -67,17 +43,12 @@ const AdminProductPage: React.FC = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [outOfStockVariants, setOutOfStockVariants] = useState<outOfStockVariants[]>([]);
-  const [showOutOfStockModal, setShowOutOfStockModal] = useState(false);
+  // Removed out-of-stock modal state, now handled by OutOfStockPage
   const [formData, setFormData] = useState<Omit<Product, "id">>(initialForm);
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isMembershipModalOpen, setIsMembershipModalOpen] = useState(false);
-  const [, setMembershipSettings] =
-    useState<MembershipSettings | null>(null);
-  const [membershipForm, setMembershipForm] = useState<MembershipSettings>(
-    initialMembershipForm
-  );
+  // Removed membership settings state and MembershipSettings reference
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [, setPriceInput] = useState("");
   const [mainImageUploading, setMainImageUploading] = useState(false);
@@ -210,20 +181,14 @@ const AdminProductPage: React.FC = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [fetchedProducts, membershipData, dashboardStats] = await Promise.all([
+        const [fetchedProducts, dashboardStats] = await Promise.all([
           productApi.getAllProducts(),
-          membershipApi.getMembershipSettings(),
           fetchDashboardStats(),
         ]);
 
         setProducts(fetchedProducts);
         setFilteredProducts(fetchedProducts);
         setOutOfStockVariants(dashboardStats.outOfStockVariants || []);
-
-        if (membershipData) {
-          setMembershipSettings(membershipData);
-          setMembershipForm(membershipData);
-        }
 
       } catch (e) {
         setError("Failed to fetch data. Please try again.");
@@ -239,9 +204,9 @@ const AdminProductPage: React.FC = () => {
   useEffect(() => {
     const fromDashboard = searchParams.get('fromDashboard');
     if (fromDashboard === 'true' && outOfStockVariants.length > 0) {
-      setShowOutOfStockModal(true);
+      navigate('/admin/out-of-stock');
     }
-  }, [searchParams, outOfStockVariants]);
+  }, [searchParams, outOfStockVariants, navigate]);
 
   useEffect(() => {
     if (searchTerm.trim() === "") {
@@ -502,38 +467,6 @@ const AdminProductPage: React.FC = () => {
     }));
   };
 
-  // Membership functions
-  const handleMembershipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setMembershipForm((prev) => ({
-      ...prev,
-      [name]: Number(value),
-    }));
-  };
-
-  const handleMembershipSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormLoading(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      await membershipApi.updateMembershipSettings(membershipForm);
-      const updatedSettings = await membershipApi.getMembershipSettings();
-      if (updatedSettings) {
-        setMembershipSettings(updatedSettings);
-        setMembershipForm(updatedSettings);
-      }
-      setSuccess("Membership settings updated successfully!");
-      setIsMembershipModalOpen(false);
-    } catch (err) {
-      setError("Failed to update membership settings. Please try again.");
-      console.error("Membership update error:", err);
-    } finally {
-      setFormLoading(false);
-    }
-  };
-
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
@@ -561,13 +494,6 @@ const AdminProductPage: React.FC = () => {
               <PlusIcon className="w-5 h-5 mr-2" />
               New Product
             </button>
-            <button
-              onClick={() => setIsMembershipModalOpen(true)}
-              className="button flex items-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition"
-            >
-              <UserGroupIcon className="w-5 h-5 mr-2" />
-              Membership
-            </button>
           </div>
         </div>
       </div>
@@ -587,10 +513,12 @@ const AdminProductPage: React.FC = () => {
 
       {/* Out of Stock Notification */}
       {outOfStockVariants.length > 0 && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-800 rounded-lg cursor-pointer hover:bg-red-100 transition-colors">
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-800 rounded-lg cursor-pointer hover:bg-red-100 transition-colors"
+          onClick={() => navigate('/admin/out-of-stock')}
+        >
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-                             <XMarkIcon className="mr-3 text-red-600 w-5 h-5" />
+              <XMarkIcon className="mr-3 text-red-600 w-5 h-5" />
               <div>
                 <div className="font-bold">⚠️ Stock Alert</div>
                 <div className="text-sm">
@@ -598,69 +526,15 @@ const AdminProductPage: React.FC = () => {
                 </div>
               </div>
             </div>
-            <button 
-              className="text-red-600 hover:text-red-800 font-medium text-sm"
-              onClick={() => setShowOutOfStockModal(true)}
-            >
+            <span className="text-red-600 hover:text-red-800 font-medium text-sm">
               View Details →
-            </button>
+            </span>
           </div>
         </div>
       )}
 
       {/* Out of Stock Modal */}
-      {showOutOfStockModal && (
-        <div className="fixed inset-0 bg-opacity-30 backdrop-blur-md flex items-center justify-center z-50 p-4">
-          <div className="bg-white bg-opacity-90 backdrop-blur-xl border border-white border-opacity-20 rounded-lg shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden">
-            {/* Header */}
-            <div className="bg-red-50 bg-opacity-70 backdrop-blur-sm px-6 py-4 border-b border-red-200 border-opacity-50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                                     <XMarkIcon className="text-red-600 mr-3 w-6 h-6" />
-                  <h3 className="text-lg font-semibold text-red-800">
-                    Out of Stock Alert
-                  </h3>
-                </div>
-                <button
-                  onClick={() => setShowOutOfStockModal(false)}
-                  className="text-red-600 hover:text-red-800 transition-colors"
-                >
-                  <XMarkIcon className="w-6 h-6" />
-                </button>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-6">
-              <p className="text-gray-600 mb-4">
-                The following product variants are currently out of stock:
-              </p>
-              <div className="max-h-60 overflow-y-auto">
-                <div className="space-y-3">
-                  {outOfStockVariants.map((item: outOfStockVariants, idx: number) => (
-                    <div key={idx} className="bg-gray-50 p-3 rounded-lg border-l-4 border-red-400">
-                      <div className="font-semibold text-gray-800">{item.product}</div>
-                      <div className="text-sm text-gray-600 mt-1">
-                        Variant: <span className="font-medium">{item.variant}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="bg-gray-50 bg-opacity-70 backdrop-blur-sm px-6 py-4 border-t border-gray-200 border-opacity-50">
-              <button
-                onClick={() => setShowOutOfStockModal(false)}
-                className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors font-medium"
-              >
-                Got it
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+  {/* Removed out-of-stock modal, now handled by OutOfStockPage */}
 
       {/* Product Modal */}
       <Transition.Root show={isModalOpen} as={Fragment}>
@@ -1025,194 +899,6 @@ const AdminProductPage: React.FC = () => {
                             <PlusIcon className="w-5 h-5 mr-2" />
                             Create Product
                           </>
-                        )}
-                      </button>
-                    </div>
-                  </form>
-                </Dialog.Panel>
-              </Transition.Child>
-            </div>
-          </div>
-        </Dialog>
-      </Transition.Root>
-
-      {/* Membership Modal */}
-      <Transition.Root show={isMembershipModalOpen} as={Fragment}>
-        <Dialog
-          as="div"
-          className="relative z-10"
-          onClose={() => setIsMembershipModalOpen(false)}
-        >
-          <Transition.Child
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="fixed inset-0 bg-gray-800/50 bg-opacity-75 transition-opacity" />
-          </Transition.Child>
-
-          <div className="fixed inset-0 z-10 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
-              <Transition.Child
-                as={Fragment}
-                enter="ease-out duration-300"
-                enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                enterTo="opacity-100 translate-y-0 sm:scale-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100 translate-y-0 sm:scale-100"
-                leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-              >
-                <Dialog.Panel className="relative bg-white rounded-lg px-6 pt-6 pb-4 text-left shadow-xl transform transition-all sm:my-8 sm:max-w-2xl w-full">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold text-gray-800">
-                      Kishan Parivar Membership Settings
-                    </h2>
-                    <button
-                      onClick={() => setIsMembershipModalOpen(false)}
-                      className="button text-gray-400 hover:text-gray-600 focus:outline-none"
-                    >
-                      <XMarkIcon className="w-6 h-6" />
-                    </button>
-                  </div>
-
-                  <form onSubmit={handleMembershipSubmit} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Discount Percentage (%)
-                        </label>
-                        <input
-                          type="number"
-                          name="discountPercentage"
-                          value={membershipForm.discountPercentage || 0}
-                          onChange={handleMembershipChange}
-                          min="0"
-                          max="100"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Monthly Price (₹)
-                        </label>
-                        <input
-                          type="number"
-                          name="monthlyPrice"
-                          value={membershipForm.monthlyPrice || 0}
-                          onChange={handleMembershipChange}
-                          min="0"
-                          step="0.01"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Quarterly Price (₹)
-                        </label>
-                        <input
-                          type="number"
-                          name="quarterlyPrice"
-                          value={membershipForm.quarterlyPrice || 0}
-                          onChange={handleMembershipChange}
-                          min="0"
-                          step="0.01"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Yearly Price (₹)
-                        </label>
-                        <input
-                          type="number"
-                          name="yearlyPrice"
-                          value={membershipForm.yearlyPrice || 0}
-                          onChange={handleMembershipChange}
-                          min="0"
-                          step="0.01"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Monthly Duration (months)
-                        </label>
-                        <input
-                          type="number"
-                          name="monthlyDuration"
-                          value={membershipForm.monthlyDuration || 1}
-                          onChange={handleMembershipChange}
-                          min="1"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Quarterly Duration (months)
-                        </label>
-                        <input
-                          type="number"
-                          name="quarterlyDuration"
-                          value={membershipForm.quarterlyDuration || 3}
-                          onChange={handleMembershipChange}
-                          min="1"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Yearly Duration (months)
-                        </label>
-                        <input
-                          type="number"
-                          name="yearlyDuration"
-                          value={membershipForm.yearlyDuration || 12}
-                          onChange={handleMembershipChange}
-                          min="1"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end space-x-3 mt-6">
-                      <button
-                        type="button"
-                        onClick={() => setIsMembershipModalOpen(false)}
-                        className="button px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={formLoading}
-                        className={`button px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition ${
-                          formLoading ? "opacity-75 cursor-not-allowed" : ""
-                        }`}
-                      >
-                        {formLoading ? (
-                          <>
-                            <ArrowPathIcon className="w-5 h-5 mr-2 animate-spin" />
-                            Saving...
-                          </>
-                        ) : (
-                          "Save Settings"
                         )}
                       </button>
                     </div>
