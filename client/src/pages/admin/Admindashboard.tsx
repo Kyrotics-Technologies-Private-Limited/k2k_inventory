@@ -184,6 +184,95 @@ const AdminDashboard: React.FC = () => {
         ))}
       </div>
 
+      {/* Third Row: Product Performance Cards */}
+      <div className="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-4 mt-4">
+        <div className="bg-white p-6 rounded-lg shadow flex flex-col hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50">
+          <p className="text-gray-500">3 Bestseller products (3 months)</p>
+          {loading ? (
+            <p className="text-gray-500">Loading...</p>
+          ) : stats?.top5BestsellersLast3Months?.length ? (
+            <ul className="space-y-2">
+              {stats.top5BestsellersLast3Months.slice(0, 3).map((item, idx) => (
+                <li key={item.productId} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2 mt-2">
+                    {item.image && <img src={item.image} alt={item.productName} className="w-8 h-8 rounded object-cover" />}
+                    <span className="text-md mt-2 font-bold text-red-700">{idx + 1}. {item.productName}</span>
+                  </div>
+                  <span className="text-md font-bold text-red-700">{item.totalSold}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-500">No data</p>
+          )}
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow flex flex-col hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50">
+          <p className="text-gray-500">Least selling products (3 months)</p>
+          {loading ? (
+            <p className="text-gray-500">Loading...</p>
+          ) : stats?.leastSellersLast3Months?.length ? (
+            <ul className="space-y-2">
+              {stats.leastSellersLast3Months.map((item, idx) => (
+                <li key={item.productId} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2 mt-2">
+                    {item.image && <img src={item.image} alt={item.productName} className="w-8 h-8 rounded object-cover" />}
+                    <span className="text-md mt-2 font-bold text-blue-700">{idx + 1}. {item.productName}</span>
+                  </div>
+                  <span className="text-md font-bold text-blue-700">{item.totalSold}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-500">No data</p>
+          )}
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow flex flex-col hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50">
+          <p className="text-gray-500">Quick seller products (1 week)</p>
+          {loading ? (
+            <p className="text-gray-500">Loading...</p>
+          ) : stats?.quickSellersLastWeek?.length ? (
+            <ul className="space-y-2">
+              {stats.quickSellersLastWeek.map((item, idx) => (
+                <li key={item.productId} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2 mt-2">
+                    {item.image && <img src={item.image} alt={item.productName} className="w-8 h-8 rounded object-cover" />}
+                    <span className="text-md mt-2 font-bold text-yellow-700">{idx + 1}. {item.productName}</span>
+                  </div>
+                  <span className="text-md font-bold text-yellow-700">{item.totalSold}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-500">No data</p>
+          )}
+        </div>
+
+        
+
+        <div className="bg-white p-6 rounded-lg shadow flex flex-col hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50">
+          <p className="text-gray-500">Slow moving products (1 week)</p>
+          {loading ? (
+            <p className="text-gray-500">Loading...</p>
+          ) : stats?.slowMoversLastWeek?.length ? (
+            <ul className="space-y-2">
+              {stats.slowMoversLastWeek.map((item, idx) => (
+                <li key={item.productId} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2 mt-2">
+                    {item.image && <img src={item.image} alt={item.productName} className="w-8 h-8 rounded object-cover" />}
+                    <span className="text-md mt-2 font-bold text-purple-700">{idx + 1}. {item.productName}</span>
+                  </div>
+                  <span className="text-md font-bold text-purple-700">{item.totalSold}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-500">No data</p>
+          )}
+        </div>
+      </div>
+
                     {/* Revenue Chart */}
        <div id="revenue-chart" className="bg-white p-6 rounded-lg shadow mt-6">
          <h2 className="text-xl font-semibold mb-4">Revenue This Month</h2>

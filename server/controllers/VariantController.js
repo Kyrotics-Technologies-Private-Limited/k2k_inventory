@@ -52,6 +52,28 @@ exports.getProductVariants = async (req, res) => {
   }
 };
 
+// Get All Variants (across all products)
+exports.getAllVariants = async (req, res) => {
+  try {
+    const productsSnapshot = await db.collection('products').get();
+    const allVariants = [];
+
+    for (const productDoc of productsSnapshot.docs) {
+      const variantsSnapshot = await productDoc.ref.collection('variants').get();
+      const variants = variantsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        productId: productDoc.id,
+        ...doc.data()
+      }));
+      allVariants.push(...variants);
+    }
+
+    res.status(200).json(allVariants);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // Get Single Variant
 exports.getVariant = async (req, res) => {
   try {

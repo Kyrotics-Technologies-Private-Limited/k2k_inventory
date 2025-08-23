@@ -38,5 +38,19 @@ app.get("/", (req, res) => {
   res.send("k2k inventory API");
 });
 
+// Test endpoint for debugging
+app.get("/api/test", (req, res) => {
+  res.json({ 
+    message: "Server is running", 
+    timestamp: new Date().toISOString(),
+    routes: [
+      "/api/products",
+      "/api/variants", 
+      "/api/orders",
+      "/api/dashboard"
+    ]
+  });
+});
+
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
