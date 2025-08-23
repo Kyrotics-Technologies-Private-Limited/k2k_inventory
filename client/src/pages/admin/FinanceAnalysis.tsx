@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+// import { useNavigate } from "react-router-dom";
 import { productApi } from "../../services/api/productApi";
 import variantApi from "../../services/api/variantApi";
 import { orderApi } from "../../services/api/orderApi";
@@ -57,9 +57,9 @@ const FinanceAnalysis: React.FC = () => {
   const [timeInterval, setTimeInterval] = useState<'daily' | 'monthly' | 'yearly'>('daily');
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
-  const [selectedChartType, setSelectedChartType] = useState<'line' | 'bar'>('line');
+  const [] = useState<'line' | 'bar'>('line');
   
-  const navigate = useNavigate();
+  // const [] = useNavigate();
 
   useEffect(() => {
     const fetchFinancialData = async () => {
@@ -336,7 +336,7 @@ const FinanceAnalysis: React.FC = () => {
       return;
     }
 
-    const exportData = filteredData.map((dataPoint, index) => ({
+    const exportData = filteredData.map((dataPoint) => ({
       'Period': dataPoint.period,
       'Revenue (₹)': dataPoint.revenue,
       'Growth %': dataPoint.growth !== undefined ? `${dataPoint.growth >= 0 ? '+' : ''}${dataPoint.growth.toFixed(1)}%` : '—',
@@ -362,51 +362,6 @@ const FinanceAnalysis: React.FC = () => {
   };
 
   // Simple chart rendering function
-  const renderSimpleChart = (data: RevenueDataPoint[], chartType: 'line' | 'bar') => {
-    if (data.length === 0) return null;
-
-    const filteredData = filterDataByDateRange(data, startDate, endDate);
-    if (filteredData.length === 0) return null;
-
-    const maxRevenue = Math.max(...filteredData.map(d => d.revenue));
-    const minRevenue = Math.min(...filteredData.map(d => d.revenue));
-    const range = maxRevenue - minRevenue;
-
-    return (
-      <div className="w-full h-full flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-lg font-medium text-gray-600 mb-2">
-            {chartType === 'line' ? 'Line Chart' : 'Bar Chart'} Visualization
-          </p>
-          <p className="text-sm text-gray-500 mb-4">
-            {timeInterval.charAt(0).toUpperCase() + timeInterval.slice(1)} Revenue Trend
-          </p>
-          
-          {/* Simple Chart Representation */}
-          <div className="flex items-end justify-center space-x-2 h-32">
-            {filteredData.map((dataPoint, index) => {
-              const height = range > 0 ? ((dataPoint.revenue - minRevenue) / range) * 100 : 50;
-              return (
-                <div key={index} className="flex flex-col items-center">
-                  <div 
-                    className={`w-8 ${chartType === 'bar' ? 'bg-blue-500' : 'bg-green-500'} rounded-t`}
-                    style={{ height: `${height}%` }}
-                  ></div>
-                  <span className="text-xs text-gray-600 mt-1 w-16 text-center truncate">
-                    {dataPoint.period}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          
-          <p className="text-xs text-gray-400 mt-2">
-            Revenue range: {formatCurrency(minRevenue)} - {formatCurrency(maxRevenue)}
-          </p>
-        </div>
-      </div>
-    );
-  };
   return (
     <div className="space-y-6">
       <div>

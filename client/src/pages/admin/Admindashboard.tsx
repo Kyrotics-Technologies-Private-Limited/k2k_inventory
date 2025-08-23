@@ -5,7 +5,6 @@ import {
   FiDollarSign,
   FiShoppingCart,
   FiUser,
-  FiX,
   FiAlertTriangle,
 } from "react-icons/fi";
 import {
@@ -17,12 +16,12 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { fetchDashboardStats, type outOfStockVariants, type DashboardStatsResponse } from "../../services/api/dashApi";
+import { fetchDashboardStats, type DashboardStatsResponse } from "../../services/api/dashApi";
 
 const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showOutOfStockModal, setShowOutOfStockModal] = useState(false);
+  const [] = useState(false);
   const navigate = useNavigate();
 
   // Helper to render out-of-stock warning
