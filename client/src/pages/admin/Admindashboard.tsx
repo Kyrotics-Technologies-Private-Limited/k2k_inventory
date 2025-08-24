@@ -10,11 +10,14 @@ import {
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
+  Legend,
 } from "recharts";
 import { fetchDashboardStats, type DashboardStatsResponse } from "../../services/api/dashApi";
 
@@ -275,22 +278,38 @@ const AdminDashboard: React.FC = () => {
                     {/* Revenue Chart */}
        <div id="revenue-chart" className="bg-white p-6 rounded-lg shadow mt-6">
          <h2 className="text-xl font-semibold mb-4">Revenue This Month</h2>
-         <div className="w-full h-[300px]">
-           <ResponsiveContainer width="100%" height="100%">
-             <LineChart data={stats?.revenueChart || []}>
-               <CartesianGrid strokeDasharray="3 3" />
-               <XAxis dataKey="date" />
-               <YAxis tickFormatter={(value) => `₹${value}`} />
-               <Tooltip formatter={(value) => `₹${value}`} />
-               <Line
-                 type="monotone"
-                 dataKey="revenue"
-                 stroke="#3b82f6"
-                 strokeWidth={2}
-                 dot={{ r: 3 }}
-               />
-             </LineChart>
-           </ResponsiveContainer>
+         <div className="w-full h-[300px] flex flex-col md:flex-row gap-6">
+           <div className="flex-1">
+             <ResponsiveContainer width="100%" height={300}>
+               <LineChart data={stats?.revenueChart || []}>
+                 <CartesianGrid strokeDasharray="3 3" />
+                 <XAxis dataKey="date" />
+                 <YAxis tickFormatter={(value) => `₹${value}`} />
+                 <Tooltip formatter={(value) => `₹${value}`} />
+                 <Legend />
+                 <Line
+                   type="monotone"
+                   dataKey="revenue"
+                   stroke="#3b82f6"
+                   strokeWidth={2}
+                   dot={{ r: 3 }}
+                   name="Revenue (Line)"
+                 />
+               </LineChart>
+             </ResponsiveContainer>
+           </div>
+           <div className="flex-1">
+             <ResponsiveContainer width="100%" height={300}>
+               <BarChart data={stats?.revenueChart || []}>
+                 <CartesianGrid strokeDasharray="3 3" />
+                 <XAxis dataKey="date" />
+                 <YAxis tickFormatter={(value) => `₹${value}`} />
+                 <Tooltip formatter={(value) => `₹${value}`} />
+                 <Legend />
+                 <Bar dataKey="revenue" fill="#fbbf24" name="Revenue (Bar)" />
+               </BarChart>
+             </ResponsiveContainer>
+           </div>
          </div>
        </div>
     </div>

@@ -9,7 +9,8 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
-import { CartesianGrid, Line, ResponsiveContainer,LineChart , Tooltip, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Line, ResponsiveContainer, LineChart, Tooltip, XAxis, YAxis, BarChart, Bar, Cell } from "recharts";
+import { PieChart, Pie, Legend } from "recharts";
 
 
 interface Variant {
@@ -54,10 +55,12 @@ const FinanceAnalysis: React.FC = () => {
   
   // Revenue Growth Trend states
   const [revenueTrendData, setRevenueTrendData] = useState<RevenueDataPoint[]>([]);
-  const [timeInterval, setTimeInterval] = useState<'daily' | 'monthly' | 'yearly'>('daily');
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
-  const [] = useState<'line' | 'bar'>('line');
+  const [selectedChartType, setSelectedChartType] = useState<'line' | 'bar'>('line');
+  // Chart type for Revenue by Category (bar or pie)
+  const [] = useState<'bar' | 'pie'>('bar');
+  // Removed unused selectedCategory and selectedProduct state
   
   // const [] = useNavigate();
 
@@ -205,19 +208,19 @@ const FinanceAnalysis: React.FC = () => {
   // Calculate revenue trends when orders change
   useEffect(() => {
     if (orders.length > 0) {
-      // We need to get variants from the component state or fetch them
-      // For now, we'll use an empty array and calculate trends based on order data
-      const trends = calculateRevenueTrends(orders, variants, timeInterval);
+      const trends = calculateRevenueTrends(
+        orders,
+        variants
+      );
       setRevenueTrendData(trends);
-      
-      // Set default date range (last 1 week)
+      // Set default date range (last 1 month)
       const now = new Date();
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(now.getDate() - 7);
-      setStartDate(oneWeekAgo);
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(now.getMonth() - 1);
+      setStartDate(oneMonthAgo);
       setEndDate(now);
     }
-  }, [orders, variants, timeInterval]);
+  }, [orders, variants]);
 
   // Helper function to format currency
   const formatCurrency = (amount: number) => {
@@ -227,38 +230,35 @@ const FinanceAnalysis: React.FC = () => {
     }).format(amount);
   };
 
-  // Helper function to calculate revenue trends
-  const calculateRevenueTrends = (orders: Order[], variants: any[], interval: 'daily' | 'monthly' | 'yearly') => {
+  // Helper function to calculate revenue trends, now grouping by day
+  const calculateRevenueTrends = (
+    orders: Order[],
+    variants: any[],
+    filterCategory?: string,
+    filterProduct?: string
+  ) => {
     if (!orders || orders.length === 0) return [];
 
     const revenueMap = new Map<string, number>();
 
     // Group orders by time interval
-    orders.forEach(order => {
+  orders.forEach(order => {
       if (!order.created_at) return;
-      
       const orderDate = new Date(order.created_at);
-      let periodKey = '';
+      // Use daily interval: YYYY-MM-DD
+      const periodKey = orderDate.toISOString().split('T')[0];
 
-      switch (interval) {
-        case 'daily':
-          periodKey = orderDate.toISOString().split('T')[0]; // YYYY-MM-DD
-          break;
-        case 'monthly':
-          periodKey = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
-          break;
-        case 'yearly':
-          periodKey = `${orderDate.getFullYear()}`; // YYYY
-          break;
-      }
-
-      if (!periodKey) return;
-
-      // Calculate order revenue
       let orderRevenue = 0;
       if (order.items) {
         order.items.forEach((item: any) => {
-          const variant = variants.find(v => v.id === item.variantId || item.variant_id);
+          const productId = item.productId || item.product_id;
+          const variantId = item.variantId || item.variant_id;
+          if (filterProduct && productId !== filterProduct) return;
+          if (filterCategory) {
+            const product = products.find((p: Product) => p.id === productId);
+            if (!product || product.category !== filterCategory) return;
+          }
+          const variant = variants.find(v => v.id === variantId);
           if (variant) {
             orderRevenue += (item.quantity * variant.price);
           }
@@ -270,23 +270,7 @@ const FinanceAnalysis: React.FC = () => {
 
     // Convert to array and sort by date
     const revenueData: RevenueDataPoint[] = Array.from(revenueMap.entries()).map(([period, revenue]) => {
-      let date: Date;
-      
-      switch (interval) {
-        case 'daily':
-          date = new Date(period);
-          break;
-        case 'monthly':
-          const [monthYear, monthMonth] = period.split('-');
-          date = new Date(parseInt(monthYear), parseInt(monthMonth) - 1, 1);
-          break;
-        case 'yearly':
-          date = new Date(parseInt(period), 0, 1); // Assuming January 1st for yearly
-          break;
-        default:
-          date = new Date();
-      }
-
+      const date = new Date(period);
       return { period, revenue, date };
     });
 
@@ -309,21 +293,21 @@ const FinanceAnalysis: React.FC = () => {
   // Function to filter data by date range
   const filterDataByDateRange = (data: RevenueDataPoint[], start: Date | null, end: Date | null) => {
     if (!start || !end) {
-      // If no date range is selected, show last 1 week by default
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      // If no date range is selected, show last 1 month by default
+      const oneMonthAgo = new Date();
+      const now = new Date();
+      oneMonthAgo.setMonth(now.getMonth() - 1);
       return data.filter(item => {
         const itemDate = item.date;
-        return itemDate >= oneWeekAgo && itemDate <= new Date();
+        return itemDate >= oneMonthAgo && itemDate <= now;
       });
     }
-    
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-    
+    // Compare by full date (not just year/month)
+    const startTime = new Date(start.setHours(0,0,0,0)).getTime();
+    const endTime = new Date(end.setHours(23,59,59,999)).getTime();
     return data.filter(item => {
-      const itemDate = item.date;
-      return itemDate >= startDate && itemDate <= endDate;
+      const itemTime = new Date(item.date.setHours(0,0,0,0)).getTime();
+      return itemTime >= startTime && itemTime <= endTime;
     });
   };
 
@@ -357,7 +341,7 @@ const FinanceAnalysis: React.FC = () => {
     });
 
     const data = new Blob([excelBuffer], { type: "application/octet-stream" });
-    const fileName = `revenue_trends_${timeInterval}_${startDate?.toISOString().slice(0, 10)}_to_${endDate?.toISOString().slice(0, 10)}.xlsx`;
+    const fileName = `revenue_trends_${startDate?.toISOString().slice(0, 10)}_to_${endDate?.toISOString().slice(0, 10)}.xlsx`;
     saveAs(data, fileName);
   };
 
@@ -451,7 +435,56 @@ const FinanceAnalysis: React.FC = () => {
           <p className="text-gray-500">There are no orders in the system yet. Financial metrics will appear here once orders are created.</p>
         </div>
       )}
-
+<div className="bg-white p-6 rounded-lg shadow mb-6">
+  <h2 className="text-lg font-semibold mb-4">Revenue by Category</h2>
+      <div className="w-full h-[300px] flex flex-col md:flex-row gap-6">
+        <div className="flex-1">
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={Object.entries(revenueByCategory).map(([category, revenue]) => ({ category, revenue }))}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="category" label={{ value: 'Category', position: 'insideBottom', offset: -5 }} />
+              <YAxis tickFormatter={(value: number) => `₹${value}`} />
+              <Tooltip formatter={(value: number) => `₹${value}`} />
+              <Legend />
+              <Bar dataKey="revenue">
+                {Object.entries(revenueByCategory).map(([category]) => {
+                  let fill = '#a855f7'; // default purple
+                  if (category.toLowerCase() === 'honey') fill = '#fbbf24';
+                  else if (category.toLowerCase() === 'ghee') fill = '#fb923c';
+                  else if (category.toLowerCase() === 'oils' || category.toLowerCase() === 'oil') fill = '#a855f7'; // purple
+                  return <Cell key={category} fill={fill} />;
+                })}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="flex-1">
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={Object.entries(revenueByCategory).map(([category, revenue]) => ({ name: category, value: revenue }))}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={100}
+                label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
+              >
+                {Object.entries(revenueByCategory).map(([category]) => {
+                  let fill = '#a855f7'; // default purple
+                  if (category.toLowerCase() === 'honey') fill = '#fbbf24';
+                  else if (category.toLowerCase() === 'ghee') fill = '#fb923c';
+                  else if (category.toLowerCase() === 'oils' || category.toLowerCase() === 'oil') fill = '#a855f7'; // purple
+                  return <Cell key={category} fill={fill} />;
+                })}
+              </Pie>
+              <Tooltip formatter={(value: number) => `₹${value}`} />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+  </div>
       {/* Error Message */}
       {!loading && totalRevenue === 0 && orders.length === 0 && (
         <div className="bg-white p-6 rounded-lg shadow">
@@ -472,61 +505,7 @@ const FinanceAnalysis: React.FC = () => {
         {/* Filters and Controls */}
         <div className="mb-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-            {/* Time Interval Selector */}
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">
-                Time Interval:
-              </label>
-              <div className="relative">
-                <select
-                  value={timeInterval}
-                  onChange={(e) => setTimeInterval(e.target.value as 'daily' | 'monthly' | 'yearly')}
-                  className="button appearance-none border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white pr-8 min-w-[120px]"
-                >
-                  <option value="daily">Daily</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="yearly">Yearly</option>
-                </select>
-                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
-                  ▼
-                </span>
-              </div>
-            </div>
-
-            {/* Chart Type Selector */}
-            {/* <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">
-                Chart Type:
-              </label>
-              <div className="relative">
-                <select
-                  value={selectedChartType}
-                  onChange={(e) => setSelectedChartType(e.target.value as 'line' | 'bar')}
-                  className="button appearance-none border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white pr-8 min-w-[120px]"
-                >
-                  <option value="line">Line Chart</option>
-                  <option value="bar">Bar Chart</option>
-                </select>
-                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
-                  ▼
-                </span>
-              </div>
-            </div> */}
-
-            {/* Clear Filters */}
-            {/* {(timeInterval !== 'monthly' || startDate || endDate) && (
-              <button
-                onClick={() => {
-                  setTimeInterval('monthly');
-                  setStartDate(null);
-                  setEndDate(null);
-                }}
-                className="button inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 transition"
-              >
-                Clear All Filters
-                <span className="ml-1">✕</span>
-              </button>
-            )} */}
+            
           </div>
 
           {/* Date Range Filter */}
@@ -566,13 +545,12 @@ const FinanceAnalysis: React.FC = () => {
               />
             </div>
 
-            {/* Quick Date Presets */}
             
 
             {/* Export Button */}
             <button
               onClick={handleExportExcel}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition flex items-center gap-2"
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition flex items-center gap-2 cursor-pointer"
               disabled={!startDate || !endDate || revenueTrendData.length === 0}
             >
               <FiDownload className="inline-block" />
@@ -715,50 +693,81 @@ const FinanceAnalysis: React.FC = () => {
           </div>
         )}
 
-        {/* Chart Visualization */}
-        {/* <div className="h-64 flex items-center justify-center text-gray-400 border border-gray-200 rounded-lg">
-          {loading ? (
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-              <p>Loading chart data...</p>
-            </div>
-          ) : revenueTrendData.length > 0 ? (
-            renderSimpleChart(revenueTrendData, selectedChartType)
-          ) : (
-            <div className="text-center">
-              <p className="text-gray-500">No revenue data available for the selected period</p>
-            </div>
-          )}
-        </div> */}
         
-        {/* Data Source Note */}
-        {/* {!loading && revenueTrendData.length > 0 && (
-          <div className="mt-4 text-center">
-            <p className="text-xs text-gray-500">
-              📊 Data based on {orders.length} orders • Last updated: {new Date().toLocaleDateString()}
-            </p>
+        
+        <div id="revenue-chart" className="bg-white p-6 rounded-lg shadow mt-6">
+          <h2 className="text-xl font-semibold mb-4">Revenue Growth Trend</h2>
+          <div className="mb-4 flex items-center gap-4">
+            <label className="text-sm font-medium text-gray-700">Chart Type:</label>
+            <select
+              value={selectedChartType}
+              onChange={e => setSelectedChartType(e.target.value as 'line' | 'bar')}
+              className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              style={{ width: 120 }}
+            >
+              <option value="line">Line Graph</option>
+              <option value="bar">Bar Graph</option>
+            </select>
           </div>
-        )} */}
-         <div id="revenue-chart" className="bg-white p-6 rounded-lg shadow mt-6">
-         <h2 className="text-xl font-semibold mb-4">Revenue This Month</h2>
-         <div className="w-full h-[300px]">
-           <ResponsiveContainer width="100%" height="100%">
-             <LineChart data={revenueTrendData || []}>
-               <CartesianGrid strokeDasharray="3 3" />
-               <XAxis dataKey="date" />
-               <YAxis tickFormatter={(value: number) => `₹${value}`} />
-               <Tooltip formatter={(value: number) => `₹${value}`} />
-               <Line
-                 type="monotone"
-                 dataKey="revenue"
-                 stroke="#3b82f6"
-                 strokeWidth={2}
-                 dot={{ r: 3 }}
-               />
-             </LineChart>
-           </ResponsiveContainer>
-         </div>
-      </div>
+          <div className="w-full h-[350px]">
+            <ResponsiveContainer width="100%" height="100%">
+              {(() => {
+                // Always use the same filtered data for both table and chart
+                const filteredChartData = filterDataByDateRange(revenueTrendData, startDate, endDate);
+                if (filteredChartData.length === 0) {
+                  return <div className="flex items-center justify-center h-full text-gray-400">No data for selected range</div>;
+                }
+                if (selectedChartType === 'bar') {
+                  return (
+                    <BarChart data={filteredChartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="period" label={{ value: 'Time', position: 'insideBottom', offset: -5 }} />
+                      <YAxis tickFormatter={(value: number) => `₹${value}`} label={{ value: 'Revenue', angle: -90, position: 'insideLeft' }} />
+                      <Tooltip formatter={(value: number) => `₹${value}`} />
+                      <Bar dataKey="revenue" fill="#3b82f6" />
+                    </BarChart>
+                  );
+                }
+                // For line chart, show dots for all points, and a message if only one point
+                if (filteredChartData.length === 1) {
+                  return (
+                    <LineChart data={filteredChartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="period" label={{ value: 'Time', position: 'insideBottom', offset: -5 }} />
+                      <YAxis tickFormatter={(value: number) => `₹${value}`} label={{ value: 'Revenue', angle: -90, position: 'insideLeft' }} />
+                      <Tooltip formatter={(value: number) => `₹${value}`} />
+                      <Line
+                        type="monotone"
+                        dataKey="revenue"
+                        stroke="#3b82f6"
+                        strokeWidth={2}
+                        dot={{ r: 6, fill: '#3b82f6' }}
+                        activeDot={{ r: 8 }}
+                      />
+                    </LineChart>
+                  );
+                }
+                return (
+                  <LineChart data={filteredChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="period" label={{ value: 'Time', position: 'insideBottom', offset: -5 }} />
+                    <YAxis tickFormatter={(value: number) => `₹${value}`} label={{ value: 'Revenue', angle: -90, position: 'insideLeft' }} />
+                    <Tooltip formatter={(value: number) => `₹${value}`} />
+                    <Line
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="#3b82f6"
+                      strokeWidth={2}
+                      dot={{ r: 4, fill: '#3b82f6' }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                );
+              })()}
+            </ResponsiveContainer>
+          </div>
+        </div>
+      
     </div>
     </div>
   );
