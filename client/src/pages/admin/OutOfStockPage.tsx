@@ -1,3 +1,5 @@
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 import React, { useEffect, useState } from "react";
 import { productApi } from "../../services/api/productApi";
 import variantApi from "../../services/api/variantApi";
@@ -78,12 +80,35 @@ const OutOfStockPage: React.FC = () => {
     }))
   ]);
 
+
   // Sort: out of stock first, then low stock
   allProblemVariants.sort((a, b) => {
     if (a.issueType === 'outOfStock' && b.issueType === 'lowStock') return -1;
     if (a.issueType === 'lowStock' && b.issueType === 'outOfStock') return 1;
     return 0;
   });
+
+  // Export to Excel function (must be after allProblemVariants is defined)
+  const handleExportExcel = () => {
+    if (allProblemVariants.length === 0) {
+      alert('No data to export');
+      return;
+    }
+    const exportData = allProblemVariants.map((variant: any) => ({
+      Product: variant.product.name,
+      Category: variant.product.category,
+      Variant: variant.weight || 'Unnamed Variant',
+      'Stock Status': variant.issueType === 'outOfStock' ? 'Out of Stock' : 'Low Stock',
+      'Current Stock': variant.issueType === 'outOfStock' ? 0 : variant.units_in_stock
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Out of Stock");
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const data = new Blob([excelBuffer], { type: "application/octet-stream" });
+    const fileName = `out_of_stock_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    saveAs(data, fileName);
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -104,6 +129,14 @@ const OutOfStockPage: React.FC = () => {
         <div className="text-gray-500">All products are sufficiently stocked.</div>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="flex justify-end p-4">
+            <button
+              onClick={handleExportExcel}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition flex items-center gap-2 cursor-pointer"
+            >
+              Export to Excel
+            </button>
+          </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">

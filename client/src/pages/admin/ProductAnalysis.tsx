@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { fetchDashboardStats, type DashboardStatsResponse } from "../../services/api/dashApi";
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
+  // Removed duplicate and out-of-scope useEffect and state for categoryPieData and pieColors.
 
 const Card: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <div className="bg-white p-6 rounded-lg shadow flex flex-col hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50">
@@ -11,6 +13,9 @@ const Card: React.FC<{ title: string; children: React.ReactNode }> = ({ title, c
 const ProductAnalysis: React.FC = () => {
   const [stats, setStats] = useState<DashboardStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  // Pie chart state
+  const [categoryPieData, setCategoryPieData] = useState<{ category: string; value: number }[]>([]);
+  const pieColors = ["#fbbf24", "#a855f7", "#fb923c", "#34d399", "#f472b6", "#60a5fa", "#f87171"];
 
   useEffect(() => {
     (async () => {
@@ -23,11 +28,55 @@ const ProductAnalysis: React.FC = () => {
     })();
   }, []);
 
+  useEffect(() => {
+    // Debug logs
+    console.log('Dashboard stats:', stats);
+    if (stats) {
+      console.log('top5BestsellersLast3Months:', stats.top5BestsellersLast3Months);
+    }
+    if (!stats || !stats.top5BestsellersLast3Months?.length) {
+      setCategoryPieData([]);
+      return;
+    }
+    // Fetch category info for each product (if not present)
+    const fetchCategories = async () => {
+      // If stats.top5BestsellersLast3Months already has category, use it
+      if ((stats.top5BestsellersLast3Months[0] as any).category) {
+        const catMap: Record<string, number> = {};
+        (stats.top5BestsellersLast3Months as any[]).forEach((item) => {
+          if (!item.category) return;
+          catMap[item.category] = (catMap[item.category] || 0) + item.totalSold;
+        });
+        const pieData = Object.entries(catMap).map(([category, value]) => ({ category, value }));
+        setCategoryPieData(pieData);
+        console.log('Pie chart data (from category field):', pieData);
+        return;
+      }
+      // Otherwise, fetch product details for each productId
+      const responses = await Promise.all(
+        stats.top5BestsellersLast3Months.map((item) =>
+          fetch(`/api/products/${item.productId}`).then((r) => (r.ok ? r.json() : null))
+        )
+      );
+      const catMap: Record<string, number> = {};
+      stats.top5BestsellersLast3Months.forEach((item, idx) => {
+        const prod = responses[idx];
+        const cat = prod?.category || "Unknown";
+        catMap[cat] = (catMap[cat] || 0) + item.totalSold;
+      });
+      const pieData = Object.entries(catMap).map(([category, value]) => ({ category, value }));
+      setCategoryPieData(pieData);
+      console.log('Pie chart data (from fetched product details):', pieData);
+    };
+    fetchCategories();
+  }, [stats]);
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Product Analysis</h1>
 
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
+
         <Card title="Top 5 Bestseller products (3 months)">
           {loading ? (
             <p className="text-gray-500">Loading...</p>
@@ -199,8 +248,37 @@ const ProductAnalysis: React.FC = () => {
         </Card>
       </div>
       <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold mb-4">Trends</h2>
-        <div className="h-64 flex items-center justify-center text-gray-400">Chart </div>
+       {/* Pie Chart for Best Selling Product Category */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h2 className="text-xl font-semibold mb-4">Best Selling Product Category</h2>
+        <div className="w-full h-72">
+          {loading ? (
+            <div className="flex items-center justify-center h-full text-gray-400">Loading chart...</div>
+          ) : categoryPieData.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-gray-400">No data available.</div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={categoryPieData}
+                  dataKey="value"
+                  nameKey="category"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={90}
+                  label
+                >
+                  {categoryPieData.map((_entry, idx) => (
+                    <Cell key={`cell-${idx}`} fill={pieColors[idx % pieColors.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
       </div>
     </div>
   );

@@ -164,10 +164,18 @@ router.get("/stats", async (req, res) => {
     });
     await Promise.all(variantFetches);
 
-    const chartArray = Object.entries(chartData).map(([date, revenue]) => ({
-      date,
-      revenue,
-    }));
+
+    // Only include revenue for the current month
+    const nowDate = new Date();
+    const currentMonth = nowDate.getMonth();
+    const currentYear = nowDate.getFullYear();
+    const chartArray = Object.entries(chartData)
+      .map(([date, revenue]) => ({ date, revenue }))
+      .filter(({ date }) => {
+        const d = new Date(date);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      })
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
 
     // Build bestseller/quick seller arrays
     const toEntries = (salesMap) =>
