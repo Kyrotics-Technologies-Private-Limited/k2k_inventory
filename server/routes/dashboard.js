@@ -4,6 +4,18 @@ const admin = require("firebase-admin");
 
 const db = admin.firestore();
 
+/**
+ * Dashboard API - Revenue Calculation Fix
+ * 
+ * CHANGED: Revenue calculation method from using order.total_amount to 
+ * calculating from line items × variant prices (same as Finance Analysis)
+ * 
+ * This ensures consistency between Admin Dashboard and Finance Analysis pages.
+ * 
+ * Previous method: totalRevenue += data.total_amount
+ * New method: Calculate revenue from each order item using current variant prices
+ */
+
 // Helper to check if a timestamp is from this month
 function isThisMonth(timestamp) {
   const date = timestamp.toDate();
@@ -45,25 +57,53 @@ router.get("/stats", async (req, res) => {
     const productSalesLast3Months = {}; // { [productId]: totalSold }
     const productSalesLastWeek = {}; // { [productId]: totalSold }
 
+    // First, fetch all variants to calculate revenue accurately
+    const productsSnapshot = await db.collection("products").get();
+    const allVariants = new Map(); // variantId -> variant data
+    
+    // Fetch all variants from all products
+    const variantFetches = productsSnapshot.docs.map(async (productDoc) => {
+      const variantsSnapshot = await db.collection("products").doc(productDoc.id).collection("variants").get();
+      variantsSnapshot.forEach((variantDoc) => {
+        const variant = variantDoc.data();
+        allVariants.set(variantDoc.id, {
+          ...variant,
+          productId: productDoc.id
+        });
+      });
+    });
+    await Promise.all(variantFetches);
+
+    // Now calculate revenue using the same method as Finance Analysis
     ordersSnapshot.forEach((doc) => {
       const data = doc.data();
       const orderDate = data.createdAt || data.timestamp || null;
       const status = (data.status || "placed").toLowerCase();
+      const items = Array.isArray(data.items) ? data.items : [];
 
-      if (data.total_amount && typeof data.total_amount === "number") {
-        totalRevenue += data.total_amount;
-
-        // Revenue by day
-        if (orderDate?.toDate) {
-          const day = formatDate(orderDate.toDate());
-          chartData[day] = (chartData[day] || 0) + data.total_amount;
+      // Calculate revenue from line items (same as Finance Analysis)
+      let orderRevenue = 0;
+      items.forEach((item) => {
+        const variantId = item.variantId || item.variant_id;
+        const variant = allVariants.get(variantId);
+        
+        if (variant && typeof item.quantity === 'number' && typeof variant.price === 'number') {
+          orderRevenue += item.quantity * variant.price;
         }
+      });
 
-        // Current month filtering
-        if (orderDate && isThisMonth(orderDate)) {
-          monthlyRevenue += data.total_amount;
-          monthlyOrders += 1;
-        }
+      totalRevenue += orderRevenue;
+
+      // Revenue by day
+      if (orderDate?.toDate) {
+        const day = formatDate(orderDate.toDate());
+        chartData[day] = (chartData[day] || 0) + orderRevenue;
+      }
+
+      // Current month filtering
+      if (orderDate && isThisMonth(orderDate)) {
+        monthlyRevenue += orderRevenue;
+        monthlyOrders += 1;
       }
 
       // Order status counts
@@ -72,7 +112,6 @@ router.get("/stats", async (req, res) => {
       }
 
       // Aggregate product sales for bestseller/quick seller windows
-      const items = Array.isArray(data.items) ? data.items : [];
       const orderTs = orderDate;
       let orderJSDate = null;
       if (orderTs && typeof orderTs.toDate === "function") {
@@ -105,8 +144,7 @@ router.get("/stats", async (req, res) => {
       }
     });
 
-    // Fetch stock-related variants from all products (using subcollection logic)
-    const productsSnapshot = await db.collection("products").get();
+    // Now process the variants for stock analysis (using the already fetched variants)
     let outOfStockVariants = [];
     let lowStockVariants = [];
     let overstockVariants = [];
@@ -115,8 +153,9 @@ router.get("/stats", async (req, res) => {
     const productTotalStock = {};
     const LOW_STOCK_THRESHOLD = 5;
     const OVERSTOCK_THRESHOLD = 100;
-    // For each product, fetch its variants subcollection
-    const variantFetches = productsSnapshot.docs.map(async (productDoc) => {
+    
+    // Process the already fetched variants for stock analysis
+    productsSnapshot.docs.forEach((productDoc) => {
       const productData = productDoc.data();
       const productName = productData.name || productDoc.id;
       productIdToName[productDoc.id] = productName;
@@ -126,43 +165,44 @@ router.get("/stats", async (req, res) => {
       } catch (e) {
         productIdToMainImage[productDoc.id] = null;
       }
-      const variantsSnapshot = await db.collection("products").doc(productDoc.id).collection("variants").get();
-      variantsSnapshot.forEach((variantDoc) => {
-        const variant = variantDoc.data();
-        // accumulate total stock per product
-        if (typeof variant.units_in_stock === 'number') {
-          productTotalStock[productDoc.id] = (productTotalStock[productDoc.id] || 0) + variant.units_in_stock;
-        }
-        // Consider out of stock if units_in_stock is 0 or falsy
-        if (variant.units_in_stock === 0 || variant.units_in_stock === undefined || variant.units_in_stock === null) {
-          outOfStockVariants.push({
-            product: productName,
-            variant: variant.name || variant.weight || variantDoc.id || "Unnamed Variant",
-            image: productIdToMainImage[productDoc.id] || null,
-          });
-        }
+      
+      // Get variants for this product from our allVariants map
+      allVariants.forEach((variant, variantId) => {
+        if (variant.productId === productDoc.id) {
+          // accumulate total stock per product
+          if (typeof variant.units_in_stock === 'number') {
+            productTotalStock[productDoc.id] = (productTotalStock[productDoc.id] || 0) + variant.units_in_stock;
+          }
+          // Consider out of stock if units_in_stock is 0 or falsy
+          if (variant.units_in_stock === 0 || variant.units_in_stock === undefined || variant.units_in_stock === null) {
+            outOfStockVariants.push({
+              product: productName,
+              variant: variant.name || variant.weight || variantId || "Unnamed Variant",
+              image: productIdToMainImage[productDoc.id] || null,
+            });
+          }
 
-        const units = typeof variant.units_in_stock === 'number' ? variant.units_in_stock : null;
-        if (units !== null && units > 0 && units <= LOW_STOCK_THRESHOLD) {
-          lowStockVariants.push({
-            product: productName,
-            variant: variant.name || variant.weight || variantDoc.id || "Unnamed Variant",
-            unitsInStock: units,
-            image: productIdToMainImage[productDoc.id] || null,
-          });
-        }
+          const units = typeof variant.units_in_stock === 'number' ? variant.units_in_stock : null;
+          if (units !== null && units > 0 && units <= LOW_STOCK_THRESHOLD) {
+            lowStockVariants.push({
+              product: productName,
+              variant: variant.name || variant.weight || variantId || "Unnamed Variant",
+              unitsInStock: units,
+              image: productIdToMainImage[productDoc.id] || null,
+            });
+          }
 
-        if (units !== null && units >= OVERSTOCK_THRESHOLD) {
-          overstockVariants.push({
-            product: productName,
-            variant: variant.name || variant.weight || variantDoc.id || "Unnamed Variant",
-            unitsInStock: units,
-            image: productIdToMainImage[productDoc.id] || null,
-          });
+          if (units !== null && units >= OVERSTOCK_THRESHOLD) {
+            overstockVariants.push({
+              product: productName,
+              variant: variant.name || variant.weight || variantId || "Unnamed Variant",
+              unitsInStock: units,
+              image: productIdToMainImage[productDoc.id] || null,
+            });
+          }
         }
       });
     });
-    await Promise.all(variantFetches);
 
 
     // Only include revenue for the current month
@@ -246,6 +286,13 @@ router.get("/stats", async (req, res) => {
     demandingPool.sort((a, b) => b.percentile - a.percentile || b.lastWeekSales - a.lastWeekSales);
     const demandingTopK = Math.max(5, Math.ceil(demandingPool.length * 0.1));
     const demandingProducts = demandingPool.slice(0, demandingTopK);
+
+    // Log revenue calculation for debugging
+    console.log('Dashboard Revenue Calculation:');
+    console.log('- Total Revenue:', totalRevenue);
+    console.log('- Monthly Revenue:', monthlyRevenue);
+    console.log('- Total Orders:', ordersSnapshot.size);
+    console.log('- Revenue calculation method: Line items × Variant prices');
 
     const response = {
       totalRevenue,

@@ -29,6 +29,8 @@ export interface UpdateMembershipInput {
 export interface UserMembership {
   id: string;
   active: boolean;
+  isMember: boolean;
+  membershipEnd: Date | { _seconds: number; _nanoseconds: number };
   purchasedAt: Date;
   expiresAt: Date;
   membershipType: string;

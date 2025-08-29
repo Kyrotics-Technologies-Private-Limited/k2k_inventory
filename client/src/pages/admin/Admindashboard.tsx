@@ -2,11 +2,12 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
-  FiDollarSign,
   FiShoppingCart,
   FiUser,
   FiAlertTriangle,
 } from "react-icons/fi";
+import { FiDollarSign } from "react-icons/fi";
+import { FaRupeeSign } from "react-icons/fa";
 import {
   LineChart,
   Line,
@@ -77,7 +78,7 @@ const AdminDashboard: React.FC = () => {
       value: stats?.totalRevenue
         ? `₹${stats.totalRevenue.toLocaleString()}`
         : "₹0",
-      icon: <FiDollarSign size={24} />,
+      icon: <FaRupeeSign size={24} />,
       onClick: () => {
         const revenueChart = document.getElementById('revenue-chart');
         if (revenueChart) {

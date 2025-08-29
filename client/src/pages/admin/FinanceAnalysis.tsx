@@ -149,6 +149,13 @@ const FinanceAnalysis: React.FC = () => {
         }, 0);
         setTotalRevenue(revenue);
 
+        // Log revenue calculation for debugging
+        console.log('Finance Analysis Revenue Calculation:');
+        console.log('- Total Revenue:', revenue);
+        console.log('- Total Orders:', orders.length);
+        console.log('- Revenue calculation method: Line items × Variant prices');
+        console.log('- Variants count:', variants.length);
+
         // Calculate Average Order Value (AOV)
         // AOV = Total Revenue / Number of Orders
         const aov = orders.length > 0 ? revenue / orders.length : 0;
@@ -352,7 +359,7 @@ const FinanceAnalysis: React.FC = () => {
         <h1 className="text-2xl font-bold">Finance Analysis</h1>
       </div>
 
-      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-5">
         <div className="bg-white p-6 rounded-lg shadow flex flex-col justify-between" style={{ minHeight: '180px' }}>
           <p className="text-gray-500">Total Revenue</p>
           <div className="mt-1 flex-1">
@@ -426,6 +433,21 @@ const FinanceAnalysis: React.FC = () => {
             )}
           </div>
         </div>
+        <div className="bg-white p-6 rounded-lg shadow flex flex-col justify-between" style={{ minHeight: '180px' }}>
+          <p className="text-gray-500">Profit Margin</p>
+          <div className="mt-1 flex-1">
+            <p className="text-2xl font-bold mt-1 text-emerald-600">
+              {loading ? "Loading..." : (
+                totalRevenue > 0 ? `${((totalRevenue - totalInventoryValue) / totalRevenue * 100).toFixed(1)}%` : "0%"
+              )}
+            </p>
+            {!loading && (
+              <p className="text-sm text-gray-400 mt-2">
+                {totalRevenue > 0 ? formatCurrency(totalRevenue - totalInventoryValue) : "₹0"} profit
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* No Data Message */}
@@ -445,7 +467,6 @@ const FinanceAnalysis: React.FC = () => {
               <XAxis dataKey="category" label={{ value: 'Category', position: 'insideBottom', offset: -5 }} />
               <YAxis tickFormatter={(value: number) => `₹${value}`} />
               <Tooltip formatter={(value: number) => `₹${value}`} />
-              <Legend />
               <Bar dataKey="revenue">
                 {Object.entries(revenueByCategory).map(([category]) => {
                   let fill = '#a855f7'; // default purple
@@ -479,7 +500,6 @@ const FinanceAnalysis: React.FC = () => {
                 })}
               </Pie>
               <Tooltip formatter={(value: number) => `₹${value}`} />
-              <Legend />
             </PieChart>
           </ResponsiveContainer>
         </div>
