@@ -6,7 +6,6 @@ import {
   FiUser,
   FiAlertTriangle,
 } from "react-icons/fi";
-import { FiDollarSign } from "react-icons/fi";
 import { FaRupeeSign } from "react-icons/fa";
 import {
   LineChart,
