@@ -13,6 +13,7 @@ import {
 import api from "../../services/api/api";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { membershipApi } from "../../services/api/membershipApi";
 
 interface Customer {
   id: string;
@@ -25,6 +26,12 @@ interface Customer {
   lastOrder: string | null;
   status: "active" | "inactive" | "new";
   location: string;
+  membership?: {
+    type: string;
+    active: boolean;
+    expiresAt: Date;
+    discountPercentage: number;
+  };
 }
 
 const CustomersManagement: React.FC = () => {
@@ -33,6 +40,7 @@ const CustomersManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [membershipFilter, setMembershipFilter] = useState<string>("all");
 
   // Fetch customers from backend API
   useEffect(() => {
@@ -40,24 +48,70 @@ const CustomersManagement: React.FC = () => {
       setLoading(true);
       try {
         // Use absolute backend URL in dev if needed
-        const apiUrl =  "/admin/users";
+        const apiUrl = "/admin/users";
         const res = await api.get(apiUrl);
         if (!Array.isArray(res.data)) {
           throw new Error("API did not return an array of users");
         }
-        const users: Customer[] = res.data.map((user: any) => ({
-          id: user.uid || user.id,
-          name: user.name || user.displayName || "",
-          email: user.email || "",
-          phone: user.phone || user.phoneNumber || "",
-          joinDate: user.joinDate || new Date().toISOString(), // Use only joinDate from backend
-          orders: user.ordersCount || 0,
-          totalSpent: user.totalSpent || 0,
-          lastOrder: user.lastOrder || null,
-          status: user.status || "active",
-          location: user.location || "",
-        }));
-        setCustomers(users);
+
+        // Fetch membership data for each user
+        const usersWithMemberships: Customer[] = await Promise.all(
+          res.data.map(async (user: any) => {
+            try {
+              const userMemberships = await membershipApi.getUserMemberships(user.uid || user.id);
+
+              // Check if user has an active membership based on isMember and membershipEnd
+              const activeMembership = userMemberships.find(m =>
+                m.isMember &&
+                m.membershipEnd &&
+                // Handle both Firestore Timestamp and Date objects
+                (('_seconds' in m.membershipEnd) ?
+                  new Date(m.membershipEnd._seconds * 1000) > new Date() :
+                  new Date(m.membershipEnd) > new Date())
+              );
+
+              return {
+                id: user.uid || user.id,
+                name: user.name || user.displayName || "",
+                email: user.email || "",
+                phone: user.phone || user.phoneNumber || "",
+                joinDate: user.joinDate || new Date().toISOString(),
+                orders: user.ordersCount || 0,
+                totalSpent: user.totalSpent || 0,
+                lastOrder: user.lastOrder || null,
+                status: user.status || "active",
+                location: user.location || "",
+                membership: activeMembership ? {
+                  type: activeMembership.membershipType || activeMembership.membershipType,
+                  active: true, // Set to true since we've verified it's active
+                  expiresAt: ('_seconds' in activeMembership.membershipEnd) ?
+                    new Date(activeMembership.membershipEnd._seconds * 1000) :
+                    new Date(activeMembership.membershipEnd),
+                  discountPercentage: activeMembership.discountPercentage || 0
+                } : undefined
+
+              };
+            } catch (error) {
+              console.error(`Failed to fetch membership for user ${user.uid}:`, error);
+              return {
+                id: user.uid || user.id,
+                name: user.name || user.displayName || "",
+                email: user.email || "",
+                phone: user.phone || user.phoneNumber || "",
+                joinDate: user.joinDate || new Date().toISOString(),
+                orders: user.ordersCount || 0,
+                totalSpent: user.totalSpent || 0,
+                lastOrder: user.lastOrder || null,
+                status: user.status || "active",
+                location: user.location || "",
+                membership: undefined
+              };
+            }
+          })
+        );
+
+
+        setCustomers(usersWithMemberships);
       } catch (error) {
         console.error("Failed to fetch customers:", error);
         setCustomers([]);
@@ -76,7 +130,11 @@ const CustomersManagement: React.FC = () => {
       customer.phone.includes(searchTerm);
     const matchesStatus =
       statusFilter === "all" || customer.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesMembership =
+      membershipFilter === "all" ||
+      (membershipFilter === "member" && customer.membership?.active) ||
+      (membershipFilter === "non-member" && !customer.membership?.active);
+    return matchesSearch && matchesStatus && matchesMembership;
   });
 
   const viewCustomerDetails = (customerId: string) => {
@@ -91,6 +149,10 @@ const CustomersManagement: React.FC = () => {
       Email: customer.email,
       Phone: customer.phone,
       "Join Date": customer.joinDate ? new Date(customer.joinDate).toLocaleDateString() : "",
+      "Membership Type": customer.membership?.active ? customer.membership.type : "Non-Member",
+      "Membership Status": customer.membership?.active ? "Active" : "Inactive",
+      "Membership Expires": customer.membership?.active ? customer.membership.expiresAt.toLocaleDateString() : "N/A",
+      "Discount Percentage": customer.membership?.active ? `${customer.membership.discountPercentage}%` : "0%",
       Orders: customer.orders,
       "Total Spent": customer.totalSpent,
       "Last Order": customer.lastOrder ? new Date(customer.lastOrder).toLocaleDateString() : "",
@@ -129,6 +191,38 @@ const CustomersManagement: React.FC = () => {
         </div>
       </div>
 
+      {/* Membership Summary */}
+      <div className="mb-6 bg-white shadow rounded-lg p-4">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Membership Overview</h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="text-center p-3 bg-blue-50 rounded-lg">
+            <p className="text-2xl font-bold text-blue-600">{customers.length}</p>
+            <p className="text-sm text-blue-600">Total Customers</p>
+          </div>
+          <div className="text-center p-3 bg-purple-50 rounded-lg">
+            <p className="text-2xl font-bold text-purple-600">
+              {customers.filter(c => c.membership?.active).length}
+            </p>
+            <p className="text-sm text-purple-600">Kishanparivar Members</p>
+          </div>
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <p className="text-2xl font-bold text-gray-600">
+              {customers.filter(c => !c.membership?.active).length}
+            </p>
+            <p className="text-sm text-gray-600">Non-Members</p>
+          </div>
+          <div className="text-center p-3 bg-green-50 rounded-lg">
+            <p className="text-2xl font-bold text-green-600">
+              {customers.length > 0
+                ? Math.round((customers.filter(c => c.membership?.active).length / customers.length) * 100)
+                : 0
+              }%
+            </p>
+            <p className="text-sm text-green-600">Membership Rate</p>
+          </div>
+        </div>
+      </div>
+
       {/* Filters and Search */}
       <div className="mb-6 bg-white shadow rounded-lg p-4">
         <div className="sm:flex sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
@@ -155,6 +249,18 @@ const CustomersManagement: React.FC = () => {
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
               <option value="new">New</option>
+            </select>
+          </div>
+          <div className="flex items-center">
+            <FunnelIcon className="h-5 w-5 text-gray-400 mr-2" />
+            <select
+              className="button block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+              value={membershipFilter}
+              onChange={(e) => setMembershipFilter(e.target.value)}
+            >
+              <option value="all">All Customers</option>
+              <option value="member">Kishanparivar Members</option>
+              <option value="non-member">Non-Members</option>
             </select>
           </div>
         </div>
@@ -194,6 +300,12 @@ const CustomersManagement: React.FC = () => {
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                   >
                     Joined
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Membership
                   </th>
                   <th
                     scope="col"
@@ -247,14 +359,30 @@ const CustomersManagement: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
+                      {customer.membership?.active ? (
+                        <div className="flex flex-col">
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800 mb-1">
+                            {customer.membership.type}
+                          </span>
+                          <div className="text-xs text-gray-500">
+                            <div>Expires: {customer.membership.expiresAt.toLocaleDateString()}</div>
+                            <div>Discount: {customer.membership.discountPercentage}%</div>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-600">
+                          Non-Member
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          customer.status === "active"
+                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${customer.status === "active"
                             ? "bg-green-100 text-green-800"
                             : customer.status === "new"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-gray-100 text-gray-800"
+                          }`}
                       >
                         {customer.status.charAt(0).toUpperCase() +
                           customer.status.slice(1)}

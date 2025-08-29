@@ -82,6 +82,7 @@ export const membershipApi = {
   getUserMemberships: async (userId: string): Promise<UserMembership[]> => {
     try {
       const response = await api.get(`/membership/user/${userId}`);
+      console.log("response", response);
       return response.data;
     } catch (error) {
       console.error('Error getting user memberships:', error);
