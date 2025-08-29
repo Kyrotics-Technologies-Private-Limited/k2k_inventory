@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { fetchDashboardStats, type DashboardStatsResponse } from "../../services/api/dashApi";
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, XAxis, YAxis, CartesianGrid, BarChart, Bar } from "recharts";
+import { PieChart, Pie, Cell, Tooltip,  ResponsiveContainer, XAxis, YAxis, CartesianGrid, BarChart, Bar } from "recharts";
 import { FiCalendar } from "react-icons/fi";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";

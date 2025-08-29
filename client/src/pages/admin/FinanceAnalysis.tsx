@@ -10,7 +10,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { CartesianGrid, Line, ResponsiveContainer, LineChart, Tooltip, XAxis, YAxis, BarChart, Bar, Cell } from "recharts";
-import { PieChart, Pie, Legend } from "recharts";
+import { PieChart, Pie } from "recharts";
 
 
 interface Variant {
