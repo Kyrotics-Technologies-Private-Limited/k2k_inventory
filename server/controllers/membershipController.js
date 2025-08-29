@@ -138,13 +138,27 @@ exports.cancelMembership = async (req, res) => {
 exports.getUserMemberships = async (req, res) => {
   try {
     const { userId } = req.params;
-    const snapshot = await db.collection('users').doc(userId).collection('memberships')
-      .where('active', '==', true)
-      .get();
     
-    const memberships = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    res.status(200).json(memberships);
+    // Get the user document first
+    const userDoc = await db.collection('users').doc(userId).get();
+    
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const userData = userDoc.data();
+    
+    // Check if user is a member
+    if (userData.isMember) {
+      // If you want to return the user's membership info
+      const membership = { id: userDoc.id, ...userData };
+      res.status(200).json([membership]);
+    } else {
+      // User is not a member
+      res.status(200).json([]);
+    }
   } catch (error) {
+    console.error("Error in getUserMemberships:", error);
     res.status(500).json({ error: error.message });
   }
 };
