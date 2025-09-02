@@ -325,7 +325,12 @@ const AdminDashboard: React.FC = () => {
              <ResponsiveContainer width="100%" height={300}>
                <LineChart data={stats?.revenueChart || []}>
                  <CartesianGrid strokeDasharray="3 3" />
-                 <XAxis dataKey="date" />
+                 <XAxis 
+                   dataKey="date" 
+                   angle={-45}
+                   textAnchor="end"
+                   height={80}
+                 />
                  <YAxis tickFormatter={(value) => `₹${value}`} />
                  <Tooltip formatter={(value) => `₹${value}`} />
                  <Legend />
@@ -344,7 +349,12 @@ const AdminDashboard: React.FC = () => {
              <ResponsiveContainer width="100%" height={300}>
                <BarChart data={stats?.revenueChart || []}>
                  <CartesianGrid strokeDasharray="3 3" />
-                 <XAxis dataKey="date" />
+                 <XAxis 
+                   dataKey="date" 
+                   angle={-45}
+                   textAnchor="end"
+                   height={80}
+                 />
                  <YAxis tickFormatter={(value) => `₹${value}`} />
                  <Tooltip formatter={(value) => `₹${value}`} />
                  <Legend />
