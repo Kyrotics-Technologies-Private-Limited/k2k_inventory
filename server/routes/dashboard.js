@@ -33,6 +33,25 @@ function formatDate(date) {
 
 router.get("/stats", async (req, res) => {
   try {
+    // Get date range parameters from query string
+    const { startDate, endDate } = req.query;
+    
+    // Set default to last one month if no dates provided
+    const currentDate = new Date();
+    const defaultStartDate = new Date(currentDate);
+    defaultStartDate.setMonth(currentDate.getMonth() - 1);
+    
+    // Parse dates consistently - treat as local dates, not UTC
+    const startDateFilter = startDate ? new Date(startDate + 'T00:00:00') : defaultStartDate;
+    const endDateFilter = endDate ? new Date(endDate + 'T23:59:59') : currentDate;
+    
+    // Helper function to check if a timestamp is within the date range
+    function isWithinDateRange(timestamp) {
+      if (!timestamp || !timestamp.toDate) return false;
+      const date = timestamp.toDate();
+      return date >= startDateFilter && date <= endDateFilter;
+    }
+
     const ordersSnapshot = await db.collection("orders").get();
     const usersSnapshot = await db.collection("users").get();
 
@@ -92,18 +111,17 @@ router.get("/stats", async (req, res) => {
         }
       });
 
-      totalRevenue += orderRevenue;
-
-      // Revenue by day
-      if (orderDate?.toDate) {
-        const day = formatDate(orderDate.toDate());
-        chartData[day] = (chartData[day] || 0) + orderRevenue;
-      }
-
-      // Current month filtering
-      if (orderDate && isThisMonth(orderDate)) {
+      // Only count revenue for orders within the selected date range
+      if (orderDate && isWithinDateRange(orderDate)) {
+        totalRevenue += orderRevenue;
         monthlyRevenue += orderRevenue;
         monthlyOrders += 1;
+        
+        // Revenue by day (only for the selected date range)
+        if (orderDate?.toDate) {
+          const day = formatDate(orderDate.toDate());
+          chartData[day] = (chartData[day] || 0) + orderRevenue;
+        }
       }
 
       // Order status counts
@@ -205,15 +223,12 @@ router.get("/stats", async (req, res) => {
     });
 
 
-    // Only include revenue for the current month
-    const nowDate = new Date();
-    const currentMonth = nowDate.getMonth();
-    const currentYear = nowDate.getFullYear();
+    // Filter chart data to the selected date range
     const chartArray = Object.entries(chartData)
       .map(([date, revenue]) => ({ date, revenue }))
       .filter(({ date }) => {
         const d = new Date(date);
-        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        return d >= startDateFilter && d <= endDateFilter;
       })
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
@@ -289,9 +304,12 @@ router.get("/stats", async (req, res) => {
 
     // Log revenue calculation for debugging
     console.log('Dashboard Revenue Calculation:');
-    console.log('- Total Revenue:', totalRevenue);
+    console.log('- Date Range:', startDateFilter.toISOString(), 'to', endDateFilter.toISOString());
+    console.log('- Total Revenue (filtered):', totalRevenue);
     console.log('- Monthly Revenue:', monthlyRevenue);
-    console.log('- Total Orders:', ordersSnapshot.size);
+    console.log('- Total Orders (filtered):', monthlyOrders);
+    console.log('- Total Orders (all):', ordersSnapshot.size);
+    console.log('- Chart Data Points:', chartArray.length);
     console.log('- Revenue calculation method: Line items × Variant prices');
 
     const response = {
