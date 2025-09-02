@@ -9,7 +9,7 @@ import { onAuthStateChanged } from "firebase/auth";
 
 const ORDER_STATUSES: OrderStatus[] = [
   "placed",
-  "confirmed",
+  
   "processing",
   "shipped",
   "delivered",
