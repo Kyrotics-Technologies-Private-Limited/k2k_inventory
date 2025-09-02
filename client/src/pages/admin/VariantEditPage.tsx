@@ -109,7 +109,9 @@ const VariantEditPage: React.FC = () => {
         units_in_stock: Number(formData.units_in_stock) || 0,
       };
       await variantApi.updateVariant(productId!, variantId!, variantData);
-      navigate(`/admin/products/${productId}/variants`);
+      navigate(`/admin/products/${productId}/variants`, { 
+        state: { refreshVariants: true } 
+      });
     } catch (err) {
       console.error("Update error:", err);
       setError("Failed to update variant");
@@ -136,7 +138,9 @@ const VariantEditPage: React.FC = () => {
           {error || "Variant not found"}
         </div>
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate(`/admin/products/${productId}/variants`, { 
+            state: { refreshVariants: true } 
+          })}
           className="mt-4 flex items-center text-blue-600 hover:text-blue-800"
         >
           <ArrowLeftIcon className="w-5 h-5 mr-2" />
@@ -150,7 +154,9 @@ const VariantEditPage: React.FC = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate(`/admin/products/${productId}/variants`, { 
+            state: { refreshVariants: true } 
+          })}
           className="flex items-center text-blue-600 hover:text-blue-800"
         >
           <ArrowLeftIcon className="w-5 h-5 mr-2" />

@@ -4,7 +4,8 @@ import React, { useEffect, useState } from "react";
 import { productApi } from "../../services/api/productApi";
 import variantApi from "../../services/api/variantApi";
 import type { Variant } from "../../types/variant";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { ArrowPathIcon } from "@heroicons/react/24/outline";
 
 interface Product {
   id: string;
@@ -18,37 +19,48 @@ const OutOfStockPage: React.FC = () => {
   const [variantsMap, setVariantsMap] = useState<Record<string, Variant[]>>({});
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const fetchProductsAndVariants = async () => {
+    setLoading(true);
+    try {
+      const allProducts: Product[] = await productApi.getAllProducts();
+      setProducts(allProducts);
+      const variantsPromises = allProducts.map((product) =>
+        variantApi.getVariantsByProductId(product.id)
+      );
+      const allVariants = await Promise.all(variantsPromises);
+      const map: Record<string, Variant[]> = {};
+      allProducts.forEach((product, idx) => {
+        // Accept any shape for variants, as long as units_in_stock exists
+        map[product.id] = (allVariants[idx] as Variant[]);
+      });
+      setVariantsMap(map);
+      
+      // Debug: Log the first product's variants to see the structure
+      if (allProducts.length > 0 && allVariants.length > 0) {
+        console.log('Sample variant data:', allVariants[0]);
+        console.log('Sample product:', allProducts[0]);
+      }
+    } catch (err) {
+      console.error('Error fetching data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchProductsAndVariants = async () => {
-      setLoading(true);
-      try {
-        const allProducts: Product[] = await productApi.getAllProducts();
-        setProducts(allProducts);
-        const variantsPromises = allProducts.map((product) =>
-          variantApi.getVariantsByProductId(product.id)
-        );
-        const allVariants = await Promise.all(variantsPromises);
-        const map: Record<string, Variant[]> = {};
-        allProducts.forEach((product, idx) => {
-          // Accept any shape for variants, as long as units_in_stock exists
-          map[product.id] = (allVariants[idx] as Variant[]);
-        });
-        setVariantsMap(map);
-        
-        // Debug: Log the first product's variants to see the structure
-        if (allProducts.length > 0 && allVariants.length > 0) {
-          console.log('Sample variant data:', allVariants[0]);
-          console.log('Sample product:', allProducts[0]);
-        }
-      } catch (err) {
-        console.error('Error fetching data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchProductsAndVariants();
   }, []);
+
+  // Refresh data when location changes (e.g., returning from variant edit page)
+  useEffect(() => {
+    if (location.state?.refreshVariants) {
+      fetchProductsAndVariants();
+      // Clear the refresh flag to prevent unnecessary refreshes
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
   // Filter products with out of stock or low stock variants
   const filtered = products
@@ -113,13 +125,21 @@ const OutOfStockPage: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
-        <div className="mb-2">
+        <div className="flex justify-between items-center mb-2">
           <span
             onClick={() => navigate('/admin/products')}
             className="text-blue-600 hover:text-blue-800 cursor-pointer transition-colors"
           >
             ← Back to Products
           </span>
+          <button
+            onClick={fetchProductsAndVariants}
+            disabled={loading}
+            className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ArrowPathIcon className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
         </div>
         <h1 className="text-2xl font-bold">Out of Stock & Low Stock Products</h1>
       </div>

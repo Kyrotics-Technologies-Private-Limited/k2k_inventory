@@ -40,10 +40,17 @@ export interface DashboardStatsResponse {
 }
 
 // API call function
-export const fetchDashboardStats =
-  async (): Promise<DashboardStatsResponse> => {
-    const response = await api.get<DashboardStatsResponse>(
-      "/dashboard/stats"
-    );
-    return response.data;
-  };
+export const fetchDashboardStats = async (
+  startDate?: string,
+  endDate?: string
+): Promise<DashboardStatsResponse> => {
+  const params = new URLSearchParams();
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
+  
+  const queryString = params.toString();
+  const url = `/dashboard/stats${queryString ? `?${queryString}` : ''}`;
+  
+  const response = await api.get<DashboardStatsResponse>(url);
+  return response.data;
+};

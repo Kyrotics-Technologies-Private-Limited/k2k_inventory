@@ -359,7 +359,7 @@ const FinanceAnalysis: React.FC = () => {
         <h1 className="text-2xl font-bold">Finance Analysis</h1>
       </div>
 
-      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-5">
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
         <div className="bg-white p-6 rounded-lg shadow flex flex-col justify-between" style={{ minHeight: '180px' }}>
           <p className="text-gray-500">Total Revenue</p>
           <div className="mt-1 flex-1">
@@ -433,21 +433,7 @@ const FinanceAnalysis: React.FC = () => {
             )}
           </div>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow flex flex-col justify-between" style={{ minHeight: '180px' }}>
-          <p className="text-gray-500">Profit Margin</p>
-          <div className="mt-1 flex-1">
-            <p className="text-2xl font-bold mt-1 text-emerald-600">
-              {loading ? "Loading..." : (
-                totalRevenue > 0 ? `${((totalRevenue - totalInventoryValue) / totalRevenue * 100).toFixed(1)}%` : "0%"
-              )}
-            </p>
-            {!loading && (
-              <p className="text-sm text-gray-400 mt-2">
-                {totalRevenue > 0 ? formatCurrency(totalRevenue - totalInventoryValue) : "₹0"} profit
-              </p>
-            )}
-          </div>
-        </div>
+
       </div>
 
       {/* No Data Message */}
@@ -739,50 +725,68 @@ const FinanceAnalysis: React.FC = () => {
                 }
                 if (selectedChartType === 'bar') {
                   return (
-                    <BarChart data={filteredChartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="period" label={{ value: 'Time', position: 'insideBottom', offset: -5 }} />
-                      <YAxis tickFormatter={(value: number) => `₹${value}`} label={{ value: 'Revenue', angle: -90, position: 'insideLeft' }} />
-                      <Tooltip formatter={(value: number) => `₹${value}`} />
-                      <Bar dataKey="revenue" fill="#3b82f6" />
-                    </BarChart>
+                                         <BarChart data={filteredChartData}>
+                       <CartesianGrid strokeDasharray="3 3" />
+                       <XAxis 
+                         dataKey="period" 
+                         label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
+                         angle={-45}
+                         textAnchor="end"
+                         height={80}
+                       />
+                       <YAxis tickFormatter={(value: number) => `₹${value}`} label={{ value: 'Revenue', angle: -90, position: 'insideLeft' }} />
+                       <Tooltip formatter={(value: number) => `₹${value}`} />
+                       <Bar dataKey="revenue" fill="#3b82f6" />
+                     </BarChart>
                   );
                 }
                 // For line chart, show dots for all points, and a message if only one point
                 if (filteredChartData.length === 1) {
-                  return (
-                    <LineChart data={filteredChartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="period" label={{ value: 'Time', position: 'insideBottom', offset: -5 }} />
-                      <YAxis tickFormatter={(value: number) => `₹${value}`} label={{ value: 'Revenue', angle: -90, position: 'insideLeft' }} />
-                      <Tooltip formatter={(value: number) => `₹${value}`} />
-                      <Line
-                        type="monotone"
-                        dataKey="revenue"
-                        stroke="#3b82f6"
-                        strokeWidth={2}
-                        dot={{ r: 6, fill: '#3b82f6' }}
-                        activeDot={{ r: 8 }}
-                      />
-                    </LineChart>
-                  );
+                                     return (
+                     <LineChart data={filteredChartData}>
+                       <CartesianGrid strokeDasharray="3 3" />
+                       <XAxis 
+                         dataKey="period" 
+                         label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
+                         angle={-45}
+                         textAnchor="end"
+                         height={80}
+                       />
+                       <YAxis tickFormatter={(value: number) => `₹${value}`} label={{ value: 'Revenue', angle: -90, position: 'insideLeft' }} />
+                       <Tooltip formatter={(value: number) => `₹${value}`} />
+                       <Line
+                         type="monotone"
+                         dataKey="revenue"
+                         stroke="#3b82f6"
+                         strokeWidth={2}
+                         dot={{ r: 6, fill: '#3b82f6' }}
+                         activeDot={{ r: 8 }}
+                       />
+                     </LineChart>
+                   );
                 }
-                return (
-                  <LineChart data={filteredChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="period" label={{ value: 'Time', position: 'insideBottom', offset: -5 }} />
-                    <YAxis tickFormatter={(value: number) => `₹${value}`} label={{ value: 'Revenue', angle: -90, position: 'insideLeft' }} />
-                    <Tooltip formatter={(value: number) => `₹${value}`} />
-                    <Line
-                      type="monotone"
-                      dataKey="revenue"
-                      stroke="#3b82f6"
-                      strokeWidth={2}
-                      dot={{ r: 4, fill: '#3b82f6' }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                );
+                                 return (
+                   <LineChart data={filteredChartData}>
+                     <CartesianGrid strokeDasharray="3 3" />
+                     <XAxis 
+                       dataKey="period" 
+                       label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
+                       angle={-45}
+                       textAnchor="end"
+                       height={80}
+                     />
+                     <YAxis tickFormatter={(value: number) => `₹${value}`} label={{ value: 'Revenue', angle: -90, position: 'insideLeft' }} />
+                     <Tooltip formatter={(value: number) => `₹${value}`} />
+                     <Line
+                       type="monotone"
+                       dataKey="revenue"
+                       stroke="#3b82f6"
+                       strokeWidth={2}
+                       dot={{ r: 4, fill: '#3b82f6' }}
+                       activeDot={{ r: 6 }}
+                     />
+                   </LineChart>
+                 );
               })()}
             </ResponsiveContainer>
           </div>
