@@ -41,6 +41,7 @@ const CustomersManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [membershipFilter, setMembershipFilter] = useState<string>("all");
+  const [showAllCustomers, setShowAllCustomers] = useState(false);
 
   // Fetch customers from backend API
   useEffect(() => {
@@ -123,7 +124,12 @@ const CustomersManagement: React.FC = () => {
     fetchCustomers();
   }, []);
 
-  const filteredCustomers = customers.filter((customer) => {
+  // Sort customers by join date (latest first)
+  const sortedCustomers = [...customers].sort((a, b) => 
+    new Date(b.joinDate).getTime() - new Date(a.joinDate).getTime()
+  );
+
+  const filteredCustomers = sortedCustomers.filter((customer) => {
     const matchesSearch =
       customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -136,6 +142,12 @@ const CustomersManagement: React.FC = () => {
       (membershipFilter === "non-member" && !customer.membership?.active);
     return matchesSearch && matchesStatus && matchesMembership;
   });
+
+  // Show only latest 10 customers by default, unless showAllCustomers is true or filters are applied
+  const hasActiveFilters = searchTerm || statusFilter !== "all" || membershipFilter !== "all";
+  const displayCustomers = (showAllCustomers || hasActiveFilters) 
+    ? filteredCustomers 
+    : filteredCustomers.slice(0, 10);
 
   const viewCustomerDetails = (customerId: string) => {
     navigate(`/admin/customers/${customerId}`);
@@ -272,7 +284,7 @@ const CustomersManagement: React.FC = () => {
           <div className="flex justify-center items-center p-12">
             <ArrowPathIcon className="h-12 w-12 text-blue-500 animate-spin" />
           </div>
-        ) : filteredCustomers.length === 0 ? (
+        ) : displayCustomers.length === 0 ? (
           <div className="text-center p-12">
             <p className="text-gray-500">
               No customers found matching your criteria
@@ -322,7 +334,7 @@ const CustomersManagement: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredCustomers.map((customer) => (
+                {displayCustomers.map((customer) => (
                   <tr key={customer.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -421,24 +433,45 @@ const CustomersManagement: React.FC = () => {
         )}
       </div>
 
-      {/* Pagination */}
+      {/* View More Button and Pagination */}
       <div className="mt-4 flex items-center justify-between">
         <div className="text-sm text-gray-500">
-          Showing <span className="font-medium">1</span> to{" "}
-          <span className="font-medium">10</span> of{" "}
-          <span className="font-medium">{filteredCustomers.length}</span>{" "}
-          customers
+          {hasActiveFilters ? (
+            <>
+              Showing <span className="font-medium">{displayCustomers.length}</span> of{" "}
+              <span className="font-medium">{filteredCustomers.length}</span>{" "}
+              filtered customers
+            </>
+          ) : (
+            <>
+              Showing <span className="font-medium">{displayCustomers.length}</span> of{" "}
+              <span className="font-medium">{customers.length}</span>{" "}
+              customers
+              {!showAllCustomers && filteredCustomers.length > 10 && (
+                <span className="text-blue-600 ml-2">
+                  (Latest 10 customers)
+                </span>
+              )}
+            </>
+          )}
         </div>
         <div className="flex space-x-2">
-          <button
-            className="button px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-            disabled
-          >
-            Previous
-          </button>
-          <button className="button px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-            Next
-          </button>
+          {!hasActiveFilters && !showAllCustomers && filteredCustomers.length > 10 && (
+            <button
+              onClick={() => setShowAllCustomers(true)}
+              className="button px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+            >
+              View All Customers
+            </button>
+          )}
+          {!hasActiveFilters && showAllCustomers && (
+            <button
+              onClick={() => setShowAllCustomers(false)}
+              className="button px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm font-medium"
+            >
+              Show Latest 10
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -24,7 +24,8 @@ import { fetchDashboardStats, type DashboardStatsResponse } from "../../services
 const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [] = useState(false);
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
   const navigate = useNavigate();
 
   // Helper to render out-of-stock warning
@@ -54,10 +55,23 @@ const AdminDashboard: React.FC = () => {
     );
   };
 
+  // Set default dates to last one month
+  useEffect(() => {
+    const now = new Date();
+    const oneMonthAgo = new Date(now);
+    oneMonthAgo.setMonth(now.getMonth() - 1);
+    
+    setStartDate(oneMonthAgo.toISOString().split('T')[0]);
+    setEndDate(now.toISOString().split('T')[0]);
+  }, []);
+
   useEffect(() => {
     const loadStats = async () => {
+      if (!startDate || !endDate) return; // Wait for dates to be set
+      
       try {
-        const data = await fetchDashboardStats();
+        setLoading(true);
+        const data = await fetchDashboardStats(startDate, endDate);
         setStats(data);
 
         console.log("Dashboard stats loaded:", data);
@@ -69,7 +83,7 @@ const AdminDashboard: React.FC = () => {
     };
 
     loadStats();
-  }, []);
+  }, [startDate, endDate]);
 
   const summaryCards = [
     {
@@ -277,7 +291,35 @@ const AdminDashboard: React.FC = () => {
 
                     {/* Revenue Chart */}
        <div id="revenue-chart" className="bg-white p-6 rounded-lg shadow mt-6">
-         <h2 className="text-xl font-semibold mb-4">Revenue This Month</h2>
+         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+           <h2 className="text-xl font-semibold mb-4 sm:mb-0">Revenue Analysis</h2>
+           <div className="flex flex-col sm:flex-row gap-4">
+             <div className="flex flex-col">
+               <label htmlFor="startDate" className="text-sm font-medium text-gray-700 mb-1">
+                 Start Date
+               </label>
+               <input
+                 id="startDate"
+                 type="date"
+                 value={startDate}
+                 onChange={(e) => setStartDate(e.target.value)}
+                 className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+               />
+             </div>
+             <div className="flex flex-col">
+               <label htmlFor="endDate" className="text-sm font-medium text-gray-700 mb-1">
+                 End Date
+               </label>
+               <input
+                 id="endDate"
+                 type="date"
+                 value={endDate}
+                 onChange={(e) => setEndDate(e.target.value)}
+                 className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+               />
+             </div>
+           </div>
+         </div>
          <div className="w-full h-[300px] flex flex-col md:flex-row gap-6">
            <div className="flex-1">
              <ResponsiveContainer width="100%" height={300}>

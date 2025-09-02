@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import type { Product } from "../../types/index";
 import type { Variant } from "../../types/variant";
 import { productApi } from "../../services/api/productApi";
@@ -43,6 +43,7 @@ function sortVariantsByWeight(variants: Variant[]): Variant[] {
 const VariantDetailsPage: React.FC = () => {
   const { productId } = useParams<{ productId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [product, setProduct] = useState<Product | null>(null);
   const [variants, setVariants] = useState<Variant[]>([]);
   const [loading, setLoading] = useState({
@@ -77,34 +78,134 @@ const VariantDetailsPage: React.FC = () => {
   });
   const [addError, setAddError] = useState("");
   const [addLoading, setAddLoading] = useState(false);
+  const [editError, setEditError] = useState("");
+
+  // Helper function to check if a weight already exists
+  const isWeightDuplicate = (weight: string, excludeId?: string) => {
+    if (!weight || weight.trim() === "") return false;
+    
+    // Parse the input weight to get number only
+    const [inputNumber] = weight.trim().split(/\s+/);
+    const inputNum = parseFloat(inputNumber);
+    
+    if (isNaN(inputNum)) return false;
+    
+    const isDuplicate = variants.some((v) => {
+      if (v.id === excludeId || !v.weight) return false;
+      
+      // Parse existing variant weight to get number only
+      const [existingNumber] = v.weight.trim().split(/\s+/);
+      const existingNum = parseFloat(existingNumber);
+      
+      if (isNaN(existingNum)) return false;
+      
+      // Check if the numeric values match (ignore units)
+      return inputNum === existingNum;
+    });
+    
+    return isDuplicate;
+  };
+
+  const fetchData = async () => {
+    try {
+      setLoading({ product: true, variants: true });
+      setError({ product: "", variants: "" });
+
+      // Fetch product data
+      const productData = await productApi.getProductById(productId!);
+      setProduct(productData);
+      setLoading((prev) => ({ ...prev, product: false }));
+
+      // Fetch variants data
+      const variantsData = await variantApi.getVariantsByProductId(
+        productId!
+      );
+      setVariants(sortVariantsByWeight(variantsData));
+      setLoading((prev) => ({ ...prev, variants: false }));
+    } catch (err) {
+      console.error("Fetch error:", err);
+      setError({
+        product: "Failed to load product information",
+        variants: "Failed to load variants",
+      });
+      setLoading({ product: false, variants: false });
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
+    fetchData();
+  }, [productId]);
+
+  // Refresh variants data when location changes (e.g., returning from edit page)
+  useEffect(() => {
+    const refreshVariants = async () => {
+      if (productId) {
+        try {
+          setLoading((prev) => ({ ...prev, variants: true }));
+          const variantsData = await variantApi.getVariantsByProductId(productId!);
+          setVariants(sortVariantsByWeight(variantsData));
+          setLoading((prev) => ({ ...prev, variants: false }));
+        } catch (err) {
+          console.error("Refresh error:", err);
+          setLoading((prev) => ({ ...prev, variants: false }));
+        }
+      }
+    };
+
+    // Refresh when location changes (but not on initial load)
+    if (location.state?.refreshVariants) {
+      refreshVariants();
+      // Clear the refresh flag to prevent unnecessary refreshes
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, productId, navigate]);
+
+  // Add a manual refresh function that can be called when needed
+  const refreshVariantsData = async () => {
+    if (productId) {
       try {
-        setLoading({ product: true, variants: true });
-        setError({ product: "", variants: "" });
-
-        // Fetch product data
-        const productData = await productApi.getProductById(productId!);
-        setProduct(productData);
-        setLoading((prev) => ({ ...prev, product: false }));
-
-        // Fetch variants data
-        const variantsData = await variantApi.getVariantsByProductId(
-          productId!
-        );
+        setLoading((prev) => ({ ...prev, variants: true }));
+        const variantsData = await variantApi.getVariantsByProductId(productId!);
         setVariants(sortVariantsByWeight(variantsData));
         setLoading((prev) => ({ ...prev, variants: false }));
       } catch (err) {
-        console.error("Fetch error:", err);
-        setError({
-          product: "Failed to load product information",
-          variants: "Failed to load variants",
-        });
-        setLoading({ product: false, variants: false });
+        console.error("Refresh error:", err);
+        setLoading((prev) => ({ ...prev, variants: false }));
+      }
+    }
+  };
+
+  // Also refresh data when the page becomes visible (fallback mechanism)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && productId) {
+        // Only refresh if the page has been hidden for more than 1 second
+        // This prevents unnecessary refreshes when just switching tabs quickly
+        setTimeout(() => {
+          if (!document.hidden) {
+            refreshVariantsData();
+          }
+        }, 1000);
       }
     };
-    fetchData();
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Also refresh when the window regains focus (for cases where visibilitychange doesn't fire)
+    const handleFocus = () => {
+      if (productId) {
+        setTimeout(() => {
+          refreshVariantsData();
+        }, 500);
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [productId]);
 
   const handleDeleteVariant = async (variantId: string) => {
@@ -132,9 +233,6 @@ const VariantDetailsPage: React.FC = () => {
   };
 
   const handleEditVariant = (variant: Variant) => {
-    // Remove variant from UI optimistically
-    setVariants((prev) => sortVariantsByWeight(prev.filter((v) => v.id !== variant.id))); // remove from UI
-
     // Split weight into number and unit
     const [weightNumber, weightUnit] = variant.weight.split(/\s+/);
 
@@ -158,11 +256,15 @@ const VariantDetailsPage: React.FC = () => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
 
+    // Clear edit error when user starts typing
+    if (editError) {
+      setEditError("");
+    }
+
     if (name === "weightNumber" || name === "weightUnit") {
-      const updatedValue =
-        name === "weightNumber"
-          ? `${value} ${editFormData.weightUnit}`
-          : `${editFormData.weightNumber} ${value}`;
+      const number = name === "weightNumber" ? value : editFormData.weightNumber;
+      const unit = name === "weightUnit" ? value : editFormData.weightUnit;
+      const updatedValue = `${number || ""} ${unit || ""}`.trim();
 
       setEditFormData((prev) => ({
         ...prev,
@@ -206,6 +308,16 @@ const VariantDetailsPage: React.FC = () => {
     e.preventDefault();
     if (!editingVariant || !productId) return;
 
+    // Clear previous errors
+    setEditError("");
+
+    // Check for duplicate variant (excluding the current variant being edited)
+    if (isWeightDuplicate(editFormData.weight, editingVariant.id)) {
+      const [number] = editFormData.weight.trim().split(/\s+/);
+      setEditError(`A variant with ${number} already exists (regardless of unit). Please choose a different quantity.`);
+      return;
+    }
+
     try {
       const updatedVariant = await variantApi.updateVariant(
         productId, // productId as first param
@@ -217,6 +329,7 @@ const VariantDetailsPage: React.FC = () => {
         } // payload: use the value from the form, not the old variant
       );
 
+      // Update the variant in the list with the response from the API
       setVariants((prev) =>
         sortVariantsByWeight(
           prev.map((v) => (v.id === editingVariant.id ? { ...v, ...updatedVariant } : v))
@@ -224,6 +337,12 @@ const VariantDetailsPage: React.FC = () => {
       );
       setEditingVariant(null);
       setError((prev) => ({ ...prev, variants: "" }));
+      setEditError("");
+      
+      // Refresh data to ensure consistency
+      setTimeout(() => {
+        refreshVariantsData();
+      }, 500);
     } catch (err) {
       console.error("Update error:", err);
       setError((prev) => ({
@@ -250,6 +369,7 @@ const VariantDetailsPage: React.FC = () => {
 
   const cancelEdit = () => {
     setEditingVariant(null);
+    setEditError("");
   };
 
   const handleAddInputChange = (
@@ -257,6 +377,11 @@ const VariantDetailsPage: React.FC = () => {
   ) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
+
+    // Clear add error when user starts typing
+    if (addError) {
+      setAddError("");
+    }
 
     setAddFormData((prev) => {
       const updatedData = {
@@ -275,7 +400,8 @@ const VariantDetailsPage: React.FC = () => {
       if (name === "weightNumber" || name === "weightUnit") {
         const number = name === "weightNumber" ? value : prev.weightNumber;
         const unit = name === "weightUnit" ? value : prev.weightUnit;
-        updatedData.weight = number && unit ? `${number} ${unit}` : "";
+        // Always construct the weight string, even if one part is missing
+        updatedData.weight = `${number || ""} ${unit || ""}`.trim();
       }
 
       // Automatically calculate discount when price or originalPrice changes
@@ -304,21 +430,19 @@ const VariantDetailsPage: React.FC = () => {
     setAddError("");
     setAddLoading(true);
 
+    // Ensure weight is properly constructed
+    const finalWeight = `${addFormData.weightNumber || ""} ${addFormData.weightUnit || ""}`.trim();
+    
     // Prevent duplicate variant by weight
-    if (
-      variants.find(
-        (v) =>
-          v.weight.trim().toLowerCase() ===
-          addFormData.weight.trim().toLowerCase()
-      )
-    ) {
-      setAddError("Variant already exists");
+    if (isWeightDuplicate(finalWeight)) {
+      const [number] = finalWeight.trim().split(/\s+/);
+      setAddError(`A variant with ${number} already exists . Please choose a different quantity.`);
       setAddLoading(false);
       return;
     }
     try {
       const newVariant = await variantApi.createVariant(productId as string, {
-        weight: addFormData.weight, // This is the combined string from handleAddInputChange
+        weight: finalWeight, // Use the properly constructed weight
         productId: productId as string,
         price: Number(addFormData.price),
         originalPrice: Number(addFormData.originalPrice),
@@ -338,6 +462,11 @@ const VariantDetailsPage: React.FC = () => {
         units_in_stock: "",
       });
       setShowAddForm(false);
+      
+      // Refresh data to ensure consistency
+      setTimeout(() => {
+        refreshVariantsData();
+      }, 500);
     } catch (err) {
       setAddError("Failed to add variant. Please try again.");
     } finally {
@@ -414,7 +543,12 @@ const VariantDetailsPage: React.FC = () => {
                   min="0"
                   step="0.01"
                   placeholder="Enter weight"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className={`w-full px-3 py-2 border rounded-md ${
+                    addFormData.weightNumber && addFormData.weightUnit && 
+                    isWeightDuplicate(`${addFormData.weightNumber} ${addFormData.weightUnit}`.trim())
+                      ? "border-red-300 bg-red-50"
+                      : "border-gray-300"
+                  }`}
                   required
                 />
               </div>
@@ -437,6 +571,13 @@ const VariantDetailsPage: React.FC = () => {
                 </select>
               </div>
             </div>
+            {addFormData.weightNumber && addFormData.weightUnit && 
+             isWeightDuplicate(`${addFormData.weightNumber} ${addFormData.weightUnit}`.trim()) && (
+              <div className="text-sm text-red-600 flex items-center">
+                <ExclamationTriangleIcon className="w-4 h-4 mr-1" />
+                A variant with {addFormData.weightNumber} already exists 
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Price (₹)
@@ -564,6 +705,12 @@ const VariantDetailsPage: React.FC = () => {
               <h2 className="text-xl font-bold text-gray-800 mb-4">
                 Edit Variant
               </h2>
+              {editError && (
+                <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg border border-red-200 flex items-center">
+                  <ExclamationTriangleIcon className="w-5 h-5 mr-2" />
+                  {editError}
+                </div>
+              )}
               <form onSubmit={handleEditSubmit}>
                 <div className="space-y-4">
                   <div className="grid grid-cols-3 gap-2">
@@ -578,7 +725,11 @@ const VariantDetailsPage: React.FC = () => {
                         onChange={handleEditInputChange}
                         min="0"
                         step="0.01"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                          editFormData.weight && isWeightDuplicate(editFormData.weight, editingVariant?.id)
+                            ? "border-red-300 bg-red-50"
+                            : "border-gray-300"
+                        }`}
                         required
                       />
                     </div>
@@ -601,6 +752,12 @@ const VariantDetailsPage: React.FC = () => {
                       </select>
                     </div>
                   </div>
+                  {editFormData.weight && isWeightDuplicate(editFormData.weight, editingVariant?.id) && (
+                    <div className="text-sm text-red-600 flex items-center">
+                      <ExclamationTriangleIcon className="w-4 h-4 mr-1" />
+                      A variant with {editFormData.weightNumber} already exists (regardless of unit)
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">

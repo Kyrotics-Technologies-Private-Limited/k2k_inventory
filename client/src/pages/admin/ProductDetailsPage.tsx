@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { productApi } from "../../services/api/productApi";
 import type { Product } from "../../types";
 import variantApi from "../../services/api/variantApi";
@@ -12,10 +12,12 @@ import {
   //CheckIcon,
   //ShieldCheckIcon,
 } from "@heroicons/react/24/solid";
+import { ArrowPathIcon } from "@heroicons/react/24/outline";
 
 const ProductDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -23,27 +25,56 @@ const ProductDetailsPage: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [variants, setVariants] = useState<Variant[]>([]);
 
-  useEffect(() => {
-    const fetchProductDetails = async () => {
+  const fetchProductDetails = async () => {
+    try {
+      if (id) {
+        const fetchedProduct = await productApi.getProductById(id);
+        setProduct(fetchedProduct);
+        setSelectedImage(fetchedProduct.images.main);
+        // Fetch variants for this product
+        const fetchedVariants = await variantApi.getVariantsByProductId(id);
+        setVariants(fetchedVariants);
+      }
+    } catch (err) {
+      setError("Failed to fetch product details. Please try again later.");
+      console.error("Fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshVariants = async () => {
+    if (id) {
       try {
-        if (id) {
-          const fetchedProduct = await productApi.getProductById(id);
-          setProduct(fetchedProduct);
-          setSelectedImage(fetchedProduct.images.main);
-          // Fetch variants for this product
+        const fetchedVariants = await variantApi.getVariantsByProductId(id);
+        setVariants(fetchedVariants);
+      } catch (err) {
+        console.error("Refresh variants error:", err);
+      }
+    }
+  };
+
+  useEffect(() => {
+    fetchProductDetails();
+  }, [id]);
+
+  // Refresh variants data when location changes (e.g., returning from variant edit page)
+  useEffect(() => {
+    const refreshVariants = async () => {
+      if (id && location.state?.refreshVariants) {
+        try {
           const fetchedVariants = await variantApi.getVariantsByProductId(id);
           setVariants(fetchedVariants);
+          // Clear the refresh flag to prevent unnecessary refreshes
+          navigate(location.pathname, { replace: true, state: {} });
+        } catch (err) {
+          console.error("Refresh variants error:", err);
         }
-      } catch (err) {
-        setError("Failed to fetch product details. Please try again later.");
-        console.error("Fetch error:", err);
-      } finally {
-        setLoading(false);
       }
     };
 
-    fetchProductDetails();
-  }, [id]);
+    refreshVariants();
+  }, [location, id, navigate]);
 
   const handleDelete = async () => {
     if (!id) return;
@@ -109,6 +140,13 @@ const ProductDetailsPage: React.FC = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Product Details</h1>
         <div className="flex space-x-3">
+          <button
+            onClick={refreshVariants}
+            className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            <ArrowPathIcon className="w-4 h-4 mr-2" />
+            Refresh Variants
+          </button>
           <button
             onClick={handleDelete}
             disabled={isDeleting}

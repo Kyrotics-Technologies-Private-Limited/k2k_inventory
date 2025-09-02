@@ -13,7 +13,6 @@ import "react-datepicker/dist/react-datepicker.css";
 
 const ORDER_STATUSES = [
   "placed",
-  "confirmed",
   "processing",
   "shipped",
   "delivered",
@@ -553,8 +552,6 @@ const AdminOrdersPage: React.FC = () => {
             ? "bg-green-100 text-green-800"
             : order.status === "returned"
             ? "bg-yellow-100 text-yellow-800"
-            : order.status === "confirmed"
-            ? "bg-blue-100 text-blue-800"
             : order.status === "processing"
             ? "bg-purple-100 text-purple-800"
             : order.status === "shipped"
