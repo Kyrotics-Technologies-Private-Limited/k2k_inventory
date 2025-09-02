@@ -61,8 +61,9 @@ const AdminDashboard: React.FC = () => {
     const oneMonthAgo = new Date(now);
     oneMonthAgo.setMonth(now.getMonth() - 1);
     
-    setStartDate(oneMonthAgo.toISOString().split('T')[0]);
-    setEndDate(now.toISOString().split('T')[0]);
+    // Use local timezone consistently for date formatting
+    setStartDate(oneMonthAgo.toLocaleDateString('en-CA')); // YYYY-MM-DD format
+    setEndDate(now.toLocaleDateString('en-CA')); // YYYY-MM-DD format
   }, []);
 
   useEffect(() => {
