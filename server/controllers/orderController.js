@@ -122,23 +122,6 @@ exports.getAllOrders = async (req, res) => {
   }
 };
 
-// Get order by ID
-// exports.getOrderById = async (req, res) => {
-//   try {
-//     const userId = req.user.uid;
-//     const { orderId } = req.params;
-
-//     const doc = await ordersCollection.doc(orderId).get();
-
-//     if (!doc.exists || doc.data().userId !== userId) {
-//       return res.status(404).json({ message: 'Order not found or unauthorized.' });
-//     }
-
-//     res.status(200).json({ id: doc.id, ...doc.data() });
-//   } catch (error) {
-//     res.status(500).json({ message: 'Failed to get order.', error: error.message });
-//   }
-// };
 
 // Cancel order
 exports.cancelOrder = async (req, res) => {
@@ -287,13 +270,46 @@ exports.adminUpdateOrderStatus = async (req, res) => {
       await restockOrderItems(orderData.items);
     }
 
-    // Update the order status
-    await orderRef.update({
+    // Create status-specific timestamp field name
+    const getStatusTimestampField = (status) => {
+      const statusLower = status.toLowerCase();
+      switch (statusLower) {
+        case 'placed':
+          return 'placedDate';
+        case 'processing':
+          return 'processingDate';
+        case 'shipped':
+          return 'shippedDate';
+        case 'delivered':
+          return 'deliveredDate';
+        case 'cancelled':
+          return 'cancelledDate';
+        case 'returned':
+          return 'returnedDate';
+        
+        default:
+          return `${statusLower}Date`;
+      }
+    };
+
+    // Prepare update object with status and timestamp
+    const updateData = {
       status,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    };
 
-    res.status(200).json({ message: "Order status updated successfully" });
+    // Add status-specific timestamp
+    const timestampField = getStatusTimestampField(status);
+    updateData[timestampField] = admin.firestore.FieldValue.serverTimestamp();
+
+    // Update the order status with status-specific timestamp
+    await orderRef.update(updateData);
+
+    res.status(200).json({ 
+      message: "Order status updated successfully",
+      statusUpdated: status,
+      timestampField: timestampField
+    });
   } catch (error) {
     res.status(500).json({ message: "Failed to update order status", error: error.message });
   }

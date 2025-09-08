@@ -58,11 +58,16 @@ router.get("/stats", async (req, res) => {
     let totalRevenue = 0;
     let monthlyRevenue = 0;
     let monthlyOrders = 0;
+    let revenueCustomers = new Set(); // Track unique customers who placed revenue-generating orders
+    let revenueByCategory = {}; // Track revenue by category
 
     const orderStatusCounts = {
       placed: 0,
+      processing: 0,
+      shipped: 0,
       delivered: 0,
       cancelled: 0,
+      returned: 0,
     };
 
     const chartData = {}; // e.g., { "2025-07-01": 1000 }
@@ -107,15 +112,32 @@ router.get("/stats", async (req, res) => {
         const variant = allVariants.get(variantId);
         
         if (variant && typeof item.quantity === 'number' && typeof variant.price === 'number') {
-          orderRevenue += item.quantity * variant.price;
+          const itemRevenue = item.quantity * variant.price;
+          orderRevenue += itemRevenue;
+          
+          // Track revenue by category for revenue-generating orders
+          if (orderDate && isWithinDateRange(orderDate) && status !== 'cancelled' && status !== 'returned') {
+            const productId = variant.productId;
+            const product = productsSnapshot.docs.find(doc => doc.id === productId);
+            if (product) {
+              const category = product.data().category || 'Unknown';
+              revenueByCategory[category] = (revenueByCategory[category] || 0) + itemRevenue;
+            }
+          }
         }
       });
 
       // Only count revenue for orders within the selected date range
-      if (orderDate && isWithinDateRange(orderDate)) {
+      // Exclude cancelled and returned orders from revenue calculation
+      if (orderDate && isWithinDateRange(orderDate) && status !== 'cancelled' && status !== 'returned') {
         totalRevenue += orderRevenue;
         monthlyRevenue += orderRevenue;
         monthlyOrders += 1;
+        
+        // Track unique customers who placed revenue-generating orders
+        if (data.userId) {
+          revenueCustomers.add(data.userId);
+        }
         
         // Revenue by day (only for the selected date range)
         if (orderDate?.toDate) {
@@ -305,12 +327,14 @@ router.get("/stats", async (req, res) => {
     // Log revenue calculation for debugging
     console.log('Dashboard Revenue Calculation:');
     console.log('- Date Range:', startDateFilter.toISOString(), 'to', endDateFilter.toISOString());
-    console.log('- Total Revenue (filtered):', totalRevenue);
+    console.log('- Total Revenue (filtered, excluding cancelled/returned):', totalRevenue);
     console.log('- Monthly Revenue:', monthlyRevenue);
     console.log('- Total Orders (filtered):', monthlyOrders);
+    console.log('- Revenue Customers (filtered):', revenueCustomers.size);
     console.log('- Total Orders (all):', ordersSnapshot.size);
+    console.log('- Total Customers (all):', usersSnapshot.size);
     console.log('- Chart Data Points:', chartArray.length);
-    console.log('- Revenue calculation method: Line items × Variant prices');
+    console.log('- Revenue calculation method: Line items × Variant prices (excluding cancelled/returned orders)');
 
     const response = {
       totalRevenue,
@@ -318,7 +342,9 @@ router.get("/stats", async (req, res) => {
       monthlyOrders,
       totalOrders: ordersSnapshot.size,
       totalCustomers: usersSnapshot.size,
+      revenueCustomers: revenueCustomers.size, // Count of unique customers who placed revenue-generating orders
       orderStatusCounts,
+      revenueByCategory, // Revenue breakdown by category
       revenueChart: chartArray, // for charts
       outOfStockVariants, // new field for dashboard warning
       bestsellersLast3Months,
