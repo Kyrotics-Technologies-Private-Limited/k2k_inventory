@@ -1,0 +1,5 @@
+// Add this line with other route imports
+const reportRoutes = require('./routes/reportRoutes');
+
+// Add this line with other app.use statements
+app.use('/api/admin/reports', reportRoutes);
