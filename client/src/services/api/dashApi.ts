@@ -19,11 +19,16 @@ export interface DashboardStatsResponse {
   monthlyOrders: number;
   totalOrders: number;
   totalCustomers: number;
+  revenueCustomers: number;
   orderStatusCounts: {
     placed: number;
+    processing: number;
+    shipped: number;
     delivered: number;
     cancelled: number;
+    returned: number;
   };
+  revenueByCategory: Record<string, number>;
   revenueChart: {
     date: string;
     revenue: number;

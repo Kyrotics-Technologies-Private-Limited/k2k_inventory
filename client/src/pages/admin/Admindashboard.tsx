@@ -55,14 +55,13 @@ const AdminDashboard: React.FC = () => {
     );
   };
 
-  // Set default dates to last one month
+  // Set default dates to first day of current month to current date
   useEffect(() => {
     const now = new Date();
-    const oneMonthAgo = new Date(now);
-    oneMonthAgo.setMonth(now.getMonth() - 1);
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     
     // Use local timezone consistently for date formatting
-    setStartDate(oneMonthAgo.toLocaleDateString('en-CA')); // YYYY-MM-DD format
+    setStartDate(firstDayOfMonth.toLocaleDateString('en-CA')); // YYYY-MM-DD format
     setEndDate(now.toLocaleDateString('en-CA')); // YYYY-MM-DD format
   }, []);
 
@@ -103,13 +102,26 @@ const AdminDashboard: React.FC = () => {
     },
     {
       title: "Total Orders",
-      value: stats?.totalOrders?.toString() ?? "0",
+      value: stats?.monthlyOrders?.toString() ?? "0",
       icon: <FiShoppingCart size={24} />,
-      onClick: () => navigate("/admin/orders"),
+      onClick: () => {
+        // Navigate with first day of current month to current date and revenue filter
+        const now = new Date();
+        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        
+        const startDate = firstDayOfMonth.toISOString().split('T')[0];
+        const endDate = now.toISOString().split('T')[0];
+        
+        const url = `/admin/orders?revenue=true&startDate=${startDate}&endDate=${endDate}`;
+        console.log('Navigating to:', url);
+        console.log('Date range:', { firstDayOfMonth, now, startDate, endDate });
+        
+        navigate(url);
+      },
       clickable: true,
     },
     {
-      title: "Customers",
+      title: "Total Customers",
       value: stats?.totalCustomers?.toString() ?? "0",
       icon: <FiUser size={24} />,
       onClick: () => navigate("/admin/customers"),
@@ -125,6 +137,18 @@ const AdminDashboard: React.FC = () => {
       status: "placed",
     },
     {
+      title: "Processing Orders",
+      value: stats?.orderStatusCounts?.processing ?? 0,
+      color: "text-blue-600",
+      status: "processing",
+    },
+    {
+      title: "Shipped Orders",
+      value: stats?.orderStatusCounts?.shipped ?? 0,
+      color: "text-indigo-600",
+      status: "shipped",
+    },
+    {
       title: "Delivered Orders",
       value: stats?.orderStatusCounts?.delivered ?? 0,
       color: "text-green-600",
@@ -137,13 +161,14 @@ const AdminDashboard: React.FC = () => {
       status: "cancelled",
     },
     {
-      title: "Out of Stock Variants",
-      value: stats?.outOfStockVariants?.length ?? 0,
+      title: "Returned Orders",
+      value: stats?.orderStatusCounts?.returned ?? 0,
       color: "text-red-600",
-      status: "outOfStock",
-      onClick: () => navigate("/admin/products?fromDashboard=true"),
+      status: "returned",
+      onClick: () => navigate("/admin/orders?status=returned"),
     },
   ];
+
 
   return (
     <div className="space-y-6">
@@ -180,7 +205,7 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Order Status Cards */}
-      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-4 mt-4">
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 mt-4">
         {statusCards.map((card, index) => (
           <div
             key={index}
@@ -201,94 +226,7 @@ const AdminDashboard: React.FC = () => {
         ))}
       </div>
 
-      {/* Third Row: Product Performance Cards */}
-      <div className="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-4 mt-4">
-        <div className="bg-white p-6 rounded-lg shadow flex flex-col hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50">
-          <p className="text-gray-500">3 Bestseller products (3 months)</p>
-          {loading ? (
-            <p className="text-gray-500">Loading...</p>
-          ) : stats?.top5BestsellersLast3Months?.length ? (
-            <ul className="space-y-2">
-              {stats.top5BestsellersLast3Months.slice(0, 3).map((item, idx) => (
-                <li key={item.productId} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2 mt-2">
-                    {item.image && <img src={item.image} alt={item.productName} className="w-8 h-8 rounded object-cover" />}
-                    <span className="text-md mt-2 font-bold text-red-700">{idx + 1}. {item.productName}</span>
-                  </div>
-                  <span className="text-md font-bold text-red-700">{item.totalSold}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-gray-500">No data</p>
-          )}
-        </div>
 
-        <div className="bg-white p-6 rounded-lg shadow flex flex-col hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50">
-          <p className="text-gray-500">Least selling products (3 months)</p>
-          {loading ? (
-            <p className="text-gray-500">Loading...</p>
-          ) : stats?.leastSellersLast3Months?.length ? (
-            <ul className="space-y-2">
-              {stats.leastSellersLast3Months.map((item, idx) => (
-                <li key={item.productId} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2 mt-2">
-                    {item.image && <img src={item.image} alt={item.productName} className="w-8 h-8 rounded object-cover" />}
-                    <span className="text-md mt-2 font-bold text-blue-700">{idx + 1}. {item.productName}</span>
-                  </div>
-                  <span className="text-md font-bold text-blue-700">{item.totalSold}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-gray-500">No data</p>
-          )}
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow flex flex-col hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50">
-          <p className="text-gray-500">Quick seller products (1 week)</p>
-          {loading ? (
-            <p className="text-gray-500">Loading...</p>
-          ) : stats?.quickSellersLastWeek?.length ? (
-            <ul className="space-y-2">
-              {stats.quickSellersLastWeek.map((item, idx) => (
-                <li key={item.productId} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2 mt-2">
-                    {item.image && <img src={item.image} alt={item.productName} className="w-8 h-8 rounded object-cover" />}
-                    <span className="text-md mt-2 font-bold text-yellow-700">{idx + 1}. {item.productName}</span>
-                  </div>
-                  <span className="text-md font-bold text-yellow-700">{item.totalSold}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-gray-500">No data</p>
-          )}
-        </div>
-
-        
-
-        <div className="bg-white p-6 rounded-lg shadow flex flex-col hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50">
-          <p className="text-gray-500">Slow moving products (1 week)</p>
-          {loading ? (
-            <p className="text-gray-500">Loading...</p>
-          ) : stats?.slowMoversLastWeek?.length ? (
-            <ul className="space-y-2">
-              {stats.slowMoversLastWeek.map((item, idx) => (
-                <li key={item.productId} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2 mt-2">
-                    {item.image && <img src={item.image} alt={item.productName} className="w-8 h-8 rounded object-cover" />}
-                    <span className="text-md mt-2 font-bold text-purple-700">{idx + 1}. {item.productName}</span>
-                  </div>
-                  <span className="text-md font-bold text-purple-700">{item.totalSold}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-gray-500">No data</p>
-          )}
-        </div>
-      </div>
 
                     {/* Revenue Chart */}
        <div id="revenue-chart" className="bg-white p-6 rounded-lg shadow mt-6">

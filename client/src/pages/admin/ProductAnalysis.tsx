@@ -57,11 +57,10 @@ const ProductAnalysis: React.FC = () => {
       return;
     }
 
-    // Set default date range (last 1 month)
+    // Set default date range (1st day of current month to current date)
     const now = new Date();
-    const oneMonthAgo = new Date();
-    oneMonthAgo.setMonth(now.getMonth() - 1);
-    setCategoryStartDate(oneMonthAgo);
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    setCategoryStartDate(firstDayOfMonth);
     setCategoryEndDate(now);
 
     // Initial data load
@@ -263,6 +262,23 @@ const ProductAnalysis: React.FC = () => {
     }
   }, [categoryStartDate, categoryEndDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-update end date to current date every minute
+  useEffect(() => {
+    const updateEndDate = () => {
+      const now = new Date();
+      setCategoryEndDate(now);
+    };
+
+    // Update immediately
+    updateEndDate();
+
+    // Set up interval to update every minute
+    const interval = setInterval(updateEndDate, 60000); // 60000ms = 1 minute
+
+    // Cleanup interval on component unmount
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -461,13 +477,13 @@ const ProductAnalysis: React.FC = () => {
         <div className="bg-blue-200 p-6 rounded-lg border mb-6">
           <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
             <div className="text-center">
-              <h4 className="text-sm font-medium text-gray-600 mb-2">Total Categories</h4>
+              <h4 className="text-sm font-medium text-gray-600 mb-2">Total Active Categories</h4>
               {loading ? (
                 <p className="text-gray-500">Loading...</p>
               ) : (
                 <>
                   <p className="text-3xl font-bold text-blue-600">{categoryPieData.length}</p>
-                  <p className="text-sm text-gray-600">Active Categories</p>
+                  {/* <p className="text-sm text-gray-600">Active Categories</p> */}
                 </>
               )}
             </div>
@@ -481,7 +497,7 @@ const ProductAnalysis: React.FC = () => {
                   <p className="text-3xl font-bold text-green-600">
                     {categoryPieData.reduce((sum, item) => sum + item.value, 0)}
                   </p>
-                  <p className="text-sm text-gray-600">Units Sold</p>
+                  {/* <p className="text-sm text-gray-600">Units Sold</p> */}
                 </>
               )}
             </div>
@@ -495,24 +511,23 @@ const ProductAnalysis: React.FC = () => {
                   <p className="text-2xl font-bold text-purple-600 capitalize">
                     {categoryPieData[0]?.category || 'N/A'}
                   </p>
-                  <p className="text-sm text-gray-600">Best Performer</p>
+                  {/* <p className="text-sm text-gray-600">Best Performer</p> */}
                 </>
               )}
             </div>
 
             <div className="text-center">
-              <h4 className="text-sm font-medium text-gray-600 mb-2">Days in Range</h4>
+              <h4 className="text-sm font-medium text-gray-600 mb-2">Current Month</h4>
               {loading ? (
                 <p className="text-gray-500">Loading...</p>
               ) : (
                 <>
                   <p className="text-3xl font-bold text-orange-600">
-                    {categoryStartDate && categoryEndDate 
-                      ? Math.ceil((categoryEndDate.getTime() - categoryStartDate.getTime()) / (1000 * 60 * 60 * 24))
-                      : 30
-                    }
+                    {new Date().toLocaleDateString('en-US', { month: 'long' })}
                   </p>
-                  <p className="text-sm text-gray-600">Days in Range</p>
+                  <p className="text-sm text-gray-600">
+                    {new Date().getFullYear()}
+                  </p>
                 </>
               )}
             </div>
@@ -737,7 +752,12 @@ const ProductAnalysis: React.FC = () => {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Daily Average:</span>
                     <span className="font-bold text-gray-800">
-                      {(item.value / 30).toFixed(1)} units/day
+                      {(() => {
+                        const daysInRange = categoryStartDate && categoryEndDate 
+                          ? Math.ceil((categoryEndDate.getTime() - categoryStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+                          : new Date().getDate();
+                        return (item.value / daysInRange).toFixed(1);
+                      })()} units/day
                     </span>
                   </div>
                 </div>

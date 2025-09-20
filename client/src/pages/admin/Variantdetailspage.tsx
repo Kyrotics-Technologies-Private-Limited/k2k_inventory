@@ -12,6 +12,12 @@ import {
   ArrowPathIcon,
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
+import { 
+  calculatePriceIncludingGST, 
+  calculateGSTAmount, 
+  formatPrice, 
+  GST_RATE_OPTIONS
+} from "../../utils/gstCalculations";
 
 interface EditVariantForm {
   weight: string;
@@ -20,6 +26,9 @@ interface EditVariantForm {
   price: number;
   originalPrice: number;
   discount: number;
+  gstPercentage: number;
+  customGstPercentage: string;
+  useCustomGst: boolean;
   inStock: boolean;
   units_in_stock: number;
 }
@@ -62,6 +71,9 @@ const VariantDetailsPage: React.FC = () => {
     price: 0,
     originalPrice: 0,
     discount: 0,
+    gstPercentage: 18,
+    customGstPercentage: "",
+    useCustomGst: false,
     inStock: true,
     units_in_stock: 0,
   });
@@ -73,6 +85,9 @@ const VariantDetailsPage: React.FC = () => {
     price: "",
     originalPrice: "",
     discount: "",
+    gstPercentage: "18",
+    customGstPercentage: "",
+    useCustomGst: false,
     inStock: true,
     units_in_stock: "",
   });
@@ -244,6 +259,9 @@ const VariantDetailsPage: React.FC = () => {
       price: variant.price,
       originalPrice: variant.originalPrice || 0,
       discount: variant.discount || 0,
+      gstPercentage: variant.gstPercentage || 18,
+      customGstPercentage: "",
+      useCustomGst: false,
       inStock: variant.inStock,
       units_in_stock:
         typeof variant.units_in_stock === "number" ? variant.units_in_stock : 0,
@@ -389,7 +407,7 @@ const VariantDetailsPage: React.FC = () => {
         [name]:
           type === "checkbox"
             ? checked
-            : ["price", "originalPrice", "units_in_stock"].includes(name)
+            : ["price", "originalPrice", "units_in_stock", "gstPercentage"].includes(name)
             ? value === ""
               ? 0
               : Number(value)
@@ -447,6 +465,7 @@ const VariantDetailsPage: React.FC = () => {
         price: Number(addFormData.price),
         originalPrice: Number(addFormData.originalPrice),
         discount: Number(addFormData.discount),
+        gstPercentage: Number(addFormData.useCustomGst ? addFormData.customGstPercentage : addFormData.gstPercentage),
         inStock: addFormData.inStock,
         units_in_stock: Number(addFormData.units_in_stock),
       });
@@ -458,6 +477,9 @@ const VariantDetailsPage: React.FC = () => {
         price: "",
         originalPrice: "",
         discount: "",
+        gstPercentage: "18",
+        customGstPercentage: "",
+        useCustomGst: false,
         inStock: true,
         units_in_stock: "",
       });
@@ -619,6 +641,89 @@ const VariantDetailsPage: React.FC = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
                 placeholder="Automatically calculated"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                GST (%)
+              </label>
+              <div className="space-y-2">
+                {/* GST Selection Options */}
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    name="gstInputType"
+                    checked={!addFormData.useCustomGst}
+                    onChange={() => setAddFormData(prev => ({ ...prev, useCustomGst: false }))}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  />
+                  <label className="text-sm text-gray-700">Select from options</label>
+                </div>
+                <select
+                  name="gstPercentage"
+                  value={addFormData.gstPercentage}
+                  onChange={handleAddInputChange}
+                  disabled={addFormData.useCustomGst}
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                    addFormData.useCustomGst ? 'bg-gray-100 text-gray-500' : ''
+                  }`}
+                  required={!addFormData.useCustomGst}
+                >
+                  {GST_RATE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                
+                {/* Custom GST Input */}
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    name="gstInputType"
+                    checked={addFormData.useCustomGst}
+                    onChange={() => setAddFormData(prev => ({ ...prev, useCustomGst: true }))}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  />
+                  <label className="text-sm text-gray-700">Enter custom GST</label>
+                </div>
+                <input
+                  name="customGstPercentage"
+                  type="number"
+                  value={addFormData.customGstPercentage}
+                  onChange={handleAddInputChange}
+                  disabled={!addFormData.useCustomGst}
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  placeholder="Enter GST percentage"
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                    !addFormData.useCustomGst ? 'bg-gray-100 text-gray-500' : ''
+                  }`}
+                  required={addFormData.useCustomGst}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Price Including GST (₹)
+              </label>
+              <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-blue-50 text-blue-800 font-semibold">
+                {addFormData.price && (addFormData.gstPercentage || addFormData.customGstPercentage)
+                  ? formatPrice(calculatePriceIncludingGST(
+                      Number(addFormData.price), 
+                      Number(addFormData.useCustomGst ? addFormData.customGstPercentage : addFormData.gstPercentage)
+                    ))
+                  : "₹0.00"}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                Base Price: {addFormData.price ? formatPrice(Number(addFormData.price)) : "₹0.00"} + 
+                GST: {addFormData.price && (addFormData.gstPercentage || addFormData.customGstPercentage)
+                  ? formatPrice(calculateGSTAmount(
+                      Number(addFormData.price), 
+                      Number(addFormData.useCustomGst ? addFormData.customGstPercentage : addFormData.gstPercentage)
+                    ))
+                  : "₹0.00"}
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -806,6 +911,91 @@ const VariantDetailsPage: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
+                      GST (%)
+                    </label>
+                    <div className="space-y-2">
+                      {/* GST Selection Options */}
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          name="editGstInputType"
+                          checked={!editFormData.useCustomGst}
+                          onChange={() => setEditFormData(prev => ({ ...prev, useCustomGst: false }))}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                        />
+                        <label className="text-sm text-gray-700">Select from options</label>
+                      </div>
+                      <select
+                        name="gstPercentage"
+                        value={editFormData.gstPercentage}
+                        onChange={handleEditInputChange}
+                        disabled={editFormData.useCustomGst}
+                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                          editFormData.useCustomGst ? 'bg-gray-100 text-gray-500' : ''
+                        }`}
+                        required={!editFormData.useCustomGst}
+                      >
+                        {GST_RATE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      
+                      {/* Custom GST Input */}
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          name="editGstInputType"
+                          checked={editFormData.useCustomGst}
+                          onChange={() => setEditFormData(prev => ({ ...prev, useCustomGst: true }))}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                        />
+                        <label className="text-sm text-gray-700">Enter custom GST</label>
+                      </div>
+                      <input
+                        name="customGstPercentage"
+                        type="number"
+                        value={editFormData.customGstPercentage}
+                        onChange={handleEditInputChange}
+                        disabled={!editFormData.useCustomGst}
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        placeholder="Enter GST percentage"
+                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                          !editFormData.useCustomGst ? 'bg-gray-100 text-gray-500' : ''
+                        }`}
+                        required={editFormData.useCustomGst}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Price Including GST (₹)
+                    </label>
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-blue-50 text-blue-800 font-semibold">
+                      {editFormData.price && (editFormData.gstPercentage || editFormData.customGstPercentage)
+                        ? formatPrice(calculatePriceIncludingGST(
+                            editFormData.price, 
+                            Number(editFormData.useCustomGst ? editFormData.customGstPercentage : editFormData.gstPercentage)
+                          ))
+                        : "₹0.00"}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      Base Price: {formatPrice(editFormData.price)} + 
+                      GST: {editFormData.price && (editFormData.gstPercentage || editFormData.customGstPercentage)
+                        ? formatPrice(calculateGSTAmount(
+                            editFormData.price, 
+                            Number(editFormData.useCustomGst ? editFormData.customGstPercentage : editFormData.gstPercentage)
+                          ))
+                        : "₹0.00"}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
                       Units in Stock
                     </label>
                     <input
@@ -885,7 +1075,13 @@ const VariantDetailsPage: React.FC = () => {
                     Weight
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Price
+                    Base Price
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    GST
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Price Including GST
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Original Price
@@ -911,11 +1107,17 @@ const VariantDetailsPage: React.FC = () => {
                       {variant.weight}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      ₹{variant.price.toFixed(2)}
+                      {formatPrice(variant.price)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {variant.gstPercentage ? `${variant.gstPercentage}%` : "0%"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-600">
+                      {formatPrice(calculatePriceIncludingGST(variant.price, variant.gstPercentage || 0))}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {variant.originalPrice
-                        ? `₹${variant.originalPrice.toFixed(2)}`
+                        ? formatPrice(variant.originalPrice)
                         : "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
