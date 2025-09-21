@@ -19,6 +19,7 @@ import ForgotPassword from "./pages/admin/ForgotPassword";
 import OutOfStockPage from "./pages/admin/OutOfStockPage";
 import FinanceAnalysis from "./pages/admin/FinanceAnalysis";
 import ProductAnalysis from "./pages/admin/ProductAnalysis";
+import Reports from "./pages/admin/Reports";
 
 function App() {
   return (
@@ -194,6 +195,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ProductAnalysis />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="reports"
+            element={
+              <ProtectedRoute>
+                <Reports />
               </ProtectedRoute>
             }
           />

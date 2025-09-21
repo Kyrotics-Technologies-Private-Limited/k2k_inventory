@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-// import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { productApi } from "../../services/api/productApi";
 import variantApi from "../../services/api/variantApi";
 import { orderApi } from "../../services/api/orderApi";
@@ -44,6 +44,7 @@ interface RevenueDataPoint {
 }
 
 const FinanceAnalysis: React.FC = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [averageOrderValue, setAverageOrderValue] = useState(0);
@@ -52,6 +53,9 @@ const FinanceAnalysis: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [variants, setVariants] = useState<any[]>([]);
+  const [totalCancelledOrders, setTotalCancelledOrders] = useState(0);
+  const [totalReturnedOrders, setTotalReturnedOrders] = useState(0);
+  const [showAllRevenueData, setShowAllRevenueData] = useState(false);
   
   // Revenue Growth Trend states
   const [revenueTrendData, setRevenueTrendData] = useState<RevenueDataPoint[]>([]);
@@ -123,8 +127,13 @@ const FinanceAnalysis: React.FC = () => {
         }
 
         // Calculate Total Revenue (Sales Turnover)
-        // Sum of all sales (Quantity × Selling Price)
+        // Sum of all sales (Quantity × Selling Price) - excluding cancelled and returned orders
         const revenue = orders.reduce((total: number, order: Order) => {
+          // Skip cancelled and returned orders
+          if (order.status === 'cancelled' || order.status === 'returned') {
+            return total;
+          }
+          
           if (!order.items) return total;
           const orderRevenue = order.items.reduce((itemTotal: number, item: any) => {
             // Handle both field name formats: productId/product_id and variantId/variant_id
@@ -151,9 +160,9 @@ const FinanceAnalysis: React.FC = () => {
 
         // Log revenue calculation for debugging
         console.log('Finance Analysis Revenue Calculation:');
-        console.log('- Total Revenue:', revenue);
+        console.log('- Total Revenue (excluding cancelled/returned):', revenue);
         console.log('- Total Orders:', orders.length);
-        console.log('- Revenue calculation method: Line items × Variant prices');
+        console.log('- Revenue calculation method: Line items × Variant prices (excluding cancelled/returned orders)');
         console.log('- Variants count:', variants.length);
 
         // Calculate Average Order Value (AOV)
@@ -162,9 +171,14 @@ const FinanceAnalysis: React.FC = () => {
         setAverageOrderValue(aov);
 
         // Calculate Revenue by Category
-        // Revenue (per category) = ∑(Selling Price of product × Quantity Sold)
+        // Revenue (per category) = ∑(Selling Price of product × Quantity Sold) - excluding cancelled and returned orders
         const categoryRevenue: Record<string, number> = {};
         orders.forEach((order: Order) => {
+          // Skip cancelled and returned orders
+          if (order.status === 'cancelled' || order.status === 'returned') {
+            return;
+          }
+          
           if (!order.items) return;
           order.items.forEach((item: any) => {
             // Handle both field name formats: productId/product_id and variantId/variant_id
@@ -196,6 +210,12 @@ const FinanceAnalysis: React.FC = () => {
           return total + (variant.price * variant.units_in_stock);
         }, 0);
         setTotalInventoryValue(inventoryValue);
+
+        // Calculate Total Cancelled and Returned Orders
+        const cancelledOrders = orders.filter(order => order.status === 'cancelled').length;
+        const returnedOrders = orders.filter(order => order.status === 'returned').length;
+        setTotalCancelledOrders(cancelledOrders);
+        setTotalReturnedOrders(returnedOrders);
 
       } catch (error: any) {
         console.error('Error fetching financial data:', error);
@@ -250,6 +270,11 @@ const FinanceAnalysis: React.FC = () => {
 
     // Group orders by time interval
   orders.forEach(order => {
+      // Skip cancelled and returned orders
+      if (order.status === 'cancelled' || order.status === 'returned') {
+        return;
+      }
+      
       if (!order.created_at) return;
       const orderDate = new Date(order.created_at);
       // Use daily interval: YYYY-MM-DD
@@ -374,6 +399,19 @@ const FinanceAnalysis: React.FC = () => {
           </div>
         </div>
         <div className="bg-white p-6 rounded-lg shadow flex flex-col justify-between" style={{ minHeight: '180px' }}>
+          <p className="text-gray-500">Total Orders</p>
+          <div className="mt-1 flex-1">
+            <p className="text-2xl font-bold mt-1 text-blue-600">
+              {loading ? "Loading..." : orders.length}
+            </p>
+            {!loading && (
+              <p className="text-sm text-gray-400 mt-2">
+                Total number of orders
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow flex flex-col justify-between" style={{ minHeight: '180px' }}>
           <p className="text-gray-500">Average Order Value (AOV)</p>
           <div className="mt-1 flex-1">
             <p className="text-2xl font-bold mt-1 text-blue-600">
@@ -382,6 +420,58 @@ const FinanceAnalysis: React.FC = () => {
             {!loading && (
               <p className="text-sm text-gray-400 mt-2">
                 Average amount per order
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow flex flex-col justify-between" style={{ minHeight: '180px' }}>
+          <p className="text-gray-500">Total Inventory Value</p>
+          <div className="mt-1 flex-1">
+            <p className="text-2xl font-bold mt-1 text-orange-600">
+              {loading ? "Loading..." : formatCurrency(totalInventoryValue)}
+            </p>
+            {!loading && (
+              <p className="text-sm text-gray-400 mt-2">
+                Current stock value
+              </p>
+            )}
+          </div>
+        </div>
+
+      </div>
+
+      {/* Second Row: Order Status Cards */}
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
+        <div 
+          className="bg-white p-6 rounded-lg shadow flex flex-col justify-between cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50" 
+          style={{ minHeight: '180px' }}
+          onClick={() => navigate("/admin/orders?status=cancelled")}
+        >
+          <p className="text-gray-500">Total Cancelled Orders</p>
+          <div className="mt-1 flex-1">
+            <p className="text-2xl font-bold mt-1 text-red-600">
+              {loading ? "Loading..." : totalCancelledOrders}
+            </p>
+            {!loading && (
+              <p className="text-sm text-gray-400 mt-2">
+                Orders that were cancelled
+              </p>
+            )}
+          </div>
+        </div>
+        <div 
+          className="bg-white p-6 rounded-lg shadow flex flex-col justify-between cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50" 
+          style={{ minHeight: '180px' }}
+          onClick={() => navigate("/admin/orders?status=returned")}
+        >
+          <p className="text-gray-500">Total Returned Orders</p>
+          <div className="mt-1 flex-1">
+            <p className="text-2xl font-bold mt-1 text-red-600">
+              {loading ? "Loading..." : totalReturnedOrders}
+            </p>
+            {!loading && (
+              <p className="text-sm text-gray-400 mt-2">
+                Orders that were returned
               </p>
             )}
           </div>
@@ -405,35 +495,18 @@ const FinanceAnalysis: React.FC = () => {
                             className="w-6 h-6 rounded object-cover"
                           />
                         )}
-                        <span className="capitalize text-purple-700 font-medium">{category}</span>
+                        <span className="capitalize text-purple-700 font-medium text-sm">{category}</span>
                       </div>
-                      <span className="font-semibold text-purple-600">{formatCurrency(revenue)}</span>
+                      <span className="font-semibold text-purple-600 text-sm">{formatCurrency(revenue)}</span>
                     </div>
                   );
                 })}
-                {Object.keys(revenueByCategory).length > 3 && (
-                  <div className="text-purple-500 italic text-sm pt-1">+{Object.keys(revenueByCategory).length - 3} more</div>
-                )}
               </div>
             ) : (
               <p className="text-purple-400 text-sm mt-2">No revenue data available</p>
             )}
           </div>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow flex flex-col justify-between" style={{ minHeight: '180px' }}>
-          <p className="text-gray-500">Total Inventory Value</p>
-          <div className="mt-1 flex-1">
-            <p className="text-2xl font-bold mt-1 text-orange-600">
-              {loading ? "Loading..." : formatCurrency(totalInventoryValue)}
-            </p>
-            {!loading && (
-              <p className="text-sm text-gray-400 mt-2">
-                Current stock value
-              </p>
-            )}
-          </div>
-        </div>
-
       </div>
 
       {/* No Data Message */}
@@ -602,7 +675,7 @@ const FinanceAnalysis: React.FC = () => {
                 </p>
               </div>
               <div className="bg-green-50 p-3 rounded-lg">
-                <p className="text-xs text-green-600 font-medium">Period Revenue</p>
+                <p className="text-xs text-green-600 font-medium">Monthly Revenue</p>
                 <p className="text-lg font-bold text-green-800">
                   {formatCurrency(
                     filterDataByDateRange(revenueTrendData, startDate, endDate)
@@ -611,7 +684,7 @@ const FinanceAnalysis: React.FC = () => {
                 </p>
               </div>
               <div className="bg-purple-50 p-3 rounded-lg">
-                <p className="text-xs text-purple-600 font-medium">Avg. Revenue/Period</p>
+                <p className="text-xs text-purple-600 font-medium">Avg. Revenue/Month</p>
                 <p className="text-lg font-bold text-purple-800">
                   {(() => {
                     const filteredData = filterDataByDateRange(revenueTrendData, startDate, endDate);
@@ -669,33 +742,56 @@ const FinanceAnalysis: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
-                    {filterDataByDateRange(revenueTrendData, startDate, endDate).map((dataPoint, index) => (
-                      <tr key={index} className="hover:bg-gray-50 transition-colors duration-150">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {dataPoint.period}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                          {formatCurrency(dataPoint.revenue)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          {dataPoint.growth !== undefined ? (
-                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              dataPoint.growth >= 0 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-red-100 text-red-800'
-                            }`}>
-                              {dataPoint.growth >= 0 ? '+' : ''}{dataPoint.growth.toFixed(1)}%
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                    {(() => {
+                      const filteredData = filterDataByDateRange(revenueTrendData, startDate, endDate);
+                      const displayData = showAllRevenueData ? filteredData : filteredData.slice(0, 5);
+                      
+                      return displayData.map((dataPoint, index) => (
+                        <tr key={index} className="hover:bg-gray-50 transition-colors duration-150">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {dataPoint.period}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                            {formatCurrency(dataPoint.revenue)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            {dataPoint.growth !== undefined ? (
+                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                dataPoint.growth >= 0 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {dataPoint.growth >= 0 ? '+' : ''}{dataPoint.growth.toFixed(1)}%
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ));
+                    })()}
                   </tbody>
                 </table>
               </div>
             )}
+            
+            {/* View More Button */}
+            {(() => {
+              const filteredData = filterDataByDateRange(revenueTrendData, startDate, endDate);
+              if (filteredData.length > 5) {
+                return (
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      onClick={() => setShowAllRevenueData(!showAllRevenueData)}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 font-medium"
+                    >
+                      {showAllRevenueData ? 'Show Less' : `View More (${filteredData.length - 5} more rows)`}
+                    </button>
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
         )}
 

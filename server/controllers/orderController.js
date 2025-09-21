@@ -1,4 +1,7 @@
 const admin = require('firebase-admin');
+const PDFDocument = require('pdfkit');
+const { bucket } = require('../firebase/firebase-config');
+const { v4: uuidv4 } = require('uuid');
 const db = admin.firestore();
 const ordersCollection = db.collection('orders');
 const usersCollection = db.collection('users');
@@ -58,7 +61,8 @@ exports.createOrder = async (req, res) => {
       return res.status(400).json({ message: 'No items in order.' });
     }
 
-    // Inventory update logic
+    // Inventory update logic and fetch variant details
+    const enrichedItems = [];
     for (const item of items) {
       const { productId, variantId, quantity } = item;
       const variantRef = db.collection('products').doc(productId).collection('variants').doc(variantId);
@@ -70,6 +74,21 @@ exports.createOrder = async (req, res) => {
       if (!variantData.inStock || variantData.units_in_stock < quantity) {
         return res.status(400).json({ message: `Not enough stock for variant ${variantId}` });
       }
+      
+      // Enrich item with variant data including discount and GST
+      const enrichedItem = {
+        ...item,
+        productId,
+        variantId,
+        quantity,
+        price: variantData.price || 0,
+        discount: variantData.discount || 0,
+        gstPercentage: variantData.gstPercentage || 0,
+        variant_name: variantData.weight || variantData.name || 'Variant',
+        unit_price: variantData.price || 0,
+      };
+      enrichedItems.push(enrichedItem);
+      
       const newStock = variantData.units_in_stock - quantity;
       await variantRef.update({
         units_in_stock: newStock,
@@ -84,7 +103,7 @@ exports.createOrder = async (req, res) => {
       address_id,
       total_amount,
       payment_id,
-      items,
+      items: enrichedItems,
       shipping_method,
       payment_method,
       status: 'Placed',
@@ -304,6 +323,128 @@ exports.adminUpdateOrderStatus = async (req, res) => {
 
     // Update the order status with status-specific timestamp
     await orderRef.update(updateData);
+
+    // If delivered, generate invoice PDF, upload to Firebase Storage, and save URL
+   // If delivered, generate invoice PDF, upload to Firebase Storage, and save URL
+if (status.toLowerCase() === 'delivered') {
+  // Re-fetch the order with latest updates
+  const updatedDoc = await orderRef.get();
+  const updatedOrder = { id: updatedDoc.id, ...updatedDoc.data() };
+
+  // Generate invoice PDF in memory
+  const doc = new PDFDocument({ size: 'A4', margin: 50 });
+  const chunks = [];
+  doc.on('data', (data) => chunks.push(data));
+  const pdfDone = new Promise((resolve) => doc.on('end', resolve));
+
+  // Generate unique invoice number
+  const invoiceNumber = `K2K-${new Date().toISOString().slice(0,10).replace(/-/g, '')}-${uuidv4().split('-')[0].toUpperCase()}`;
+
+  // ===== HEADER =====
+  doc.fontSize(18).text("KISHAN2KITCHEN", { align: "center", bold: true });
+  doc.moveDown(0.3);
+  doc.fontSize(10).text("Webel Bhavan, Monibhandar Premises, 7th Floor, Block - EP & GP,", { align: "center" });
+  doc.text("Salt Lake, Sector - V, Kolkata - 700091, West Bengal", { align: "center" });
+  doc.text("GSTIN: 19AAKCC1645G1ZM   FSSAI: 12822999000310", { align: "center" });
+  doc.moveDown(1);
+
+  // ===== TITLE =====
+  doc.fontSize(14).text("TAX INVOICE / BILL OF SUPPLY", { align: "center" });
+  doc.moveDown(1);
+
+  // ===== INVOICE DETAILS =====
+  const deliveredDate = updatedOrder.deliveredDate?.toDate?.() || new Date();
+  doc.fontSize(11);
+  doc.text(`Invoice No: ${invoiceNumber}`);
+  doc.text(`Order ID: ${updatedOrder.id}`);
+  doc.text(`User ID: ${updatedOrder.userId || ""}`);
+  doc.text(`Date: ${deliveredDate.toISOString().split("T")[0]}`);
+  doc.text(`Place Of Supply: WEST BENGAL (19)`);
+  doc.moveDown(1);
+
+  // ===== BILL TO / SHIP TO =====
+  doc.fontSize(12).text("Bill To:", { underline: true });
+  doc.fontSize(10).text(updatedOrder.customerName || "Customer");
+  doc.text(updatedOrder.billingAddress || "-");
+  doc.moveDown(0.5);
+
+  doc.fontSize(12).text("Ship To:", { underline: true });
+  doc.fontSize(10).text(updatedOrder.customerName || "Customer");
+  doc.text(updatedOrder.shippingAddress || "-");
+  doc.moveDown(1);
+
+  // ===== ITEM TABLE =====
+  doc.fontSize(12).text("Items:", { underline: true });
+  doc.moveDown(0.5);
+  doc.fontSize(10).text("Name / Variant / Qty / HSN / Rate / Disc. / Taxable / CGST / SGST / CESS / Total");
+  doc.moveDown(0.3);
+
+  const items = Array.isArray(updatedOrder.items) ? updatedOrder.items : [];
+  let subtotal = 0;
+  items.forEach((item, idx) => {
+    const name = item.name || item.product_name || "Item";
+    const variant = item.variant_name || "-";
+    const qty = item.quantity || 0;
+    const hsn = item.hsn || "-";
+    const rate = item.unit_price || item.price || 0;
+    const discount = item.discount || 0;
+    const taxable = qty * rate - discount;
+    const cgst = item.cgst || 0;
+    const sgst = item.sgst || 0;
+    const cess = item.cess || 0;
+    const total = taxable + cgst + sgst + cess;
+
+    subtotal += total;
+
+    doc.text(`${idx + 1}) ${name} / ${variant} / ${qty} / ${hsn} / ₹${rate.toFixed(2)} / ₹${discount.toFixed(2)} / ₹${taxable.toFixed(2)} / ₹${cgst.toFixed(2)} / ₹${sgst.toFixed(2)} / ₹${cess.toFixed(2)} / ₹${total.toFixed(2)}`);
+  });
+
+  doc.moveDown();
+
+  // ===== TOTALS =====
+  const tax = updatedOrder.tax ?? 0;
+  const shipping = updatedOrder.shipping_fee ?? 0;
+  const grandTotal = subtotal + Number(tax) + Number(shipping);
+
+  doc.fontSize(11).text(`Subtotal: ₹${subtotal.toFixed(2)}`);
+  doc.text(`Tax: ₹${Number(tax).toFixed(2)}`);
+  doc.text(`Shipping: ₹${Number(shipping).toFixed(2)}`);
+  doc.fontSize(12).text(`Total Invoice Value: ₹${grandTotal.toFixed(2)}`, { underline: true });
+  doc.moveDown(1);
+
+  // ===== FOOTER =====
+  doc.fontSize(9).text("Thank you for shopping with KISHAN2KITCHEN!", { align: "center" });
+
+  doc.end();
+  await pdfDone;
+  const pdfBuffer = Buffer.concat(chunks);
+
+  // Upload to Firebase Storage
+  const fileName = `invoices/${updatedOrder.id}-${Date.now()}.pdf`;
+  const file = bucket.file(fileName);
+  const uuid = uuidv4();
+  await file.save(pdfBuffer, {
+    contentType: 'application/pdf',
+    metadata: { metadata: { firebaseStorageDownloadTokens: uuid } }
+  });
+
+  // Public download URL
+  const invoiceUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media&token=${uuid}`;
+
+  // Calculate total discount from all items
+  const totalDiscount = items.reduce((sum, item) => {
+    const discount = item.discount || 0;
+    return sum + discount;
+  }, 0);
+
+  await orderRef.update({
+    invoiceUrl,
+    invoiceNumber,
+    invoiceDate: admin.firestore.FieldValue.serverTimestamp(),
+    discount: totalDiscount,
+  });
+}
+
 
     res.status(200).json({ 
       message: "Order status updated successfully",

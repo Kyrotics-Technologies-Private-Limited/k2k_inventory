@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   MagnifyingGlassIcon,
   FunnelIcon,
@@ -36,12 +36,22 @@ interface Customer {
 
 const CustomersManagement: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [membershipFilter, setMembershipFilter] = useState<string>("all");
   const [showAllCustomers, setShowAllCustomers] = useState(false);
+  const [revenueFilter, setRevenueFilter] = useState<boolean>(false);
+
+  // Handle URL parameters for revenue filtering
+  useEffect(() => {
+    const revenueFromUrl = searchParams.get('revenue');
+    if (revenueFromUrl === 'true') {
+      setRevenueFilter(true);
+    }
+  }, [searchParams]);
 
   // Fetch customers from backend API
   useEffect(() => {
@@ -130,6 +140,9 @@ const CustomersManagement: React.FC = () => {
   );
 
   const filteredCustomers = sortedCustomers.filter((customer) => {
+    // Apply revenue filter - only show customers who have placed orders and spent money
+    const revenueMatch = !revenueFilter || (customer.orders > 0 && customer.totalSpent > 0);
+
     const matchesSearch =
       customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -140,11 +153,11 @@ const CustomersManagement: React.FC = () => {
       membershipFilter === "all" ||
       (membershipFilter === "member" && customer.membership?.active) ||
       (membershipFilter === "non-member" && !customer.membership?.active);
-    return matchesSearch && matchesStatus && matchesMembership;
+    return revenueMatch && matchesSearch && matchesStatus && matchesMembership;
   });
 
   // Show only latest 10 customers by default, unless showAllCustomers is true or filters are applied
-  const hasActiveFilters = searchTerm || statusFilter !== "all" || membershipFilter !== "all";
+  const hasActiveFilters = searchTerm || statusFilter !== "all" || membershipFilter !== "all" || revenueFilter;
   const displayCustomers = (showAllCustomers || hasActiveFilters) 
     ? filteredCustomers 
     : filteredCustomers.slice(0, 10);
@@ -183,14 +196,33 @@ const CustomersManagement: React.FC = () => {
     <div className="px-4 sm:px-6 lg:px-8 py-8">
       <div className="sm:flex sm:items-center sm:justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Customers Management
-          </h1>
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold text-gray-900">
+              {revenueFilter ? "Revenue Customers" : "Customers Management"}
+            </h1>
+            {revenueFilter && (
+              <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                Showing only customers with orders
+              </div>
+            )}
+          </div>
           <p className="mt-2 text-sm text-gray-700">
-            Manage and analyze your customer base
+            {revenueFilter ? "Customers who have placed revenue-generating orders" : "Manage and analyze your customer base"}
           </p>
         </div>
         <div className="mt-4 sm:mt-0 flex space-x-3">
+          {revenueFilter && (
+            <button
+              type="button"
+              className="button inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              onClick={() => {
+                setRevenueFilter(false);
+                navigate("/admin/customers", { replace: true });
+              }}
+            >
+              Clear Revenue Filter
+            </button>
+          )}
           <button
             type="button"
             className="button inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
@@ -207,17 +239,38 @@ const CustomersManagement: React.FC = () => {
       <div className="mb-6 bg-white shadow rounded-lg p-4">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Membership Overview</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="text-center p-3 bg-blue-50 rounded-lg">
+          <div 
+            className="text-center p-3 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors"
+            onClick={() => {
+              setMembershipFilter('all');
+              setStatusFilter('all');
+              setRevenueFilter(false);
+              setSearchTerm('');
+              setShowAllCustomers(true);
+            }}
+          >
             <p className="text-2xl font-bold text-blue-600">{customers.length}</p>
             <p className="text-sm text-blue-600">Total Customers</p>
           </div>
-          <div className="text-center p-3 bg-purple-50 rounded-lg">
+          <div 
+            className="text-center p-3 bg-purple-50 rounded-lg cursor-pointer hover:bg-purple-100 transition-colors"
+            onClick={() => {
+              setMembershipFilter('member');
+              setShowAllCustomers(true);
+            }}
+          >
             <p className="text-2xl font-bold text-purple-600">
               {customers.filter(c => c.membership?.active).length}
             </p>
             <p className="text-sm text-purple-600">Kishanparivar Members</p>
           </div>
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
+          <div 
+            className="text-center p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+            onClick={() => {
+              setMembershipFilter('non-member');
+              setShowAllCustomers(true);
+            }}
+          >
             <p className="text-2xl font-bold text-gray-600">
               {customers.filter(c => !c.membership?.active).length}
             </p>

@@ -87,6 +87,7 @@ const AdminOrdersPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<Order['status'] | null>(null);
+  const [revenueFilter, setRevenueFilter] = useState<boolean>(false);
 
 
   useEffect(() => {
@@ -102,11 +103,38 @@ const AdminOrdersPage: React.FC = () => {
     return () => unsubscribe();
   }, [navigate]);
 
-  // Handle URL parameters for status filtering
+  // Handle URL parameters for status filtering, revenue filtering, and date range
   useEffect(() => {
     const statusFromUrl = searchParams.get('status');
+    const revenueFromUrl = searchParams.get('revenue');
+    const startDateFromUrl = searchParams.get('startDate');
+    const endDateFromUrl = searchParams.get('endDate');
+    
+    console.log('URL Parameters:', { statusFromUrl, revenueFromUrl, startDateFromUrl, endDateFromUrl });
+    
     if (statusFromUrl && ORDER_STATUSES.includes(statusFromUrl as any)) {
       setStatusFilter(statusFromUrl);
+    }
+    
+    if (revenueFromUrl === 'true') {
+      setRevenueFilter(true);
+    }
+    
+    // Handle date range from URL parameters
+    if (startDateFromUrl) {
+      const startDate = new Date(startDateFromUrl + 'T00:00:00'); // Add time to avoid timezone issues
+      if (!isNaN(startDate.getTime())) {
+        setStartDate(startDate);
+        console.log('Set start date:', startDate);
+      }
+    }
+    
+    if (endDateFromUrl) {
+      const endDate = new Date(endDateFromUrl + 'T23:59:59'); // Add time to avoid timezone issues
+      if (!isNaN(endDate.getTime())) {
+        setEndDate(endDate);
+        console.log('Set end date:', endDate);
+      }
     }
   }, [searchParams]);
 
@@ -159,6 +187,9 @@ const AdminOrdersPage: React.FC = () => {
   };
 
   const filteredOrders = orders.filter((order) => {
+    // Apply revenue filter - exclude cancelled and returned orders
+    const revenueMatch = !revenueFilter || (order.status !== 'cancelled' && order.status !== 'returned');
+
     // Apply status filter
     const statusMatch = statusFilter === "all" || order.status === statusFilter;
 
@@ -195,7 +226,25 @@ const AdminOrdersPage: React.FC = () => {
       }
     }
 
-    return statusMatch && searchMatch && dateMatch;
+    // Debug logging for first few orders
+    if (orders.indexOf(order) < 3) {
+      console.log('Order filtering debug:', {
+        orderId: order.id,
+        orderStatus: order.status,
+        orderDate: order.created_at,
+        formattedOrderDate: formatDateForDatePicker(order.created_at),
+        revenueFilter,
+        revenueMatch,
+        statusMatch,
+        searchMatch,
+        dateMatch,
+        startDate,
+        endDate,
+        finalMatch: revenueMatch && statusMatch && searchMatch && dateMatch
+      });
+    }
+
+    return revenueMatch && statusMatch && searchMatch && dateMatch;
   });
 
   const handleExportExcel = () => {
@@ -306,7 +355,23 @@ const AdminOrdersPage: React.FC = () => {
 
   return (
     <div className="p-4">
-      <h2 className="text-xl font-bold mb-4">All Orders</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-bold">
+          {revenueFilter ? "Revenue Orders" : "All Orders"}
+        </h2>
+        {revenueFilter && (
+          <div className="flex gap-2">
+            <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+              Showing only revenue-generating orders
+            </div>
+            {startDate && endDate && (
+              <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                Last 1 month ({startDate.toLocaleDateString()} - {endDate.toLocaleDateString()})
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Filters Section */}
       <div className="mb-6 space-y-4">
@@ -354,12 +419,15 @@ const AdminOrdersPage: React.FC = () => {
           </div>
 
           {/* Clear Filters */}
-          {(statusFilter !== "all" || searchQuery || startDate || endDate) && (
+          {(statusFilter !== "all" || searchQuery || startDate || endDate || revenueFilter) && (
             <button
               onClick={() => {
                 setStatusFilter("all");
                 setSearchQuery("");
+                setRevenueFilter(false);
                 clearDateFilters();
+                // Update URL to remove all parameters
+                navigate("/admin/orders", { replace: true });
               }}
               className="button inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 transition"
             >
@@ -427,12 +495,14 @@ const AdminOrdersPage: React.FC = () => {
           <p className="text-gray-500 text-lg">
             No orders found matching your criteria
           </p>
-          {(statusFilter !== "all" || searchQuery || startDate || endDate) && (
+          {(statusFilter !== "all" || searchQuery || startDate || endDate || revenueFilter) && (
             <button
               onClick={() => {
                 setStatusFilter("all");
                 setSearchQuery("");
+                setRevenueFilter(false);
                 clearDateFilters();
+                navigate("/admin/orders", { replace: true });
               }}
               className="mt-4 px-4 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition"
             >

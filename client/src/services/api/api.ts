@@ -5,8 +5,12 @@ import { auth } from '../firebase/firebase';
 import type { User } from 'firebase/auth';
 
 // Create axios instance
+const resolvedBaseUrl = import.meta.env.VITE_BACKEND_URL
+  ? `${import.meta.env.VITE_BACKEND_URL}/api`
+  : '/api';
+
 const api = axios.create({
-  baseURL: `${import.meta.env.VITE_BACKEND_URL}/api` || '/api',
+  baseURL: resolvedBaseUrl,
   headers: {
     'Content-Type': 'application/json'
   }

@@ -21,6 +21,7 @@ const orderRoutes = require("./routes/orderRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const dashboardRoutes = require("./routes/dashboard");
 const membershipRoutes = require("./routes/membershipRoutes");
+const reportRoutes = require('./routes/reportRoutes');
 
 app.use('/api/products', productRoutes);
 app.use("/api/carts", cartRoutes);
@@ -32,6 +33,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/membership", membershipRoutes);
 app.use('/api/dashboard', require('./routes/dashboard'));
+app.use('/api/admin/reports', reportRoutes);
 
 
 app.get("/", (req, res) => {
