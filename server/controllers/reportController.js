@@ -121,18 +121,37 @@ exports.getInvoiceReports = async (req, res) => {
         }
         
         const itemGstAmount = (itemTaxableValue * effectiveGstPercentage) / 100;
-        const cgst = itemGstAmount / 2;
-        const sgst = itemGstAmount / 2;
+        
+        // Determine if it's intra-state (West Bengal) or inter-state transaction
+        const isIntraState = place.toLowerCase().includes('west bengal');
+        
+        let cgst = 0;
+        let sgst = 0;
+        let igst = 0;
+        
+        if (isIntraState) {
+          // Intra-state: Use CGST + SGST (split the amount)
+          cgst = itemGstAmount / 2;
+          sgst = itemGstAmount / 2;
+          igst = 0;
+        } else {
+          // Inter-state: Use IGST (total of what would be CGST + SGST)
+          cgst = 0;
+          sgst = 0;
+          igst = itemGstAmount; // Total GST amount (equivalent to cgst + sgst)
+        }
         
         // Debug logging for each item
         console.log(`Item ${index + 1} GST calculation:`, {
           itemName: item.name,
-          itemGstPercentage: item.gstPercentage,
+          place: place,
+          isIntraState: isIntraState,
           effectiveGstPercentage: effectiveGstPercentage,
           itemTaxableValue,
           itemGstAmount,
           cgst,
-          sgst
+          sgst,
+          igst
         });
 
         // Get Kishanparivar discount percentage - check if user is a member
@@ -155,6 +174,7 @@ exports.getInvoiceReports = async (req, res) => {
           gstPercentage: effectiveGstPercentage,
           cgst: cgst,
           sgst: sgst,
+          igst: igst,
           cessRate: 0, // Assuming 0 for now, can be derived from items if needed
           invoiceValue: data.total_amount ?? gstIncludingPrice,
           invoiceUrl: data.invoiceUrl || null,
