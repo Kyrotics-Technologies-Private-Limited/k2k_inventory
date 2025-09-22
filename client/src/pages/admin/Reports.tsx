@@ -21,6 +21,7 @@ interface InvoiceData {
   gstPercentage: number;
   cgst: number;
   sgst: number;
+  igst: number;
   cessRate: number;
   invoiceValue: number;
   invoiceUrl?: string | null;
@@ -83,7 +84,7 @@ const Reports: React.FC = () => {
         [periodText],
         [''], // Empty row for spacing
         // Column headers
-        ['Order ID', 'Invoice Number', 'Invoice Date', 'Customer Name', 'Product Name', 'Variant', 'Invoice Value', 'Item Taxable', 'Kishanparivar Discount (%)', 'GST(%)', 'CGST', 'SGST', 'Place']
+        ['Order ID', 'Invoice Number', 'Invoice Date', 'Customer Name', 'Product Name', 'Variant', 'Invoice Value', 'Kishanparivar Discount (%)', 'Item Taxable', 'GST(%)', 'IGST', 'CGST', 'SGST', 'Place']
       ];
       
       // Create data rows
@@ -97,8 +98,8 @@ const Reports: React.FC = () => {
         typeof invoice.invoiceValue === 'number' ? `₹${invoice.invoiceValue.toFixed(2)}` : '₹0.00',
         typeof invoice.kishanparivarDiscount === 'number' ? `${invoice.kishanparivarDiscount}%` : '0%',
         typeof invoice.itemTaxableValue === 'number' ? `₹${invoice.itemTaxableValue.toFixed(2)}` : '₹0.00',
-       
         typeof invoice.gstPercentage === 'number' ? `${invoice.gstPercentage}%` : '0%',
+        typeof invoice.igst === 'number' ? `₹${invoice.igst.toFixed(2)}` : '₹0.00',
         typeof invoice.cgst === 'number' ? `₹${invoice.cgst.toFixed(2)}` : '₹0.00',
         typeof invoice.sgst === 'number' ? `₹${invoice.sgst.toFixed(2)}` : '₹0.00',
         invoice.place || ''
@@ -203,6 +204,7 @@ const Reports: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Taxable</th>
                   
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GST(%)</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IGST</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CGST</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SGST</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Place</th>
@@ -224,6 +226,7 @@ const Reports: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">₹{invoice.itemTaxableValue.toFixed(2)}</td>
                 
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{invoice.gstPercentage}%</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">₹{invoice.igst}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">₹{invoice.cgst}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">₹{invoice.sgst}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{invoice.place}</td>
