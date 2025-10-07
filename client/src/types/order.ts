@@ -60,6 +60,11 @@ export interface Order {
   payment_url?: string; // URL for payment gateway
   items?: OrderItem[];
   created_at?: string;
+  processing_at?:string;
+  shipped_at?:string;
+  delivered_at?:string;
+  cancelled_at?:string;
+  returned_at?:string;
   shipping_method?: string;
   payment_method?: string;
   tracking_number?: string;
