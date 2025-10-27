@@ -30,6 +30,7 @@ const initialForm: Omit<Product, "id"> = {
   ratings: 0,
   reviews: 0,
   badges: [],
+  healthBadges: [],
   benefits: [],
 };
 
@@ -60,6 +61,9 @@ const AdminProductPage: React.FC = () => {
   const [badgeImageUploading, setBadgeImageUploading] = useState(false);
   const [badgeImageUploadError, setBadgeImageUploadError] = useState("");
   const badgeImageInputRef = React.useRef<HTMLInputElement>(null);
+  const [healthBadgeUploading, setHealthBadgeUploading] = useState(false);
+  const [healthBadgeUploadError, setHealthBadgeUploadError] = useState("");
+  const healthBadgeInputRef = React.useRef<HTMLInputElement>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   const categoryDefaults: Record<
@@ -318,6 +322,12 @@ const AdminProductPage: React.FC = () => {
           image: b.image || "",
           text: b.text || "",
         })) || [],
+      healthBadges:
+        product.healthBadges?.map((b) => ({
+          image: b.image || "",
+          title: b.title || "",
+          description: b.description || "",
+        })) || [],
     });
     setEditId(product.id);
     setEditMode(true);
@@ -464,6 +474,57 @@ const AdminProductPage: React.FC = () => {
     setFormData((prev) => ({
       ...prev,
       images: { ...prev.images, banner: "" },
+    }));
+  };
+
+  const handleMultipleHealthBadgeFilesSelect = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    setHealthBadgeUploading(true);
+    setHealthBadgeUploadError("");
+    try {
+      const urls = await productApi.uploadMultipleHealthBadgeImages(e.target.files);
+      setFormData((prev) => ({
+        ...prev,
+        healthBadges: [
+          ...(prev.healthBadges || []),
+          ...urls.map((url) => ({ image: url, title: "", description: "" })),
+        ],
+      }));
+    } catch (err) {
+      setHealthBadgeUploadError(
+        "Failed to upload health badge images. Please try again."
+      );
+    } finally {
+      setHealthBadgeUploading(false);
+      if (isModalOpen && healthBadgeInputRef.current)
+        healthBadgeInputRef.current.value = "";
+    }
+  };
+
+  const handleHealthBadgeTitleChange = (idx: number, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      healthBadges: (prev.healthBadges || []).map((badge, i) =>
+        i === idx ? { ...badge, title: value } : badge
+      ),
+    }));
+  };
+
+  const handleHealthBadgeDescriptionChange = (idx: number, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      healthBadges: (prev.healthBadges || []).map((badge, i) =>
+        i === idx ? { ...badge, description: value } : badge
+      ),
+    }));
+  };
+
+  const handleRemoveHealthBadge = (idx: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      healthBadges: (prev.healthBadges || []).filter((_, i) => i !== idx),
     }));
   };
 
@@ -804,6 +865,75 @@ const AdminProductPage: React.FC = () => {
                           {bannerUploadError}
                         </span>
                       )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Health Badges
+                      </label>
+                      <div className="flex space-x-2 mb-2 items-center">
+                        <label className="inline-block px-3 py-1 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            ref={healthBadgeInputRef}
+                            onChange={handleMultipleHealthBadgeFilesSelect}
+                            multiple
+                            disabled={healthBadgeUploading}
+                          />
+                          {healthBadgeUploading
+                            ? "Uploading..."
+                            : "Upload Health Badge Images"}
+                        </label>
+                      </div>
+                      {healthBadgeUploadError && (
+                        <span className="text-red-500 text-sm">
+                          {healthBadgeUploadError}
+                        </span>
+                      )}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                        {(formData.healthBadges || []).map((badge, idx) => (
+                          <div
+                            key={idx}
+                            className="flex flex-col space-y-2 p-4 border rounded-lg relative"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveHealthBadge(idx)}
+                              className="absolute top-1 right-1 p-1 rounded-full hover:bg-red-100 focus:outline-none"
+                              aria-label="Remove health badge"
+                            >
+                              <XMarkIcon className="w-4 h-4 text-red-500" />
+                            </button>
+                            {typeof badge.image === "string" &&
+                              badge.image.trim() !== "" && (
+                                <img
+                                  src={badge.image}
+                                  alt="Health Badge"
+                                  className="w-20 h-20 object-contain rounded border mx-auto"
+                                />
+                              )}
+                            <input
+                              type="text"
+                              value={badge.title || ""}
+                              onChange={(e) =>
+                                handleHealthBadgeTitleChange(idx, e.target.value)
+                              }
+                              placeholder="Health badge title"
+                              className="px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
+                            />
+                            <textarea
+                              value={badge.description || ""}
+                              onChange={(e) =>
+                                handleHealthBadgeDescriptionChange(idx, e.target.value)
+                              }
+                              placeholder="Health badge description"
+                              rows={2}
+                              className="px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 resize-none"
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">

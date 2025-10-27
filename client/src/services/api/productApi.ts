@@ -85,4 +85,16 @@ export const productApi = {
     });
     return response.data.urls as string[];
   },
+
+  // UPLOAD multiple health badge images
+  uploadMultipleHealthBadgeImages: async (files: FileList | File[]) => {
+    const formData = new FormData();
+    Array.from(files).forEach((file) => {
+      formData.append("healthBadgeImages", file);
+    });
+    const response = await api.post(`/products/upload-multiple-health-badge-images`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data.urls as string[];
+  },
 };
