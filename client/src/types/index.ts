@@ -27,6 +27,11 @@ export interface Product {
       type?: "organic" | "natural" | "premium" | "limited";
       image?: string; // Optional image URL for badge
     }[];
+    healthBadges?: {
+      image?: string;
+      title: string;
+      description: string;
+    }[];
     benefits: {
       title: string;
       description: string;
