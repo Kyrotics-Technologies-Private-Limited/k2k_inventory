@@ -3,6 +3,7 @@ import React, { Fragment, useEffect, useState } from "react";
 import type { Product } from "../../types";
 import { productApi } from "../../services/api/productApi";
 //import variantApi from "../../services/api/variantApi";
+import { categoryApi, type Category } from "../../services/api/categoryApi";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { fetchDashboardStats, type outOfStockVariants } from "../../services/api/dashApi";
 import {
@@ -16,6 +17,7 @@ import {
   EyeIcon,
 } from "@heroicons/react/24/outline";
 import { Dialog, Transition } from "@headlessui/react";
+import ErrorBoundary from "../../components/common/ErrorBoundary";
 
 const initialForm: Omit<Product, "id"> = {
   name: "",
@@ -24,7 +26,9 @@ const initialForm: Omit<Product, "id"> = {
   origin: "",
   sku: "",
   warehouseName: "",
-  category: "ghee",
+
+  category: "",
+  categoryId: "",
   images: { main: "", gallery: [], banner: "" },
   stockStatus: "in_stock",
   ratings: 0,
@@ -43,6 +47,8 @@ const AdminProductPage: React.FC = () => {
   const [formLoading, setFormLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const [categories, setCategories] = useState<Category[]>([]);
   const [outOfStockVariants, setOutOfStockVariants] = useState<outOfStockVariants[]>([]);
   // Removed out-of-stock modal state, now handled by OutOfStockPage
   const [formData, setFormData] = useState<Omit<Product, "id">>(initialForm);
@@ -166,18 +172,33 @@ const AdminProductPage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!editMode && formData.category && categoryDefaults[formData.category]) {
-      setFormData((prev) => ({
-        ...prev,
-        images: {
-          ...prev.images,
-          banner: categoryDefaults[formData.category].banner,
-        },
-        badges: categoryDefaults[formData.category].badges.map((b) => ({
-          text: b.text,
-          image: b.image || "",
-        })),
-      }));
+    const loadCategories = async () => {
+      try {
+        const cats = await categoryApi.getAllCategories();
+        setCategories(cats);
+      } catch (err) {
+        console.error("Failed to load categories", err);
+      }
+    };
+    loadCategories();
+  }, []);
+
+  useEffect(() => {
+    if (!editMode && formData.category) {
+      if (categoryDefaults && categoryDefaults[formData.category]) {
+        // Fallback to hardcoded defaults if dynamic category not found
+        setFormData((prev) => ({
+          ...prev,
+          images: {
+            ...prev.images,
+            banner: categoryDefaults[formData.category].banner,
+          },
+          badges: categoryDefaults[formData.category].badges.map((b) => ({
+            text: b.text,
+            image: b.image || "",
+          })),
+        }));
+      }
     }
   }, [formData.category, editMode]);
 
@@ -218,8 +239,8 @@ const AdminProductPage: React.FC = () => {
     } else {
       const filtered = products.filter(
         (product) =>
-          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (product.name && product.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (product.category && product.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
           (product.origin &&
             product.origin.toLowerCase().includes(searchTerm.toLowerCase())) ||
           (product.sku &&
@@ -246,6 +267,13 @@ const AdminProductPage: React.FC = () => {
           },
         }));
       }
+    } else if (name === "categoryId") {
+      const selectedCategory = categories.find(c => c.id === value);
+      setFormData(prev => ({
+        ...prev,
+        categoryId: value,
+        category: selectedCategory ? selectedCategory.name : ""
+      }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -300,17 +328,31 @@ const AdminProductPage: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this product?"))
-      return;
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const openDeleteModal = (id: string) => {
+    setDeleteId(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setDeleteId(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteId) return;
 
     try {
-      await productApi.deleteProduct(id);
-      setProducts((prev) => prev.filter((p) => p.id !== id));
+      await productApi.deleteProduct(deleteId);
+      setProducts((prev) => prev.filter((p) => p.id !== deleteId));
       setSuccess("Product deleted successfully!");
     } catch (err) {
       setError("Failed to delete product. Please try again.");
       console.error("Delete error:", err);
+    } finally {
+      closeDeleteModal();
     }
   };
 
@@ -595,7 +637,7 @@ const AdminProductPage: React.FC = () => {
       )}
 
       {/* Out of Stock Modal */}
-  {/* Removed out-of-stock modal, now handled by OutOfStockPage */}
+      {/* Removed out-of-stock modal, now handled by OutOfStockPage */}
 
       {/* Product Modal */}
       <Transition.Root show={isModalOpen} as={Fragment}>
@@ -642,14 +684,15 @@ const AdminProductPage: React.FC = () => {
                           Category
                         </label>
                         <select
-                          name="category"
-                          value={formData.category}
+                          name="categoryId"
+                          value={formData.categoryId || ""}
                           onChange={handleChange}
                           className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                         >
-                          <option value="ghee">Ghee</option>
-                          <option value="oils">Oils</option>
-                          <option value="honey">Honey</option>
+                          <option value="">Select Category</option>
+                          {categories.map((cat) => (
+                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                          ))}
                         </select>
                       </div>
                       <div>
@@ -1008,11 +1051,10 @@ const AdminProductPage: React.FC = () => {
                       <button
                         type="submit"
                         disabled={formLoading}
-                        className={`button px-4 py-2 rounded-md text-white flex items-center ${
-                          formLoading
-                            ? "bg-blue-400 cursor-not-allowed"
-                            : "bg-blue-600 hover:bg-blue-700"
-                        }`}
+                        className={`button px-4 py-2 rounded-md text-white flex items-center ${formLoading
+                          ? "bg-blue-400 cursor-not-allowed"
+                          : "bg-blue-600 hover:bg-blue-700"
+                          }`}
                       >
                         {formLoading ? (
                           <>
@@ -1033,6 +1075,71 @@ const AdminProductPage: React.FC = () => {
                       </button>
                     </div>
                   </form>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition.Root>
+
+      {/* Delete Confirmation Modal */}
+      <Transition.Root show={isDeleteModalOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-10" onClose={closeDeleteModal}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-gray-800/50 bg-opacity-75 transition-opacity" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 z-10 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                enterTo="opacity-100 translate-y-0 sm:scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+                leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              >
+                <Dialog.Panel className="relative bg-white rounded-lg px-4 pt-5 pb-4 text-left shadow-xl transform transition-all sm:my-8 sm:max-w-lg w-full sm:p-6">
+                  <div className="sm:flex sm:items-start">
+                    <div className="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                      <TrashIcon className="h-6 w-6 text-red-600" aria-hidden="true" />
+                    </div>
+                    <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                      <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
+                        Delete Product
+                      </Dialog.Title>
+                      <div className="mt-2">
+                        <p className="text-sm text-gray-500">
+                          Are you sure you want to delete this product? This action cannot be undone.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
+                    <button
+                      type="button"
+                      className="inline-flex w-full justify-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm"
+                      onClick={confirmDelete}
+                    >
+                      Delete
+                    </button>
+                    <button
+                      type="button"
+                      className="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:mt-0 sm:w-auto sm:text-sm"
+                      onClick={closeDeleteModal}
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </Dialog.Panel>
               </Transition.Child>
             </div>
@@ -1093,15 +1200,18 @@ const AdminProductPage: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10">
-                            {typeof product.images.main === "string" &&
-                            product.images.main.trim() !== "" ? (
+                            {product.images?.main &&
+                              typeof product.images.main === "string" &&
+                              product.images.main.trim() !== "" ? (
                               <img
                                 className="h-10 w-10 rounded-md object-cover"
                                 src={product.images.main}
                                 alt={product.name}
                               />
                             ) : (
-                              <div className="h-10 w-10 rounded-md bg-gray-200" />
+                              <div className="h-10 w-10 rounded-md bg-gray-200 flex items-center justify-center text-gray-500 text-xs">
+                                No Img
+                              </div>
                             )}
                           </div>
                           <div className="ml-4">
@@ -1142,7 +1252,7 @@ const AdminProductPage: React.FC = () => {
                           Edit
                         </button>
                         <button
-                          onClick={() => handleDelete(product.id)}
+                          onClick={() => openDeleteModal(product.id)}
                           className="button inline-flex items-center px-2 py-1 text-xs text-white bg-red-500 hover:bg-red-600 rounded"
                         >
                           <TrashIcon className="w-4 h-4 mr-1" />
@@ -1161,4 +1271,11 @@ const AdminProductPage: React.FC = () => {
   );
 };
 
-export default AdminProductPage;
+
+const AdminProductsWithBoundary: React.FC = () => (
+  <ErrorBoundary>
+    <AdminProductPage />
+  </ErrorBoundary>
+);
+
+export default AdminProductsWithBoundary;

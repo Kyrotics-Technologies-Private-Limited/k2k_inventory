@@ -20,6 +20,7 @@ import OutOfStockPage from "./pages/admin/OutOfStockPage";
 import FinanceAnalysis from "./pages/admin/FinanceAnalysis";
 import ProductAnalysis from "./pages/admin/ProductAnalysis";
 import Reports from "./pages/admin/Reports";
+import CategoryManagement from "./pages/admin/CategoryManagement";
 
 function App() {
   return (
@@ -87,6 +88,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ProductDetailsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="categories"
+            element={
+              <ProtectedRoute>
+                <CategoryManagement />
               </ProtectedRoute>
             }
           />

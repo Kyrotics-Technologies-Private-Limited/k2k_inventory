@@ -5,6 +5,16 @@ exports.createProduct = async (req, res) => {
   try {
     const product = req.body;
     console.log('Creating product:', JSON.stringify(product, null, 2)); // Debug log
+
+    // Validate and Fetch Category if categoryId is provided
+    if (product.categoryId) {
+      const categoryDoc = await db.collection('categories').doc(product.categoryId).get();
+      if (!categoryDoc.exists) {
+        return res.status(400).json({ error: 'Invalid Category ID' });
+      }
+      // Link Category Name
+      product.category = categoryDoc.data().name;
+    }
     const docRef = await db.collection('products').add(product);
     res.status(201).json({ id: docRef.id, ...product });
   } catch (error) {
@@ -29,6 +39,16 @@ exports.updateProduct = async (req, res) => {
     const { id } = req.params;
     const product = req.body;
     console.log('Updating product:', JSON.stringify(product, null, 2)); // Debug log
+
+    // Validate and Update Category Linkage if categoryId is provided
+    if (product.categoryId) {
+      const categoryDoc = await db.collection('categories').doc(product.categoryId).get();
+      if (!categoryDoc.exists) {
+        return res.status(400).json({ error: 'Invalid Category ID' });
+      }
+      product.category = categoryDoc.data().name;
+    }
+
     await db.collection('products').doc(id).update(product);
     res.status(200).json({ id, ...product });
   } catch (error) {
@@ -52,11 +72,11 @@ exports.getProductById = async (req, res) => {
   try {
     const { id } = req.params;
     const product = await db.collection('products').doc(id).get();
-    
+
     if (!product.exists) {
       return res.status(404).json({ error: 'Product not found' });
     }
-    
+
     res.status(200).json({ id: product.id, ...product.data() });
   } catch (error) {
     res.status(500).json({ error: error.message });
