@@ -22,6 +22,7 @@ const adminRoutes = require("./routes/adminRoutes");
 const dashboardRoutes = require("./routes/dashboard");
 const membershipRoutes = require("./routes/membershipRoutes");
 const reportRoutes = require('./routes/reportRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
 
 app.use('/api/products', productRoutes);
 app.use("/api/carts", cartRoutes);
@@ -34,6 +35,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/membership", membershipRoutes);
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/admin/reports', reportRoutes);
+app.use('/api/categories', categoryRoutes);
 
 
 app.get("/", (req, res) => {
@@ -42,12 +44,12 @@ app.get("/", (req, res) => {
 
 // Test endpoint for debugging
 app.get("/api/test", (req, res) => {
-  res.json({ 
-    message: "Server is running", 
+  res.json({
+    message: "Server is running",
     timestamp: new Date().toISOString(),
     routes: [
       "/api/products",
-      "/api/variants", 
+      "/api/variants",
       "/api/orders",
       "/api/dashboard"
     ]

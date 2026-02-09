@@ -325,124 +325,218 @@ exports.adminUpdateOrderStatus = async (req, res) => {
     await orderRef.update(updateData);
 
     // If delivered, generate invoice PDF, upload to Firebase Storage, and save URL
-   // If delivered, generate invoice PDF, upload to Firebase Storage, and save URL
 if (status.toLowerCase() === 'delivered') {
-  // Re-fetch the order with latest updates
-  const updatedDoc = await orderRef.get();
-  const updatedOrder = { id: updatedDoc.id, ...updatedDoc.data() };
+  try {
+    console.log('Starting invoice generation...');
+    
+    // Re-fetch the order with latest updates
+    const updatedDoc = await orderRef.get();
+    const updatedOrder = { id: updatedDoc.id, ...updatedDoc.data() };
+    
+    console.log('Order data retrieved:', updatedOrder.id);
 
-  // Generate invoice PDF in memory
-  const doc = new PDFDocument({ size: 'A4', margin: 50 });
-  const chunks = [];
-  doc.on('data', (data) => chunks.push(data));
-  const pdfDone = new Promise((resolve) => doc.on('end', resolve));
+    // Generate invoice PDF in memory using PDFKit
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    const chunks = [];
+    doc.on('data', (data) => chunks.push(data));
+    const pdfDone = new Promise((resolve) => doc.on('end', resolve));
 
-  // Generate unique invoice number
-  const invoiceNumber = `K2K-${new Date().toISOString().slice(0,10).replace(/-/g, '')}-${uuidv4().split('-')[0].toUpperCase()}`;
+    // Generate unique invoice number
+    const invoiceNumber = `K2K-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${updatedOrder.id.slice(-6)}`;
+    const deliveredDate = updatedOrder.deliveredDate?.toDate?.() || new Date();
+    const invoiceDate = deliveredDate.toLocaleDateString('en-GB');
 
-  // ===== HEADER =====
-  doc.fontSize(18).text("KISHAN2KITCHEN", { align: "center", bold: true });
-  doc.moveDown(0.3);
-  doc.fontSize(10).text("Webel Bhavan, Monibhandar Premises, 7th Floor, Block - EP & GP,", { align: "center" });
-  doc.text("Salt Lake, Sector - V, Kolkata - 700091, West Bengal", { align: "center" });
-  doc.text("GSTIN: 19AAKCC1645G1ZM   FSSAI: 12822999000310", { align: "center" });
-  doc.moveDown(1);
+    console.log('PDF instance created, invoice number:', invoiceNumber);
 
-  // ===== TITLE =====
-  doc.fontSize(14).text("TAX INVOICE / BILL OF SUPPLY", { align: "center" });
-  doc.moveDown(1);
+    // Helper function to get GST rates for variants
+    const getVariantGstRates = (items) => {
+      const variantGst = {};
+      if (Array.isArray(items)) {
+        items.forEach(item => {
+          const variantId = item.variantId || item.variant_id;
+          variantGst[variantId] = item.gstPercentage || 5; // Default to 5% if not specified
+        });
+      }
+      return variantGst;
+    };
 
-  // ===== INVOICE DETAILS =====
-  const deliveredDate = updatedOrder.deliveredDate?.toDate?.() || new Date();
-  doc.fontSize(11);
-  doc.text(`Invoice No: ${invoiceNumber}`);
-  doc.text(`Order ID: ${updatedOrder.id}`);
-  doc.text(`User ID: ${updatedOrder.userId || ""}`);
-  doc.text(`Date: ${deliveredDate.toISOString().split("T")[0]}`);
-  doc.text(`Place Of Supply: WEST BENGAL (19)`);
-  doc.moveDown(1);
+    // Calculate shipping fee
+    const calculatedShipping = updatedOrder.shipping_fee || 0;
+    const items = Array.isArray(updatedOrder.items) ? updatedOrder.items : [];
+    const variantGst = getVariantGstRates(items);
 
-  // ===== BILL TO / SHIP TO =====
-  doc.fontSize(12).text("Bill To:", { underline: true });
-  doc.fontSize(10).text(updatedOrder.customerName || "Customer");
-  doc.text(updatedOrder.billingAddress || "-");
-  doc.moveDown(0.5);
+    console.log('Items count:', items.length);
 
-  doc.fontSize(12).text("Ship To:", { underline: true });
-  doc.fontSize(10).text(updatedOrder.customerName || "Customer");
-  doc.text(updatedOrder.shippingAddress || "-");
-  doc.moveDown(1);
+    // ===== HEADER =====
+    doc.fontSize(18).text("KISHAN2KITCHEN", { align: "center" });
+    doc.moveDown(0.3);
+    doc.fontSize(9).text("Webel Bhavan, Monibhandar Premises, 7th Floor, Block - EP & GP,", { align: "center" });
+    doc.text("Salt Lake, Sector - V, Kolkata - 700091, West Bengal", { align: "center" });
+    doc.text("GSTIN: 19AAKCC1645G1ZM   FSSAI: 12822999000310", { align: "center" });
+    doc.moveDown(1);
 
-  // ===== ITEM TABLE =====
-  doc.fontSize(12).text("Items:", { underline: true });
-  doc.moveDown(0.5);
-  doc.fontSize(10).text("Name / Variant / Qty / HSN / Rate / Disc. / Taxable / CGST / SGST / CESS / Total");
-  doc.moveDown(0.3);
+    // ===== TITLE =====
+    doc.fontSize(12).text("TAX INVOICE / BILL OF SUPPLY", { align: "center" });
+    doc.moveDown(1);
 
-  const items = Array.isArray(updatedOrder.items) ? updatedOrder.items : [];
-  let subtotal = 0;
-  items.forEach((item, idx) => {
-    const name = item.name || item.product_name || "Item";
-    const variant = item.variant_name || "-";
-    const qty = item.quantity || 0;
-    const hsn = item.hsn || "-";
-    const rate = item.unit_price || item.price || 0;
-    const discount = item.discount || 0;
-    const taxable = qty * rate - discount;
-    const cgst = item.cgst || 0;
-    const sgst = item.sgst || 0;
-    const cess = item.cess || 0;
-    const total = taxable + cgst + sgst + cess;
+    console.log('Header added');
 
-    subtotal += total;
+    // ===== INVOICE DETAILS =====
+    doc.fontSize(10);
+    doc.text(`Invoice No.: ${invoiceNumber}`);
+    doc.text(`Order No.: ${updatedOrder.id}`);
+    doc.text(`Date: ${invoiceDate}`);
+    doc.text(`Place Of Supply: WEST BENGAL`);
+    doc.moveDown(1);
 
-    doc.text(`${idx + 1}) ${name} / ${variant} / ${qty} / ${hsn} / ₹${rate.toFixed(2)} / ₹${discount.toFixed(2)} / ₹${taxable.toFixed(2)} / ₹${cgst.toFixed(2)} / ₹${sgst.toFixed(2)} / ₹${cess.toFixed(2)} / ₹${total.toFixed(2)}`);
-  });
+    console.log('Invoice details added');
 
-  doc.moveDown();
+    // ===== Get customer and address information safely =====
+    let customerName = "Customer";
+    let billingAddress = "-";
+    let shippingAddress = "-";
 
-  // ===== TOTALS =====
-  const tax = updatedOrder.tax ?? 0;
-  const shipping = updatedOrder.shipping_fee ?? 0;
-  const grandTotal = subtotal + Number(tax) + Number(shipping);
+    // Try to get customer name from various possible fields
+    if (updatedOrder.customerName) {
+      customerName = updatedOrder.customerName;
+    } else if (updatedOrder.username) {
+      customerName = updatedOrder.username;
+    }
 
-  doc.fontSize(11).text(`Subtotal: ₹${subtotal.toFixed(2)}`);
-  doc.text(`Tax: ₹${Number(tax).toFixed(2)}`);
-  doc.text(`Shipping: ₹${Number(shipping).toFixed(2)}`);
-  doc.fontSize(12).text(`Total Invoice Value: ₹${grandTotal.toFixed(2)}`, { underline: true });
-  doc.moveDown(1);
+    // Try to get address information
+    if (updatedOrder.address) {
+      const addr = updatedOrder.address;
+      const addressParts = [
+        addr.name || customerName,
+        addr.appartment || addr.apartment,
+        addr.address,
+        addr.city,
+        addr.state,
+        addr.pincode
+      ].filter(part => part && part.trim() !== '');
+      
+      billingAddress = addressParts.join(', ');
+      shippingAddress = billingAddress;
+    } else if (updatedOrder.billingAddress) {
+      billingAddress = updatedOrder.billingAddress;
+      shippingAddress = updatedOrder.shippingAddress || billingAddress;
+    }
 
-  // ===== FOOTER =====
-  doc.fontSize(9).text("Thank you for shopping with KISHAN2KITCHEN!", { align: "center" });
+    // ===== BILL TO / SHIP TO =====
+    doc.fontSize(11).text("Bill To:", { underline: true });
+    doc.fontSize(9).text(billingAddress);
+    doc.moveDown(0.5);
 
-  doc.end();
-  await pdfDone;
-  const pdfBuffer = Buffer.concat(chunks);
+    doc.fontSize(11).text("Ship To:", { underline: true });
+    doc.fontSize(9).text(shippingAddress);
+    doc.moveDown(1);
 
-  // Upload to Firebase Storage
-  const fileName = `invoices/${updatedOrder.id}-${Date.now()}.pdf`;
-  const file = bucket.file(fileName);
-  const uuid = uuidv4();
-  await file.save(pdfBuffer, {
-    contentType: 'application/pdf',
-    metadata: { metadata: { firebaseStorageDownloadTokens: uuid } }
-  });
+    console.log('Billing/shipping information added');
 
-  // Public download URL
-  const invoiceUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media&token=${uuid}`;
+    // ===== ITEMS TABLE HEADER =====
+    doc.fontSize(11).text("Items:", { underline: true });
+    doc.moveDown(0.5);
+    doc.fontSize(8).text("# | Item | HSN | Qty | Rate | Disc. | Taxable | CGST | SGST | IGST | CESS | Total");
+    doc.moveDown(0.3);
 
-  // Calculate total discount from all items
-  const totalDiscount = items.reduce((sum, item) => {
-    const discount = item.discount || 0;
-    return sum + discount;
-  }, 0);
+    // ===== ITEMS TABLE CONTENT =====
+    let itemTotal = 0;
+    const isIntraState = true; // Assuming West Bengal to West Bengal (intra-state)
+    
+    items.forEach((item, index) => {
+      const quantity = Number(item.quantity) || 0;
+      const unitPrice = Number(item.unit_price || item.price) || 0;
+      const taxableAmount = quantity * unitPrice;
+      const discount = Number(item.discount) || 0;
+      const taxableAfterDiscount = taxableAmount - discount;
+      
+      const variantId = item.variantId || item.variant_id;
+      const gstRate = (variantGst[variantId] || 5) / 100; // Defaulting to 5% GST
+      let cgst = 0, sgst = 0, igst = 0;
 
-  await orderRef.update({
-    invoiceUrl,
-    invoiceNumber,
-    invoiceDate: admin.firestore.FieldValue.serverTimestamp(),
-    discount: totalDiscount,
-  });
+      if (isIntraState) {
+        cgst = taxableAfterDiscount * (gstRate / 2);
+        sgst = taxableAfterDiscount * (gstRate / 2);
+      } else {
+        igst = taxableAfterDiscount * gstRate;
+      }
+
+      const lineTotal = taxableAfterDiscount + cgst + sgst + igst;
+      itemTotal += lineTotal;
+
+      const itemName = item.name || item.product_name || 'Item';
+      const variantName = item.variant_name || '';
+      const hsn = item.hsn || 'N/A';
+
+      doc.fontSize(8).text(
+        `${index + 1} | ${itemName} ${variantName} | ${hsn} | ${quantity} | ₹${unitPrice.toFixed(2)} | ₹${discount.toFixed(2)} | ₹${taxableAfterDiscount.toFixed(2)} | ₹${cgst.toFixed(2)} | ₹${sgst.toFixed(2)} | ₹${igst.toFixed(2)} | ₹0.00 | ₹${lineTotal.toFixed(2)}`
+      );
+    });
+
+    doc.moveDown(1);
+
+    console.log('Items table added');
+
+    // ===== TOTALS =====
+    const totalAmount = Number(updatedOrder.total_amount) || itemTotal + calculatedShipping;
+    
+    doc.fontSize(10);
+    doc.text(`Item Total: ₹${itemTotal.toFixed(2)}`);
+    doc.text(`Handling Fee (Inclusive of Taxes): ₹${calculatedShipping.toFixed(2)}`);
+    doc.fontSize(11).text(`Invoice Value: ₹${totalAmount.toFixed(2)}`, { underline: true });
+    doc.moveDown(1);
+
+    console.log('Totals section added');
+
+    // ===== FOOTER =====
+    doc.fontSize(9).text("Thank you for your business! This is a system-generated invoice.", { align: "center" });
+
+    console.log('Footer added');
+
+    doc.end();
+    await pdfDone;
+    const pdfBuffer = Buffer.concat(chunks);
+
+    console.log('PDF buffer generated, size:', pdfBuffer.length);
+
+    // Upload to Firebase Storage
+    const fileName = `invoices/${updatedOrder.id}-${Date.now()}.pdf`;
+    const file = bucket.file(fileName);
+    const uuid = uuidv4();
+    
+    await file.save(pdfBuffer, {
+      contentType: 'application/pdf',
+      metadata: { 
+        metadata: { 
+          firebaseStorageDownloadTokens: uuid 
+        } 
+      }
+    });
+
+    console.log('PDF uploaded to Firebase Storage');
+
+    // Public download URL
+    const invoiceUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media&token=${uuid}`;
+
+    // Calculate total discount from all items
+    const totalDiscount = items.reduce((sum, item) => {
+      const discount = Number(item.discount) || 0;
+      return sum + discount;
+    }, 0);
+
+    await orderRef.update({
+      invoiceUrl,
+      invoiceNumber,
+      invoiceDate: admin.firestore.FieldValue.serverTimestamp(),
+      discount: totalDiscount,
+    });
+
+    console.log('Order updated with invoice information');
+    
+  } catch (invoiceError) {
+    console.error('Error generating invoice:', invoiceError);
+    // Don't throw the error, just log it so the status update still succeeds
+  }
 }
 
 

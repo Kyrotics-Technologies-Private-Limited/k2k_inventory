@@ -10,6 +10,7 @@ import {
   FiChevronRight,
   FiBarChart2,
   FiFileText,
+  FiList,
 } from "react-icons/fi";
 
 interface MenuItem {
@@ -23,6 +24,11 @@ const Sidebar = () => {
 
   const menuItems: MenuItem[] = [
     { path: "/admin", icon: <FiHome size={20} />, name: "Dashboard" },
+    {
+      path: "/admin/categories",
+      icon: <FiList size={20} />,
+      name: "Categories",
+    },
     {
       path: "/admin/products",
       icon: <FiPackage size={20} />,
@@ -67,9 +73,8 @@ const Sidebar = () => {
 
   return (
     <div
-      className={`h-screen bg-gray-800 text-white ${
-        collapsed ? "w-16" : "w-64"
-      } transition-all duration-300 relative`}
+      className={`h-screen bg-gray-800 text-white ${collapsed ? "w-16" : "w-64"
+        } transition-all duration-300 relative`}
     >
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-700">
@@ -95,8 +100,7 @@ const Sidebar = () => {
                 to={item.path}
                 end // This ensures exact match for the current route
                 className={({ isActive }) =>
-                  `group relative flex items-center p-3 mx-2 rounded transition-colors duration-200 ${
-                    isActive ? "bg-blue-600" : "hover:bg-gray-700"
+                  `group relative flex items-center p-3 mx-2 rounded transition-colors duration-200 ${isActive ? "bg-blue-600" : "hover:bg-gray-700"
                   } ${collapsed ? "justify-center" : ""}`
                 }
               >
