@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { productApi } from "../../services/api/productApi";
+import { fetchDashboardStats } from "../../services/api/dashApi";
+import { categoryApi, type Category } from "../../services/api/categoryApi";
 import variantApi from "../../services/api/variantApi";
 import { orderApi } from "../../services/api/orderApi";
 import type { Order } from "../../types/order";
@@ -9,9 +10,14 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
-import { CartesianGrid, Line, ResponsiveContainer, LineChart, Tooltip, XAxis, YAxis, BarChart, Bar, Cell } from "recharts";
-import { PieChart, Pie } from "recharts";
+import {
+  CartesianGrid, Line, ResponsiveContainer, LineChart,
+  Tooltip, XAxis, YAxis, BarChart, Bar, Cell,
+  PieChart, Pie,
+} from "recharts";
 
+// ─── Palette (same as ProductAnalysis) ───────────────────────────────────────
+const PIE_COLORS = ["#fbbf24", "#a855f7", "#fb923c", "#34d399", "#f472b6", "#60a5fa", "#f87171"];
 
 interface Variant {
   id: string;
@@ -21,21 +27,6 @@ interface Variant {
   units_in_stock: number;
 }
 
-interface Product {
-  id: string;
-  name: string;
-  category: string;
-  price: {
-    amount: number;
-    currency: "INR";
-  };
-  images: {
-    main: string;
-    gallery: string[];
-    banner: string;
-  };
-}
-
 interface RevenueDataPoint {
   period: string;
   revenue: number;
@@ -43,408 +34,261 @@ interface RevenueDataPoint {
   date: Date;
 }
 
+
 const FinanceAnalysis: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+
+  // KPI metrics from dashboard API
   const [totalRevenue, setTotalRevenue] = useState(0);
+  const [totalOrders, setTotalOrders] = useState(0);
   const [averageOrderValue, setAverageOrderValue] = useState(0);
-  const [revenueByCategory, setRevenueByCategory] = useState<Record<string, number>>({});
   const [totalInventoryValue, setTotalInventoryValue] = useState(0);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [variants, setVariants] = useState<any[]>([]);
   const [totalCancelledOrders, setTotalCancelledOrders] = useState(0);
   const [totalReturnedOrders, setTotalReturnedOrders] = useState(0);
-  const [showAllRevenueData, setShowAllRevenueData] = useState(false);
-  
-  // Revenue Growth Trend states
+
+  // Category revenue chart data (from dashboard API)
+  const [categoryChartData, setCategoryChartData] = useState<{ category: string; revenue: number }[]>([]);
+
+  // Revenue trend (local computation from raw orders, unchanged)
   const [revenueTrendData, setRevenueTrendData] = useState<RevenueDataPoint[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+
+
+  const [showAllRevenueData, setShowAllRevenueData] = useState(false);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
-  const [selectedChartType, setSelectedChartType] = useState<'line' | 'bar'>('line');
-  // Chart type for Revenue by Category (bar or pie)
-  const [] = useState<'bar' | 'pie'>('bar');
-  // Removed unused selectedCategory and selectedProduct state
-  
-  // const [] = useNavigate();
+  const [selectedChartType, setSelectedChartType] = useState<"line" | "bar">("line");
 
+  // Active categories list
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(amount);
+
+  // ── Fetch active categories once ──────────────────────────────────────────
   useEffect(() => {
-    const fetchFinancialData = async () => {
+    categoryApi.getAllCategories().then(setAllCategories).catch(console.error);
+  }, []);
+
+  // ── Fetch KPI + category chart from dashboard API ─────────────────────────
+  const loadDashboardStats = useCallback(async () => {
+    try {
+      const stats = await fetchDashboardStats();
+
+      setTotalRevenue(stats.totalRevenue);
+      setTotalOrders(stats.totalOrders);
+      setAverageOrderValue(stats.totalOrders > 0 ? stats.totalRevenue / stats.totalOrders : 0);
+      setTotalCancelledOrders(stats.orderStatusCounts.cancelled);
+      setTotalReturnedOrders(stats.orderStatusCounts.returned);
+
+      // revenueByCategory from the API is the source of truth
+      const revMap: Record<string, number> = stats.revenueByCategory || {};
+
+      // Merge with all active categories so all 4 appear (even with ₹0)
+      return revMap;
+    } catch (err) {
+      console.error("Error fetching dashboard stats:", err);
+      return {};
+    }
+  }, []);
+
+  // ── Fetch raw orders/variants/products for trend chart + inventory value ──
+  useEffect(() => {
+    const fetchAll = async () => {
       setLoading(true);
       try {
-        // Fetch all necessary data
-        const [products, variants, orders] = await Promise.all([
-          productApi.getAllProducts(),
+        const [vars, ords] = await Promise.all([
           variantApi.getVariants(),
-          orderApi.getAllOrdersForAdmin()
+          orderApi.getAllOrdersForAdmin(),
         ]);
 
-        // Set orders and products state for UI display
-        setOrders(orders);
-        setProducts(products);
-        setVariants(variants);
+        setOrders(ords);
 
-        console.log('Debug - Products:', products);
-        console.log('Debug - Variants:', variants);
-        console.log('Debug - Orders:', orders);
-        
-        // Log detailed structure of first order if available
-        if (orders.length > 0) {
-          console.log('Debug - First order structure:', orders[0]);
-          if (orders[0].items) {
-            console.log('Debug - First order items:', orders[0].items);
-            // Log the first item in detail
-            if (orders[0].items.length > 0) {
-              console.log('Debug - First item structure:', orders[0].items[0]);
-              console.log('Debug - First item keys:', Object.keys(orders[0].items[0]));
-            }
-          }
-        }
+        // Inventory value from variants
+        const invValue = vars.reduce((t: number, v: Variant) => t + v.price * v.units_in_stock, 0);
+        setTotalInventoryValue(invValue);
 
-        // Validate that we have the required data
-        if (!products || products.length === 0) {
-          console.warn('No products found');
-          setTotalRevenue(0);
-          setAverageOrderValue(0);
-          setRevenueByCategory({});
-          setTotalInventoryValue(0);
-          return;
-        }
-        if (!variants || variants.length === 0) {
-          console.warn('No variants found');
-          setTotalRevenue(0);
-          setAverageOrderValue(0);
-          setRevenueByCategory({});
-          setTotalInventoryValue(0);
-          return;
-        }
-        if (!orders || orders.length === 0) {
-          console.warn('No orders found');
-          setTotalRevenue(0);
-          setAverageOrderValue(0);
-          setRevenueByCategory({});
-          // Still calculate inventory value even without orders
-        }
+        // Revenue trend data
+        const trends = calculateRevenueTrends(ords, vars);
+        setRevenueTrendData(trends);
 
-        // Calculate Total Revenue (Sales Turnover)
-        // Sum of all sales (Quantity × Selling Price) - excluding cancelled and returned orders
-        const revenue = orders.reduce((total: number, order: Order) => {
-          // Skip cancelled and returned orders
-          if (order.status === 'cancelled' || order.status === 'returned') {
-            return total;
-          }
-          
-          if (!order.items) return total;
-          const orderRevenue = order.items.reduce((itemTotal: number, item: any) => {
-            // Handle both field name formats: productId/product_id and variantId/variant_id
-            const productId = item.productId || item.product_id;
-            const variantId = item.variantId || item.variant_id;
-            
-            if (!productId || !variantId) {
-              console.warn(`Missing productId or variantId in item:`, item);
-              return itemTotal;
-            }
-            
-            // We need to get the price from the variant data
-            const variant = variants.find(v => v.id === variantId);
-            if (!variant) {
-              console.warn(`Variant not found for item:`, item);
-              return itemTotal;
-            }
-            const itemPrice = variant.price;
-            return itemTotal + (item.quantity * itemPrice);
-          }, 0);
-          return total + orderRevenue;
-        }, 0);
-        setTotalRevenue(revenue);
+        // Default date range
+        const now = new Date();
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(now.getMonth() - 1);
+        setStartDate(oneMonthAgo);
+        setEndDate(now);
 
-        // Log revenue calculation for debugging
-        console.log('Finance Analysis Revenue Calculation:');
-        console.log('- Total Revenue (excluding cancelled/returned):', revenue);
-        console.log('- Total Orders:', orders.length);
-        console.log('- Revenue calculation method: Line items × Variant prices (excluding cancelled/returned orders)');
-        console.log('- Variants count:', variants.length);
-
-        // Calculate Average Order Value (AOV)
-        // AOV = Total Revenue / Number of Orders
-        const aov = orders.length > 0 ? revenue / orders.length : 0;
-        setAverageOrderValue(aov);
-
-        // Calculate Revenue by Category
-        // Revenue (per category) = ∑(Selling Price of product × Quantity Sold) - excluding cancelled and returned orders
-        const categoryRevenue: Record<string, number> = {};
-        orders.forEach((order: Order) => {
-          // Skip cancelled and returned orders
-          if (order.status === 'cancelled' || order.status === 'returned') {
-            return;
-          }
-          
-          if (!order.items) return;
-          order.items.forEach((item: any) => {
-            // Handle both field name formats: productId/product_id and variantId/variant_id
-            const productId = item.productId || item.product_id;
-            const variantId = item.variantId || item.variant_id;
-            
-            if (!productId || !variantId) {
-              console.warn(`Missing productId or variantId in item:`, item);
-              return;
-            }
-            
-            const product = products.find((p: Product) => p.id === productId);
-            if (product) {
-              const category = product.category;
-              const variant = variants.find(v => v.id === variantId);
-              if (variant) {
-                const itemPrice = variant.price;
-                const itemRevenue = item.quantity * itemPrice;
-                categoryRevenue[category] = (categoryRevenue[category] || 0) + itemRevenue;
-              }
-            }
-          });
-        });
-        setRevenueByCategory(categoryRevenue);
-
-        // Calculate Total Inventory Value (Selling)
-        // Total Inventory Value = ∑(Selling Price × Units in Stock)
-        const inventoryValue = variants.reduce((total: number, variant: Variant) => {
-          return total + (variant.price * variant.units_in_stock);
-        }, 0);
-        setTotalInventoryValue(inventoryValue);
-
-        // Calculate Total Cancelled and Returned Orders
-        const cancelledOrders = orders.filter(order => order.status === 'cancelled').length;
-        const returnedOrders = orders.filter(order => order.status === 'returned').length;
-        setTotalCancelledOrders(cancelledOrders);
-        setTotalReturnedOrders(returnedOrders);
-
-      } catch (error: any) {
-        console.error('Error fetching financial data:', error);
-        // Log more details about the error
-        if (error.response) {
-          console.error('Error response:', error.response.data);
-          console.error('Error status:', error.response.status);
-        }
+        // Cancelled / returned counts (local, for accuracy with raw orders)
+        setTotalCancelledOrders(ords.filter((o: Order) => o.status === "cancelled").length);
+        setTotalReturnedOrders(ords.filter((o: Order) => o.status === "returned").length);
+      } catch (err) {
+        console.error("Error fetching financial data:", err);
       } finally {
         setLoading(false);
       }
     };
+    fetchAll();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    fetchFinancialData();
-  }, []);
-
-  // Calculate revenue trends when orders change
+  // ── Build category chart data once categories + dashboard stats are ready ─
   useEffect(() => {
-    if (orders.length > 0) {
-      const trends = calculateRevenueTrends(
-        orders,
-        variants
-      );
-      setRevenueTrendData(trends);
-      // Set default date range (last 1 month)
-      const now = new Date();
-      const oneMonthAgo = new Date();
-      oneMonthAgo.setMonth(now.getMonth() - 1);
-      setStartDate(oneMonthAgo);
-      setEndDate(now);
-    }
-  }, [orders, variants]);
+    if (loading) return;
+    loadDashboardStats().then((revMap) => {
+      const categoryNames =
+        allCategories.length > 0
+          ? allCategories.map((c) => c.name)
+          : Object.keys(revMap);
 
-  // Helper function to format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR'
-    }).format(amount);
-  };
+      const merged = categoryNames.map((name) => {
+        const rev =
+          revMap[name] ??
+          revMap[name.toLowerCase()] ??
+          revMap[name.toUpperCase()] ??
+          0;
+        return { category: name.charAt(0).toUpperCase() + name.slice(1).toLowerCase(), revenue: rev };
+      });
 
-  // Helper function to calculate revenue trends, now grouping by day
-  const calculateRevenueTrends = (
-    orders: Order[],
-    variants: any[],
-    filterCategory?: string,
-    filterProduct?: string
-  ) => {
+      // Also add any revMap keys not already covered
+      Object.entries(revMap).forEach(([cat, rev]) => {
+        const norm = cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase();
+        if (!merged.find((m) => m.category.toLowerCase() === norm.toLowerCase())) {
+          merged.push({ category: norm, revenue: rev });
+        }
+      });
+
+      merged.sort((a, b) => b.revenue - a.revenue);
+      setCategoryChartData(merged);
+
+      // Also set total revenue from revMap if we got it from API
+      const apiTotal = merged.reduce((s, c) => s + c.revenue, 0);
+      if (apiTotal > 0) setTotalRevenue(apiTotal);
+    });
+  }, [loading, allCategories]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Revenue trend helpers (unchanged) ────────────────────────────────────
+  const calculateRevenueTrends = (orders: Order[], variants: any[]): RevenueDataPoint[] => {
     if (!orders || orders.length === 0) return [];
-
     const revenueMap = new Map<string, number>();
-
-    // Group orders by time interval
-  orders.forEach(order => {
-      // Skip cancelled and returned orders
-      if (order.status === 'cancelled' || order.status === 'returned') {
-        return;
-      }
-      
+    orders.forEach((order) => {
+      if (order.status === "cancelled" || order.status === "returned") return;
       if (!order.created_at) return;
-      const orderDate = new Date(order.created_at);
-      // Use daily interval: YYYY-MM-DD
-      const periodKey = orderDate.toISOString().split('T')[0];
-
+      const periodKey = new Date(order.created_at).toISOString().split("T")[0];
       let orderRevenue = 0;
       if (order.items) {
         order.items.forEach((item: any) => {
-          const productId = item.productId || item.product_id;
           const variantId = item.variantId || item.variant_id;
-          if (filterProduct && productId !== filterProduct) return;
-          if (filterCategory) {
-            const product = products.find((p: Product) => p.id === productId);
-            if (!product || product.category !== filterCategory) return;
-          }
-          const variant = variants.find(v => v.id === variantId);
-          if (variant) {
-            orderRevenue += (item.quantity * variant.price);
-          }
+          const variant = variants.find((v) => v.id === variantId);
+          if (variant) orderRevenue += item.quantity * variant.price;
         });
       }
-
       revenueMap.set(periodKey, (revenueMap.get(periodKey) || 0) + orderRevenue);
     });
-
-    // Convert to array and sort by date
-    const revenueData: RevenueDataPoint[] = Array.from(revenueMap.entries()).map(([period, revenue]) => {
-      const date = new Date(period);
-      return { period, revenue, date };
-    });
-
-    // Sort by date
-    revenueData.sort((a, b) => a.date.getTime() - b.date.getTime());
-
-    // Calculate growth percentages
-    revenueData.forEach((dataPoint, index) => {
-      if (index > 0) {
-        const previousRevenue = revenueData[index - 1].revenue;
-        if (previousRevenue > 0) {
-          dataPoint.growth = ((dataPoint.revenue - previousRevenue) / previousRevenue) * 100;
-        }
+    const data: RevenueDataPoint[] = Array.from(revenueMap.entries())
+      .map(([period, revenue]) => ({ period, revenue, date: new Date(period) }))
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+    data.forEach((dp, i) => {
+      if (i > 0 && data[i - 1].revenue > 0) {
+        dp.growth = ((dp.revenue - data[i - 1].revenue) / data[i - 1].revenue) * 100;
       }
     });
-
-    return revenueData;
+    return data;
   };
 
-  // Function to filter data by date range
   const filterDataByDateRange = (data: RevenueDataPoint[], start: Date | null, end: Date | null) => {
     if (!start || !end) {
-      // If no date range is selected, show last 1 month by default
-      const oneMonthAgo = new Date();
       const now = new Date();
+      const oneMonthAgo = new Date();
       oneMonthAgo.setMonth(now.getMonth() - 1);
-      return data.filter(item => {
-        const itemDate = item.date;
-        return itemDate >= oneMonthAgo && itemDate <= now;
-      });
+      return data.filter((item) => item.date >= oneMonthAgo && item.date <= now);
     }
-    // Compare by full date (not just year/month)
-    const startTime = new Date(start.setHours(0,0,0,0)).getTime();
-    const endTime = new Date(end.setHours(23,59,59,999)).getTime();
-    return data.filter(item => {
-      const itemTime = new Date(item.date.setHours(0,0,0,0)).getTime();
-      return itemTime >= startTime && itemTime <= endTime;
+    const startTime = new Date(start).setHours(0, 0, 0, 0);
+    const endTime = new Date(end).setHours(23, 59, 59, 999);
+    return data.filter((item) => {
+      const t = new Date(item.date).setHours(0, 0, 0, 0);
+      return t >= startTime && t <= endTime;
     });
   };
 
-  // Export to Excel function
+  // ── Export ────────────────────────────────────────────────────────────────
   const handleExportExcel = () => {
     const filteredData = filterDataByDateRange(revenueTrendData, startDate, endDate);
-    
     if (filteredData.length === 0) {
-      alert('No data to export for the selected date range');
+      alert("No data to export for the selected date range");
       return;
     }
-
-    const exportData = filteredData.map((dataPoint) => ({
-      'Period': dataPoint.period,
-      'Revenue (₹)': dataPoint.revenue,
-      'Growth %': dataPoint.growth !== undefined ? `${dataPoint.growth >= 0 ? '+' : ''}${dataPoint.growth.toFixed(1)}%` : '—',
-      'Date': dataPoint.date.toLocaleDateString(),
-      'Revenue Formatted': new Intl.NumberFormat('en-IN', {
-        style: 'currency',
-        currency: 'INR'
-      }).format(dataPoint.revenue)
+    const exportData = filteredData.map((dp) => ({
+      Period: dp.period,
+      "Revenue (₹)": dp.revenue,
+      "Growth %": dp.growth !== undefined ? `${dp.growth >= 0 ? "+" : ""}${dp.growth.toFixed(1)}%` : "—",
+      Date: dp.date.toLocaleDateString(),
+      "Revenue Formatted": formatCurrency(dp.revenue),
     }));
-
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Revenue Trends");
-
-    const excelBuffer = XLSX.write(workbook, {
-      bookType: "xlsx",
-      type: "array",
-    });
-
-    const data = new Blob([excelBuffer], { type: "application/octet-stream" });
-    const fileName = `revenue_trends_${startDate?.toISOString().slice(0, 10)}_to_${endDate?.toISOString().slice(0, 10)}.xlsx`;
-    saveAs(data, fileName);
+    const buf = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([buf], { type: "application/octet-stream" });
+    saveAs(blob, `revenue_trends_${startDate?.toISOString().slice(0, 10)}_to_${endDate?.toISOString().slice(0, 10)}.xlsx`);
   };
 
-  // Simple chart rendering function
+  // ── JSX ───────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Finance Analysis</h1>
       </div>
 
+      {/* KPI Cards Row 1 */}
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
-        <div className="bg-white p-6 rounded-lg shadow flex flex-col justify-between" style={{ minHeight: '180px' }}>
+        <div className="bg-white p-6 rounded-lg shadow flex flex-col justify-between" style={{ minHeight: "180px" }}>
           <p className="text-gray-500">Total Revenue</p>
           <div className="mt-1 flex-1">
             <p className="text-2xl font-bold mt-1 text-green-600">
               {loading ? "Loading..." : formatCurrency(totalRevenue)}
             </p>
-            {!loading && (
-              <p className="text-sm text-gray-400 mt-2">
-                Total sales from all orders
-              </p>
-            )}
+            {!loading && <p className="text-sm text-gray-400 mt-2">Total sales from all orders</p>}
           </div>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow flex flex-col justify-between" style={{ minHeight: '180px' }}>
+
+        <div className="bg-white p-6 rounded-lg shadow flex flex-col justify-between" style={{ minHeight: "180px" }}>
           <p className="text-gray-500">Total Orders</p>
           <div className="mt-1 flex-1">
             <p className="text-2xl font-bold mt-1 text-blue-600">
-              {loading ? "Loading..." : orders.length}
+              {loading ? "Loading..." : totalOrders || orders.length}
             </p>
-            {!loading && (
-              <p className="text-sm text-gray-400 mt-2">
-                Total number of orders
-              </p>
-            )}
+            {!loading && <p className="text-sm text-gray-400 mt-2">Total number of orders</p>}
           </div>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow flex flex-col justify-between" style={{ minHeight: '180px' }}>
+
+        <div className="bg-white p-6 rounded-lg shadow flex flex-col justify-between" style={{ minHeight: "180px" }}>
           <p className="text-gray-500">Average Order Value (AOV)</p>
           <div className="mt-1 flex-1">
             <p className="text-2xl font-bold mt-1 text-blue-600">
               {loading ? "Loading..." : formatCurrency(averageOrderValue)}
             </p>
-            {!loading && (
-              <p className="text-sm text-gray-400 mt-2">
-                Average amount per order
-              </p>
-            )}
+            {!loading && <p className="text-sm text-gray-400 mt-2">Average amount per order</p>}
           </div>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow flex flex-col justify-between" style={{ minHeight: '180px' }}>
+
+        <div className="bg-white p-6 rounded-lg shadow flex flex-col justify-between" style={{ minHeight: "180px" }}>
           <p className="text-gray-500">Total Inventory Value</p>
           <div className="mt-1 flex-1">
             <p className="text-2xl font-bold mt-1 text-orange-600">
               {loading ? "Loading..." : formatCurrency(totalInventoryValue)}
             </p>
-            {!loading && (
-              <p className="text-sm text-gray-400 mt-2">
-                Current stock value
-              </p>
-            )}
+            {!loading && <p className="text-sm text-gray-400 mt-2">Current stock value</p>}
           </div>
         </div>
-
       </div>
 
-      {/* Second Row: Order Status Cards */}
+      {/* KPI Cards Row 2 */}
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
-        <div 
-          className="bg-white p-6 rounded-lg shadow flex flex-col justify-between cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50" 
-          style={{ minHeight: '180px' }}
+        <div
+          className="bg-white p-6 rounded-lg shadow flex flex-col justify-between cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50"
+          style={{ minHeight: "180px" }}
           onClick={() => navigate("/admin/orders?status=cancelled")}
         >
           <p className="text-gray-500">Total Cancelled Orders</p>
@@ -452,16 +296,13 @@ const FinanceAnalysis: React.FC = () => {
             <p className="text-2xl font-bold mt-1 text-red-600">
               {loading ? "Loading..." : totalCancelledOrders}
             </p>
-            {!loading && (
-              <p className="text-sm text-gray-400 mt-2">
-                Orders that were cancelled
-              </p>
-            )}
+            {/* {!loading && <p className="text-sm text-gray-400 mt-2">Orders that were cancelled</p>} */}
           </div>
         </div>
-        <div 
-          className="bg-white p-6 rounded-lg shadow flex flex-col justify-between cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50" 
-          style={{ minHeight: '180px' }}
+
+        <div
+          className="bg-white p-6 rounded-lg shadow flex flex-col justify-between cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:bg-gray-50"
+          style={{ minHeight: "180px" }}
           onClick={() => navigate("/admin/orders?status=returned")}
         >
           <p className="text-gray-500">Total Returned Orders</p>
@@ -469,38 +310,30 @@ const FinanceAnalysis: React.FC = () => {
             <p className="text-2xl font-bold mt-1 text-red-600">
               {loading ? "Loading..." : totalReturnedOrders}
             </p>
-            {!loading && (
-              <p className="text-sm text-gray-400 mt-2">
-                Orders that were returned
-              </p>
-            )}
+            {/* {!loading && <p className="text-sm text-gray-400 mt-2">Orders that were returned</p>} */}
           </div>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow flex flex-col justify-between" style={{ minHeight: '180px' }}>
+
+        {/* Revenue by Category mini-card */}
+        <div className="bg-white p-6 rounded-lg shadow flex flex-col justify-between" style={{ minHeight: "180px" }}>
           <p className="text-gray-500">Revenue by Category</p>
           <div className="mt-1 flex-1">
             {loading ? (
               <p className="text-2xl font-bold mt-1 text-purple-600">Loading...</p>
-            ) : Object.keys(revenueByCategory).length > 0 ? (
+            ) : categoryChartData.length > 0 ? (
               <div className="mt-2 space-y-2">
-                {Object.entries(revenueByCategory).slice(0, 3).map(([category, revenue]) => {
-                  const categoryProduct = products.find((p: Product) => p.category === category);
-                  return (
-                    <div key={category} className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        {categoryProduct?.images?.main && (
-                          <img 
-                            src={categoryProduct.images.main} 
-                            alt={category}
-                            className="w-6 h-6 rounded object-cover"
-                          />
-                        )}
-                        <span className="capitalize text-purple-700 font-medium text-sm">{category}</span>
-                      </div>
-                      <span className="font-semibold text-purple-600 text-sm">{formatCurrency(revenue)}</span>
+                {categoryChartData.slice(0, 4).map(({ category, revenue }, idx) => (
+                  <div key={category} className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <span
+                        className="w-3 h-3 rounded-full inline-block flex-shrink-0"
+                        style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }}
+                      />
+                      <span className="capitalize text-purple-700 font-medium text-sm">{category}</span>
                     </div>
-                  );
-                })}
+                    <span className="font-semibold text-purple-600 text-sm">{formatCurrency(revenue)}</span>
+                  </div>
+                ))}
               </div>
             ) : (
               <p className="text-purple-400 text-sm mt-2">No revenue data available</p>
@@ -509,87 +342,109 @@ const FinanceAnalysis: React.FC = () => {
         </div>
       </div>
 
-      {/* No Data Message */}
-      {!loading && orders.length === 0 && (
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4 text-gray-600">No Orders Found</h2>
-          <p className="text-gray-500">There are no orders in the system yet. Financial metrics will appear here once orders are created.</p>
-        </div>
-      )}
-<div className="bg-white p-6 rounded-lg shadow mb-6">
-  <h2 className="text-lg font-semibold mb-4">Revenue by Category</h2>
-      <div className="w-full h-[300px] flex flex-col md:flex-row gap-6">
-        <div className="flex-1">
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={Object.entries(revenueByCategory).map(([category, revenue]) => ({ category, revenue }))}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="category" label={{ value: 'Category', position: 'insideBottom', offset: -5 }} />
-              <YAxis tickFormatter={(value: number) => `₹${value}`} />
-              <Tooltip formatter={(value: number) => `₹${value}`} />
-              <Bar dataKey="revenue">
-                {Object.entries(revenueByCategory).map(([category]) => {
-                  let fill = '#a855f7'; // default purple
-                  if (category.toLowerCase() === 'honey') fill = '#fbbf24';
-                  else if (category.toLowerCase() === 'ghee') fill = '#fb923c';
-                  else if (category.toLowerCase() === 'oils' || category.toLowerCase() === 'oil') fill = '#a855f7'; // purple
-                  return <Cell key={category} fill={fill} />;
-                })}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="flex-1">
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={Object.entries(revenueByCategory).map(([category, revenue]) => ({ name: category, value: revenue }))}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
-              >
-                {Object.entries(revenueByCategory).map(([category]) => {
-                  let fill = '#a855f7'; // default purple
-                  if (category.toLowerCase() === 'honey') fill = '#fbbf24';
-                  else if (category.toLowerCase() === 'ghee') fill = '#fb923c';
-                  else if (category.toLowerCase() === 'oils' || category.toLowerCase() === 'oil') fill = '#a855f7'; // purple
-                  return <Cell key={category} fill={fill} />;
-                })}
-              </Pie>
-              <Tooltip formatter={(value: number) => `₹${value}`} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-  </div>
-      {/* Error Message */}
-      {!loading && totalRevenue === 0 && orders.length === 0 && (
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4 text-red-600">Unable to Load Data</h2>
-          <p className="text-gray-500">Please check the browser console for detailed error information. Make sure you have:</p>
-          <ul className="text-gray-500 mt-2 list-disc list-inside">
-            <li>Products in your database</li>
-            <li>Variants for those products</li>
-            <li>Orders with items</li>
-            <li>Proper authentication</li>
-          </ul>
-        </div>
-      )}
+      {/* Revenue by Category — Bar + Pie Charts */}
+      <div className="bg-white p-6 rounded-lg shadow mb-6">
+        <h2 className="text-lg font-semibold mb-1">
+          Revenue by Category — {categoryChartData.length} categor{categoryChartData.length === 1 ? "y" : "ies"}
+        </h2>
+        <p className="text-sm text-gray-400 mb-4">Based on all non-cancelled, non-returned orders</p>
 
+        {loading ? (
+          <div className="h-[300px] flex items-center justify-center text-gray-400">Loading charts...</div>
+        ) : categoryChartData.length === 0 ? (
+          <div className="h-[300px] flex items-center justify-center text-gray-400">No category revenue data available</div>
+        ) : (
+          <div className="w-full flex flex-col md:flex-row gap-6">
+            {/* Bar Chart */}
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-gray-600 mb-2 text-center">Bar Chart</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={categoryChartData} margin={{ top: 10, right: 20, left: 10, bottom: 30 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="category"
+                    label={{ value: "Category", position: "insideBottom", offset: -20 }}
+                  />
+                  <YAxis tickFormatter={(v: number) => `₹${v}`} />
+                  <Tooltip formatter={(value: number) => [formatCurrency(value), "Revenue"]} />
+                  <Bar dataKey="revenue" name="Revenue" radius={[4, 4, 0, 0]}>
+                    {categoryChartData.map((_entry, idx) => (
+                      <Cell key={`bar-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Pie Chart */}
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-gray-600 mb-2 text-center">Pie Chart</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={categoryChartData}
+                    dataKey="revenue"
+                    nameKey="category"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={100}
+                    innerRadius={50}
+                    label={({ name, percent }) =>
+                      `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`
+                    }
+                    labelLine
+                  >
+                    {categoryChartData.map((_entry, idx) => (
+                      <Cell key={`pie-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value: number) => [formatCurrency(value), "Revenue"]} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* Category performance summary */}
+        {!loading && categoryChartData.length > 0 && (() => {
+          const totalRev = categoryChartData.reduce((s, c) => s + c.revenue, 0);
+          return (
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {categoryChartData.map(({ category, revenue }, idx) => (
+                <div key={category} className="bg-gray-50 p-4 rounded-lg border">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div
+                      className="w-4 h-4 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }}
+                    />
+                    <h3 className="text-base font-semibold text-gray-800 capitalize">{category}</h3>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Revenue:</span>
+                      <span className="font-bold text-gray-800">{formatCurrency(revenue)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Share:</span>
+                      <span className="font-bold text-gray-800">
+                        {totalRev > 0 ? ((revenue / totalRev) * 100).toFixed(1) : "0.0"}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* Revenue Growth Trend */}
       <div className="bg-white p-6 rounded-lg shadow">
         <h2 className="text-xl font-semibold mb-4">Revenue Growth Trend</h2>
-        
-        {/* Filters and Controls */}
-        <div className="mb-6 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-            
-          </div>
 
-          {/* Date Range Filter */}
+        {/* Filters */}
+        <div className="mb-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            {/* Date Inputs */}
             <div className="flex items-center gap-3">
               <label className="text-sm font-medium text-gray-700">
                 <FiCalendar className="inline-block mr-1" />
@@ -608,9 +463,7 @@ const FinanceAnalysis: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-3">
-              <label className="text-sm font-medium text-gray-700">
-                End Date:
-              </label>
+              <label className="text-sm font-medium text-gray-700">End Date:</label>
               <DatePicker
                 selected={endDate}
                 onChange={(date) => setEndDate(date)}
@@ -624,9 +477,6 @@ const FinanceAnalysis: React.FC = () => {
               />
             </div>
 
-            
-
-            {/* Export Button */}
             <button
               onClick={handleExportExcel}
               className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition flex items-center gap-2 cursor-pointer"
@@ -638,7 +488,7 @@ const FinanceAnalysis: React.FC = () => {
           </div>
         </div>
 
-        {/* Revenue Trend Data */}
+        {/* Summary mini-cards */}
         {!loading && revenueTrendData.length > 0 && (
           <div className="mb-6">
             <div className="flex justify-between items-center mb-4">
@@ -652,8 +502,7 @@ const FinanceAnalysis: React.FC = () => {
                 )}
               </div>
             </div>
-            
-            {/* Summary Cards */}
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
               <div className="bg-blue-50 p-3 rounded-lg">
                 <p className="text-xs text-blue-600 font-medium">Today's Revenue</p>
@@ -661,36 +510,26 @@ const FinanceAnalysis: React.FC = () => {
                   {(() => {
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
-                    
-                    const todayRevenue = filterDataByDateRange(revenueTrendData, startDate, endDate)
-                      .filter(item => {
-                        const itemDate = new Date(item.date);
-                        itemDate.setHours(0, 0, 0, 0);
-                        return itemDate.getTime() === today.getTime();
-                      })
-                      .reduce((sum, item) => sum + item.revenue, 0);
-                    
-                    return formatCurrency(todayRevenue);
+                    const todayRev = filterDataByDateRange(revenueTrendData, startDate, endDate)
+                      .filter((item) => { const d = new Date(item.date); d.setHours(0, 0, 0, 0); return d.getTime() === today.getTime(); })
+                      .reduce((s, i) => s + i.revenue, 0);
+                    return formatCurrency(todayRev);
                   })()}
                 </p>
               </div>
               <div className="bg-green-50 p-3 rounded-lg">
-                <p className="text-xs text-green-600 font-medium">Monthly Revenue</p>
+                <p className="text-xs text-green-600 font-medium">Period Revenue</p>
                 <p className="text-lg font-bold text-green-800">
-                  {formatCurrency(
-                    filterDataByDateRange(revenueTrendData, startDate, endDate)
-                      .reduce((sum, item) => sum + item.revenue, 0)
-                  )}
+                  {formatCurrency(filterDataByDateRange(revenueTrendData, startDate, endDate).reduce((s, i) => s + i.revenue, 0))}
                 </p>
               </div>
               <div className="bg-purple-50 p-3 rounded-lg">
-                <p className="text-xs text-purple-600 font-medium">Avg. Revenue/Month</p>
+                <p className="text-xs text-purple-600 font-medium">Avg. Revenue/Day</p>
                 <p className="text-lg font-bold text-purple-800">
                   {(() => {
-                    const filteredData = filterDataByDateRange(revenueTrendData, startDate, endDate);
-                    if (filteredData.length === 0) return '—';
-                    const total = filteredData.reduce((sum, item) => sum + item.revenue, 0);
-                    return formatCurrency(total / filteredData.length);
+                    const filtered = filterDataByDateRange(revenueTrendData, startDate, endDate);
+                    if (filtered.length === 0) return "—";
+                    return formatCurrency(filtered.reduce((s, i) => s + i.revenue, 0) / filtered.length);
                   })()}
                 </p>
               </div>
@@ -698,28 +537,24 @@ const FinanceAnalysis: React.FC = () => {
                 <p className="text-xs text-orange-600 font-medium">Growth Trend</p>
                 <p className="text-lg font-bold text-orange-800">
                   {(() => {
-                    const filteredData = filterDataByDateRange(revenueTrendData, startDate, endDate);
-                    if (filteredData.length < 2) return '—';
-                    const firstRevenue = filteredData[0].revenue;
-                    const lastRevenue = filteredData[filteredData.length - 1].revenue;
-                    if (firstRevenue === 0) return '—';
-                    const growth = ((lastRevenue - firstRevenue) / firstRevenue) * 100;
-                    return `${growth >= 0 ? '+' : ''}${growth.toFixed(1)}%`;
+                    const filtered = filterDataByDateRange(revenueTrendData, startDate, endDate);
+                    if (filtered.length < 2) return "—";
+                    const first = filtered[0].revenue;
+                    const last = filtered[filtered.length - 1].revenue;
+                    if (first === 0) return "—";
+                    const g = ((last - first) / first) * 100;
+                    return `${g >= 0 ? "+" : ""}${g.toFixed(1)}%`;
                   })()}
                 </p>
               </div>
             </div>
-            
+
+            {/* Revenue table */}
             {filterDataByDateRange(revenueTrendData, startDate, endDate).length === 0 ? (
               <div className="bg-white p-8 rounded-lg shadow-sm text-center ring-1 ring-gray-200">
-                <p className="text-gray-500 text-lg">
-                  No revenue data found for the selected date range
-                </p>
+                <p className="text-gray-500 text-lg">No revenue data found for the selected date range</p>
                 <button
-                  onClick={() => {
-                    setStartDate(null);
-                    setEndDate(null);
-                  }}
+                  onClick={() => { setStartDate(null); setEndDate(null); }}
                   className="mt-4 px-4 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition"
                 >
                   Clear date filters
@@ -730,38 +565,23 @@ const FinanceAnalysis: React.FC = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead>
                     <tr className="bg-gray-50">
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">
-                        Period
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">
-                        Revenue
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">
-                        Growth %
-                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">Period</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">Revenue</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">Growth %</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
                     {(() => {
-                      const filteredData = filterDataByDateRange(revenueTrendData, startDate, endDate);
-                      const displayData = showAllRevenueData ? filteredData : filteredData.slice(0, 5);
-                      
-                      return displayData.map((dataPoint, index) => (
+                      const filtered = filterDataByDateRange(revenueTrendData, startDate, endDate);
+                      const display = showAllRevenueData ? filtered : filtered.slice(0, 5);
+                      return display.map((dp, index) => (
                         <tr key={index} className="hover:bg-gray-50 transition-colors duration-150">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {dataPoint.period}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                            {formatCurrency(dataPoint.revenue)}
-                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dp.period}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">{formatCurrency(dp.revenue)}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            {dataPoint.growth !== undefined ? (
-                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                dataPoint.growth >= 0 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {dataPoint.growth >= 0 ? '+' : ''}{dataPoint.growth.toFixed(1)}%
+                            {dp.growth !== undefined ? (
+                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${dp.growth >= 0 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                                {dp.growth >= 0 ? "+" : ""}{dp.growth.toFixed(1)}%
                               </span>
                             ) : (
                               <span className="text-gray-400">—</span>
@@ -774,18 +594,18 @@ const FinanceAnalysis: React.FC = () => {
                 </table>
               </div>
             )}
-            
-            {/* View More Button */}
+
+            {/* View More */}
             {(() => {
-              const filteredData = filterDataByDateRange(revenueTrendData, startDate, endDate);
-              if (filteredData.length > 5) {
+              const filtered = filterDataByDateRange(revenueTrendData, startDate, endDate);
+              if (filtered.length > 5) {
                 return (
                   <div className="mt-4 flex justify-end">
                     <button
                       onClick={() => setShowAllRevenueData(!showAllRevenueData)}
                       className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 font-medium"
                     >
-                      {showAllRevenueData ? 'Show Less' : `View More (${filteredData.length - 5} more rows)`}
+                      {showAllRevenueData ? "Show Less" : `View More (${filtered.length - 5} more rows)`}
                     </button>
                   </div>
                 );
@@ -795,15 +615,14 @@ const FinanceAnalysis: React.FC = () => {
           </div>
         )}
 
-        
-        
+        {/* Revenue trend chart */}
         <div id="revenue-chart" className="bg-white p-6 rounded-lg shadow mt-6">
           <h2 className="text-xl font-semibold mb-4">Revenue Growth Trend</h2>
           <div className="mb-4 flex items-center gap-4">
             <label className="text-sm font-medium text-gray-700">Chart Type:</label>
             <select
               value={selectedChartType}
-              onChange={e => setSelectedChartType(e.target.value as 'line' | 'bar')}
+              onChange={(e) => setSelectedChartType(e.target.value as "line" | "bar")}
               className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
               style={{ width: 120 }}
             >
@@ -814,85 +633,40 @@ const FinanceAnalysis: React.FC = () => {
           <div className="w-full h-[350px]">
             <ResponsiveContainer width="100%" height="100%">
               {(() => {
-                // Always use the same filtered data for both table and chart
                 const filteredChartData = filterDataByDateRange(revenueTrendData, startDate, endDate);
                 if (filteredChartData.length === 0) {
-                  return <div className="flex items-center justify-center h-full text-gray-400">No data for selected range</div>;
+                  return <div className="flex items-center justify-center h-full text-gray-400">No data for selected range</div> as any;
                 }
-                if (selectedChartType === 'bar') {
+                if (selectedChartType === "bar") {
                   return (
-                                         <BarChart data={filteredChartData}>
-                       <CartesianGrid strokeDasharray="3 3" />
-                       <XAxis 
-                         dataKey="period" 
-                         label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
-                         angle={-45}
-                         textAnchor="end"
-                         height={80}
-                       />
-                       <YAxis tickFormatter={(value: number) => `₹${value}`} label={{ value: 'Revenue', angle: -90, position: 'insideLeft' }} />
-                       <Tooltip formatter={(value: number) => `₹${value}`} />
-                       <Bar dataKey="revenue" fill="#3b82f6" />
-                     </BarChart>
+                    <BarChart data={filteredChartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="period" label={{ value: "Time", position: "insideBottom", offset: -5 }} angle={-45} textAnchor="end" height={80} />
+                      <YAxis tickFormatter={(v: number) => `₹${v}`} label={{ value: "Revenue", angle: -90, position: "insideLeft" }} />
+                      <Tooltip formatter={(value: number) => [formatCurrency(value), "Revenue"]} />
+                      <Bar dataKey="revenue" fill="#3b82f6" />
+                    </BarChart>
                   );
                 }
-                // For line chart, show dots for all points, and a message if only one point
-                if (filteredChartData.length === 1) {
-                                     return (
-                     <LineChart data={filteredChartData}>
-                       <CartesianGrid strokeDasharray="3 3" />
-                       <XAxis 
-                         dataKey="period" 
-                         label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
-                         angle={-45}
-                         textAnchor="end"
-                         height={80}
-                       />
-                       <YAxis tickFormatter={(value: number) => `₹${value}`} label={{ value: 'Revenue', angle: -90, position: 'insideLeft' }} />
-                       <Tooltip formatter={(value: number) => `₹${value}`} />
-                       <Line
-                         type="monotone"
-                         dataKey="revenue"
-                         stroke="#3b82f6"
-                         strokeWidth={2}
-                         dot={{ r: 6, fill: '#3b82f6' }}
-                         activeDot={{ r: 8 }}
-                       />
-                     </LineChart>
-                   );
-                }
-                                 return (
-                   <LineChart data={filteredChartData}>
-                     <CartesianGrid strokeDasharray="3 3" />
-                     <XAxis 
-                       dataKey="period" 
-                       label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
-                       angle={-45}
-                       textAnchor="end"
-                       height={80}
-                     />
-                     <YAxis tickFormatter={(value: number) => `₹${value}`} label={{ value: 'Revenue', angle: -90, position: 'insideLeft' }} />
-                     <Tooltip formatter={(value: number) => `₹${value}`} />
-                     <Line
-                       type="monotone"
-                       dataKey="revenue"
-                       stroke="#3b82f6"
-                       strokeWidth={2}
-                       dot={{ r: 4, fill: '#3b82f6' }}
-                       activeDot={{ r: 6 }}
-                     />
-                   </LineChart>
-                 );
+                return (
+                  <LineChart data={filteredChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="period" label={{ value: "Time", position: "insideBottom", offset: -5 }} angle={-45} textAnchor="end" height={80} />
+                    <YAxis tickFormatter={(v: number) => `₹${v}`} label={{ value: "Revenue", angle: -90, position: "insideLeft" }} />
+                    <Tooltip formatter={(value: number) => [formatCurrency(value), "Revenue"]} />
+                    <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2}
+                      dot={{ r: filteredChartData.length === 1 ? 6 : 4, fill: "#3b82f6" }}
+                      activeDot={{ r: filteredChartData.length === 1 ? 8 : 6 }}
+                    />
+                  </LineChart>
+                );
               })()}
             </ResponsiveContainer>
           </div>
         </div>
-      
-    </div>
+      </div>
     </div>
   );
 };
 
 export default FinanceAnalysis;
-
-

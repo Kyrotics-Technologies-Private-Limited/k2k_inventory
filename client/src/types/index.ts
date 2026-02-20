@@ -20,6 +20,7 @@ export interface Product {
     gallery: string[];
     banner: string;
   };
+  isBestseller?: boolean;
   stockStatus: "in_stock" | "low_stock" | "out_of_stock";
   ratings: number;
   reviews: number;
