@@ -13,6 +13,10 @@ export interface StockVariant {
   image?: string | null;
 }
 
+export interface OverstockVariant extends StockVariant {
+  category?: string;
+}
+
 export interface DashboardStatsResponse {
   totalRevenue: number;
   monthlyRevenue: number;
@@ -29,6 +33,7 @@ export interface DashboardStatsResponse {
     returned: number;
   };
   revenueByCategory: Record<string, number>;
+  salesByCategory: Record<string, number>;
   revenueChart: {
     date: string;
     revenue: number;
@@ -40,7 +45,7 @@ export interface DashboardStatsResponse {
   leastSellersLast3Months: { productId: string; productName: string; totalSold: number; image?: string | null }[];
   slowMoversLastWeek: { productId: string; productName: string; totalSold: number; image?: string | null; variants?: { variantId: string; variantName: string; totalSold: number }[] }[];
   lowStockVariants: StockVariant[];
-  overstockVariants: StockVariant[];
+  overstockVariants: OverstockVariant[];
   demandingProducts: { productId: string; productName: string; image?: string | null; lastWeekSales: number; percentile: number }[];
 }
 
@@ -52,10 +57,10 @@ export const fetchDashboardStats = async (
   const params = new URLSearchParams();
   if (startDate) params.append('startDate', startDate);
   if (endDate) params.append('endDate', endDate);
-  
+
   const queryString = params.toString();
   const url = `/dashboard/stats${queryString ? `?${queryString}` : ''}`;
-  
+
   const response = await api.get<DashboardStatsResponse>(url);
   return response.data;
 };

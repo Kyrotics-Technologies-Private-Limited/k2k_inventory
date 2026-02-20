@@ -91,7 +91,7 @@ const ProductDetailsPage: React.FC = () => {
     }
   };
 
-  
+
 
 
 
@@ -138,7 +138,14 @@ const ProductDetailsPage: React.FC = () => {
         <span className="font-medium">Back to Products</span>
       </button>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Product Details</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">Product Details</h1>
+          {product?.isBestseller && (
+            <span className="inline-flex items-center gap-1 px-3 py-1 bg-amber-500 text-white text-xs font-bold rounded-full shadow">
+              🏆 BESTSELLER
+            </span>
+          )}
+        </div>
         <div className="flex space-x-3">
           <button
             onClick={refreshVariants}
@@ -150,11 +157,10 @@ const ProductDetailsPage: React.FC = () => {
           <button
             onClick={handleDelete}
             disabled={isDeleting}
-            className={`button flex items-center px-4 py-2 rounded-md transition ${
-              isDeleting
+            className={`button flex items-center px-4 py-2 rounded-md transition ${isDeleting
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-red-600 hover:bg-red-700 text-white"
-            }`}
+              }`}
           >
             <TrashIcon className="w-5 h-5 mr-2" />
             {isDeleting ? "Deleting..." : "Delete Product"}
@@ -182,9 +188,8 @@ const ProductDetailsPage: React.FC = () => {
                 <button
                   key={index}
                   onClick={() => setSelectedImage(img)}
-                  className={`w-20 h-20 border rounded-md overflow-hidden ${
-                    selectedImage === img ? "ring-2 ring-blue-500" : ""
-                  }`}
+                  className={`w-20 h-20 border rounded-md overflow-hidden ${selectedImage === img ? "ring-2 ring-blue-500" : ""
+                    }`}
                 >
                   <img
                     src={img}
@@ -232,7 +237,7 @@ const ProductDetailsPage: React.FC = () => {
               </div>
             </div>
 
-            
+
 
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
               <h2 className="text-lg font-semibold text-gray-700 mb-2">
@@ -270,7 +275,7 @@ const ProductDetailsPage: React.FC = () => {
               )}
             </div>
 
-            
+
           </div>
         </div>
 
@@ -284,7 +289,7 @@ const ProductDetailsPage: React.FC = () => {
           </div>
         </div>
 
-        
+
       </div>
     </div>
   );

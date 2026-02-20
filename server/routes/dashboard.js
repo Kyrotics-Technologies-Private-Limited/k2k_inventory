@@ -35,16 +35,16 @@ router.get("/stats", async (req, res) => {
   try {
     // Get date range parameters from query string
     const { startDate, endDate } = req.query;
-    
+
     // Set default to last one month if no dates provided
     const currentDate = new Date();
     const defaultStartDate = new Date(currentDate);
     defaultStartDate.setMonth(currentDate.getMonth() - 1);
-    
+
     // Parse dates consistently - treat as local dates, not UTC
     const startDateFilter = startDate ? new Date(startDate + 'T00:00:00') : defaultStartDate;
     const endDateFilter = endDate ? new Date(endDate + 'T23:59:59') : currentDate;
-    
+
     // Helper function to check if a timestamp is within the date range
     function isWithinDateRange(timestamp) {
       if (!timestamp || !timestamp.toDate) return false;
@@ -60,6 +60,7 @@ router.get("/stats", async (req, res) => {
     let monthlyOrders = 0;
     let revenueCustomers = new Set(); // Track unique customers who placed revenue-generating orders
     let revenueByCategory = {}; // Track revenue by category
+    let salesByCategory = {}; // Track units sold by category
 
     const orderStatusCounts = {
       placed: 0,
@@ -84,7 +85,7 @@ router.get("/stats", async (req, res) => {
     // First, fetch all variants to calculate revenue accurately
     const productsSnapshot = await db.collection("products").get();
     const allVariants = new Map(); // variantId -> variant data
-    
+
     // Fetch all variants from all products
     const variantFetches = productsSnapshot.docs.map(async (productDoc) => {
       const variantsSnapshot = await db.collection("products").doc(productDoc.id).collection("variants").get();
@@ -110,18 +111,19 @@ router.get("/stats", async (req, res) => {
       items.forEach((item) => {
         const variantId = item.variantId || item.variant_id;
         const variant = allVariants.get(variantId);
-        
+
         if (variant && typeof item.quantity === 'number' && typeof variant.price === 'number') {
           const itemRevenue = item.quantity * variant.price;
           orderRevenue += itemRevenue;
-          
-          // Track revenue by category for revenue-generating orders
+
+          // Track revenue and units sold by category for revenue-generating orders
           if (orderDate && isWithinDateRange(orderDate) && status !== 'cancelled' && status !== 'returned') {
             const productId = variant.productId;
             const product = productsSnapshot.docs.find(doc => doc.id === productId);
             if (product) {
               const category = product.data().category || 'Unknown';
               revenueByCategory[category] = (revenueByCategory[category] || 0) + itemRevenue;
+              salesByCategory[category] = (salesByCategory[category] || 0) + item.quantity;
             }
           }
         }
@@ -133,12 +135,12 @@ router.get("/stats", async (req, res) => {
         totalRevenue += orderRevenue;
         monthlyRevenue += orderRevenue;
         monthlyOrders += 1;
-        
+
         // Track unique customers who placed revenue-generating orders
         if (data.userId) {
           revenueCustomers.add(data.userId);
         }
-        
+
         // Revenue by day (only for the selected date range)
         if (orderDate?.toDate) {
           const day = formatDate(orderDate.toDate());
@@ -169,10 +171,10 @@ router.get("/stats", async (req, res) => {
             typeof item.quantity === "number"
               ? item.quantity
               : typeof item.qty === "number"
-              ? item.qty
-              : typeof item.count === "number"
-              ? item.count
-              : 1;
+                ? item.qty
+                : typeof item.count === "number"
+                  ? item.count
+                  : 1;
           if (!productId) return;
           if (orderJSDate >= threeMonthsAgo) {
             productSalesLast3Months[productId] = (productSalesLast3Months[productId] || 0) + quantity;
@@ -193,7 +195,7 @@ router.get("/stats", async (req, res) => {
     const productTotalStock = {};
     const LOW_STOCK_THRESHOLD = 5;
     const OVERSTOCK_THRESHOLD = 100;
-    
+
     // Process the already fetched variants for stock analysis
     productsSnapshot.docs.forEach((productDoc) => {
       const productData = productDoc.data();
@@ -205,7 +207,7 @@ router.get("/stats", async (req, res) => {
       } catch (e) {
         productIdToMainImage[productDoc.id] = null;
       }
-      
+
       // Get variants for this product from our allVariants map
       allVariants.forEach((variant, variantId) => {
         if (variant.productId === productDoc.id) {
@@ -238,6 +240,7 @@ router.get("/stats", async (req, res) => {
               variant: variant.name || variant.weight || variantId || "Unnamed Variant",
               unitsInStock: units,
               image: productIdToMainImage[productDoc.id] || null,
+              category: productData.category || 'Unknown',
             });
           }
         }
@@ -345,6 +348,7 @@ router.get("/stats", async (req, res) => {
       revenueCustomers: revenueCustomers.size, // Count of unique customers who placed revenue-generating orders
       orderStatusCounts,
       revenueByCategory, // Revenue breakdown by category
+      salesByCategory, // Units sold breakdown by category
       revenueChart: chartArray, // for charts
       outOfStockVariants, // new field for dashboard warning
       bestsellersLast3Months,

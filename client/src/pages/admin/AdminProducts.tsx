@@ -30,6 +30,7 @@ const initialForm: Omit<Product, "id"> = {
   category: "",
   categoryId: "",
   images: { main: "", gallery: [], banner: "" },
+  isBestseller: false,
   stockStatus: "in_stock",
   ratings: 0,
   reviews: 0,
@@ -1038,6 +1039,42 @@ const AdminProductPage: React.FC = () => {
                         ))}
                       </div>
                     </div>
+                    {/* ── Bestseller Toggle ─────────────────────────────── */}
+                    <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-sm font-semibold text-amber-800">🏆 Bestseller Tag</h3>
+                          <p className="text-xs text-amber-600 mt-0.5">
+                            Mark this product as a bestseller — it will be highlighted on the user-facing storefront.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData((prev) => ({ ...prev, isBestseller: !prev.isBestseller }))
+                          }
+                          className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 ${formData.isBestseller ? "bg-amber-500" : "bg-gray-300"
+                            }`}
+                          aria-checked={formData.isBestseller}
+                          role="switch"
+                          aria-label="Toggle bestseller"
+                        >
+                          <span
+                            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-300 ${formData.isBestseller ? "translate-x-8" : "translate-x-1"
+                              }`}
+                          />
+                        </button>
+                      </div>
+                      {formData.isBestseller && (
+                        <div className="mt-3 flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-amber-500 text-white text-xs font-bold rounded-full shadow">
+                            🏆 BESTSELLER
+                          </span>
+                          <span className="text-xs text-amber-700">This badge will appear on the product card in the store.</span>
+                        </div>
+                      )}
+                    </div>
+
                     <div className="mt-6 flex justify-end space-x-3">
                       {editMode && (
                         <button
@@ -1188,6 +1225,9 @@ const AdminProductPage: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Category
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
@@ -1215,14 +1255,19 @@ const AdminProductPage: React.FC = () => {
                             )}
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
+                            <div className="flex items-center gap-2">
                               <button
                                 type="button"
                                 onClick={() => viewDetails(product.id)}
-                                className="button text-blue-600 hover:text-blue-900 mr-4"
+                                className="button text-sm font-medium text-blue-600 hover:text-blue-900"
                               >
                                 {product.name}
                               </button>
+                              {product.isBestseller && (
+                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-full border border-amber-300">
+                                  🏆 Bestseller
+                                </span>
+                              )}
                             </div>
                             <div className="text-sm text-gray-500">
                               {product.origin}
@@ -1234,6 +1279,15 @@ const AdminProductPage: React.FC = () => {
                         <div className="text-sm text-gray-900 capitalize">
                           {product.category}
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {product.isBestseller ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-bold rounded-full border border-amber-300">
+                            🏆 Bestseller
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 text-sm">—</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
