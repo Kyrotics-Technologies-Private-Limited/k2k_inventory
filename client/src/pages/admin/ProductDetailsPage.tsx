@@ -222,11 +222,19 @@ const ProductDetailsPage: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-sm font-medium text-gray-500">
-                    Category:
+                    Categories:
                   </span>
-                  <span className="ml-2 text-gray-900 capitalize">
-                    {product.category}
-                  </span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {product.categories && product.categories.length > 0 ? (
+                      product.categories.map((cat, index) => (
+                        <span key={index} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+                          {cat}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-gray-400 text-xs italic">No categories</span>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <span className="text-sm font-medium text-gray-500">

@@ -9,12 +9,15 @@ export interface Product {
 
   };
   description: string;
+  shortDescription?: string;
   // ingredients: string[];
   origin: string;
   sku: string;
   warehouseName: string;
-  category: string; // Changed from union to string to support dynamic categories
-  categoryId?: string; // New field to link to Category document
+  categories?: string[]; // Array of category names
+  categoryIds?: string[]; // Array of category IDs
+  category?: string; // Single category name
+  categoryId?: string; // Single category ID
   images: {
     main: string;
     gallery: string[];
@@ -39,6 +42,12 @@ export interface Product {
     description: string;
     icon: string;
   }[];
+  /** Firestore `productCategory` root doc id (server-owned linking) */
+  traceabilityDocId?: string;
+  /** Sequentially generated ID for traceability (e.g. "001") */
+  productCategoryId?: string;
+  /** Inventory product schema version for migrations */
+  schemaVersion?: number;
 }
 
 
