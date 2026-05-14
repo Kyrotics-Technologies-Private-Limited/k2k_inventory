@@ -23,12 +23,13 @@ const initialForm: Omit<Product, "id"> = {
   name: "",
   price: { amount: 0, currency: "INR" },
   description: "",
+  shortDescription: "",
   origin: "",
   sku: "",
   warehouseName: "",
 
-  category: "",
-  categoryId: "",
+  categories: [],
+  categoryIds: [],
   images: { main: "", gallery: [], banner: "" },
   isBestseller: false,
   stockStatus: "in_stock",
@@ -74,7 +75,7 @@ const AdminProductPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
 
   const categoryDefaults: Record<
-    Product["category"],
+    string,
     { banner: string; badges: { text: string; image?: string }[] }
   > = {
     ghee: {
@@ -185,23 +186,24 @@ const AdminProductPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!editMode && formData.category) {
-      if (categoryDefaults && categoryDefaults[formData.category]) {
+    if (!editMode && formData.categories && formData.categories.length > 0) {
+      const primaryCategory = formData.categories[0];
+      if (categoryDefaults && categoryDefaults[primaryCategory]) {
         // Fallback to hardcoded defaults if dynamic category not found
         setFormData((prev) => ({
           ...prev,
           images: {
             ...prev.images,
-            banner: categoryDefaults[formData.category].banner,
+            banner: categoryDefaults[primaryCategory].banner,
           },
-          badges: categoryDefaults[formData.category].badges.map((b) => ({
+          badges: categoryDefaults[primaryCategory].badges.map((b) => ({
             text: b.text,
             image: b.image || "",
           })),
         }));
       }
     }
-  }, [formData.category, editMode]);
+  }, [formData.categories, editMode]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -241,6 +243,7 @@ const AdminProductPage: React.FC = () => {
       const filtered = products.filter(
         (product) =>
           (product.name && product.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (product.categories && product.categories.some(cat => cat.toLowerCase().includes(searchTerm.toLowerCase()))) ||
           (product.category && product.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
           (product.origin &&
             product.origin.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -268,16 +271,30 @@ const AdminProductPage: React.FC = () => {
           },
         }));
       }
-    } else if (name === "categoryId") {
-      const selectedCategory = categories.find(c => c.id === value);
-      setFormData(prev => ({
-        ...prev,
-        categoryId: value,
-        category: selectedCategory ? selectedCategory.name : ""
-      }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
+  };
+
+  const handleCategoryToggle = (catId: string, catName: string) => {
+    setFormData(prev => {
+      const currentIds = prev.categoryIds || [];
+      const currentNames = prev.categories || [];
+      
+      if (currentIds.includes(catId)) {
+        return {
+          ...prev,
+          categoryIds: currentIds.filter(id => id !== catId),
+          categories: currentNames.filter(name => name !== catName)
+        };
+      } else {
+        return {
+          ...prev,
+          categoryIds: [...currentIds, catId],
+          categories: [...currentNames, catName]
+        };
+      }
+    });
   };
 
   const handleImageChange = (
@@ -358,8 +375,11 @@ const AdminProductPage: React.FC = () => {
   };
 
   const handleEditClick = (product: Product) => {
+    const legacyProduct = product as any;
     setFormData({
       ...product,
+      categoryIds: product.categoryIds || (product.categoryId ? [product.categoryId] : []),
+      categories: product.categories || (product.category ? [product.category] : []),
       badges:
         product.badges?.map((b) => ({
           image: b.image || "",
@@ -682,19 +702,53 @@ const AdminProductPage: React.FC = () => {
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Category
+                          Categories
                         </label>
-                        <select
-                          name="categoryId"
-                          value={formData.categoryId || ""}
-                          onChange={handleChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                        >
-                          <option value="">Select Category</option>
-                          {categories.map((cat) => (
-                            <option key={cat.id} value={cat.id}>{cat.name}</option>
-                          ))}
-                        </select>
+                        <div className="min-h-[42px] p-2 border border-gray-300 rounded-md bg-white flex flex-wrap gap-2 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all duration-200">
+                          {(formData.categoryIds || []).map((catId) => {
+                            const cat = categories.find((c) => c.id === catId);
+                            if (!cat) return null;
+                            return (
+                              <span
+                                key={catId}
+                                className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-md border border-blue-100 shadow-sm transition-all"
+                              >
+                                {cat.name}
+                                <button
+                                  type="button"
+                                  onClick={() => handleCategoryToggle(catId, cat.name)}
+                                  className="text-blue-400 hover:text-blue-600 focus:outline-none transition-colors"
+                                >
+                                  <XMarkIcon className="w-4 h-4" />
+                                </button>
+                              </span>
+                            );
+                          })}
+                          <select
+                            className="flex-grow border-none focus:ring-0 text-sm py-1 bg-transparent cursor-pointer min-w-[150px]"
+                            value=""
+                            onChange={(e) => {
+                              const selectedId = e.target.value;
+                              if (selectedId) {
+                                const cat = categories.find((c) => c.id === selectedId);
+                                if (cat) handleCategoryToggle(selectedId, cat.name);
+                              }
+                            }}
+                          >
+                            <option value="" disabled>Select category...</option>
+                            {categories
+                              .filter((cat) => !(formData.categoryIds || []).includes(cat.id))
+                              .map((cat) => (
+                                <option key={cat.id} value={cat.id}>
+                                  {cat.name}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                        <p className="mt-2 text-xs text-gray-500 italic flex items-center gap-1">
+                          <CheckIcon className="w-3 h-3 text-green-500" />
+                          Choose multiple categories from the dropdown. Selected items appear as tags above.
+                        </p>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -718,6 +772,18 @@ const AdminProductPage: React.FC = () => {
                           value={formData.origin || ""}
                           onChange={handleChange}
                           placeholder="Enter product origin"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Short Description
+                        </label>
+                        <input
+                          name="shortDescription"
+                          value={formData.shortDescription || ""}
+                          onChange={handleChange}
+                          placeholder="Enter short description"
                           className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                         />
                       </div>
@@ -1275,9 +1341,21 @@ const AdminProductPage: React.FC = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 capitalize">
-                          {product.category}
+                      <td className="px-6 py-4">
+                        <div className="flex flex-wrap gap-1">
+                          {product.categories && product.categories.length > 0 ? (
+                            product.categories.map((cat, index) => (
+                              <span key={index} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+                                {cat}
+                              </span>
+                            ))
+                          ) : product.category ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+                              {product.category}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-xs italic">No categories</span>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">

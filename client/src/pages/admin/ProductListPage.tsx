@@ -111,7 +111,19 @@ const ProductListPage: React.FC = () => {
                 </div>
               )}
               <h3 className="font-bold text-lg">{product.name}</h3>
-              <p className="text-gray-600 text-sm mb-2">{product.description}</p>
+              <p className="text-gray-600 text-sm mb-2 line-clamp-2">{product.description}</p>
+              
+              <div className="flex flex-wrap gap-1 mb-3">
+                {product.categories && product.categories.length > 0 ? (
+                  product.categories.map((cat, index) => (
+                    <span key={index} className="px-1.5 py-0.5 bg-blue-50 text-blue-700 text-[10px] rounded uppercase font-medium border border-blue-100">
+                      {cat}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-gray-400 text-[10px] italic">No categories</span>
+                )}
+              </div>
               
               {/* Price Display */}
               <div className="mb-3">
