@@ -12,6 +12,9 @@ router.get('/', productController.getAllProducts);
 // Get product by ID
 router.get('/:id', productController.getProductById);
 
+// Patch product visibility status
+router.patch('/:id/status', productController.patchProductStatus);
+
 // Update product
 router.put('/:id', productController.updateProduct);
 

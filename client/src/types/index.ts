@@ -1,5 +1,7 @@
 // import { Variant } from "./variant";
 
+export type ProductStatus = "active" | "hidden" | "draft";
+
 export interface Product {
   id: string;
   name: string;
@@ -14,10 +16,14 @@ export interface Product {
   origin: string;
   sku: string;
   warehouseName: string;
-  categories?: string[]; // Array of category names
-  categoryIds?: string[]; // Array of category IDs
-  category?: string; // Single category name
-  categoryId?: string; // Single category ID
+  status?: ProductStatus;
+  categoryIds?: string[];
+  /** @deprecated Use categoryIds */
+  categories?: string[];
+  /** @deprecated Use categoryIds */
+  category?: string;
+  /** @deprecated Use categoryIds */
+  categoryId?: string;
   images: {
     main: string;
     gallery: string[];

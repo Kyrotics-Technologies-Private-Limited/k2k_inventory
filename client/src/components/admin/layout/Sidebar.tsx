@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { useState } from "react";
 import {
   FiHome,
@@ -21,6 +21,8 @@ interface MenuItem {
 
 const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
+  const location = useLocation();
+  const { pathname } = location;
 
   const menuItems: MenuItem[] = [
     { path: "/admin", icon: <FiHome size={20} />, name: "Dashboard" },
@@ -64,12 +66,21 @@ const Sidebar = () => {
       icon: <FiFileText size={20} />,
       name: "Reports",
     },
-    // {
-    //   path: "/admin/settings",
-    //   icon: <FiSettings size={20} />,
-    //   name: "Settings",
-    // },
   ];
+
+  const isItemActive = (itemPath: string) => {
+    if (itemPath === "/admin") {
+      return pathname === "/admin" || pathname === "/admin/" || pathname.startsWith("/admin/dashboard");
+    }
+    if (itemPath === "/admin/products") {
+      return (
+        pathname.startsWith("/admin/products") ||
+        pathname.startsWith("/admin/variants") ||
+        pathname.startsWith("/admin/productlist")
+      );
+    }
+    return pathname.startsWith(itemPath);
+  };
 
   return (
     <div
@@ -98,9 +109,8 @@ const Sidebar = () => {
             <li key={item.path}>
               <NavLink
                 to={item.path}
-                end // This ensures exact match for the current route
-                className={({ isActive }) =>
-                  `group relative flex items-center p-3 mx-2 rounded transition-colors duration-200 ${isActive ? "bg-blue-600" : "hover:bg-gray-700"
+                className={() =>
+                  `group relative flex items-center p-3 mx-2 rounded transition-colors duration-200 ${isItemActive(item.path) ? "bg-blue-600" : "hover:bg-gray-700"
                   } ${collapsed ? "justify-center" : ""}`
                 }
               >

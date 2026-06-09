@@ -64,6 +64,7 @@ const VariantDetailsPage: React.FC = () => {
     variants: "",
   });
   const [editingVariant, setEditingVariant] = useState<Variant | null>(null);
+  const [variantToDelete, setVariantToDelete] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<EditVariantForm>({
     weight: "",
     weightNumber: "",
@@ -224,8 +225,6 @@ const VariantDetailsPage: React.FC = () => {
   }, [productId]);
 
   const handleDeleteVariant = async (variantId: string) => {
-    if (!window.confirm("Are you sure you want to delete this variant?")) return;
-
     try {
       if (!productId) {
         console.error("Product ID is undefined");
@@ -802,6 +801,43 @@ const VariantDetailsPage: React.FC = () => {
           </button>
         </div>
       )}
+      {/* Delete Confirmation Modal */}
+      {variantToDelete && (
+        <div className="fixed inset-0 bg-gray-900/60 bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center space-x-3 text-red-600 mb-4">
+                <ExclamationTriangleIcon className="w-8 h-8" />
+                <h3 className="text-xl font-bold text-gray-950">Confirm Deletion</h3>
+              </div>
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to delete this variant? This action cannot be undone.
+              </p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setVariantToDelete(null)}
+                  className="button px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                >
+                  No
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const id = variantToDelete;
+                    setVariantToDelete(null);
+                    await handleDeleteVariant(id);
+                  }}
+                  className="button px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Edit Modal */}{" "}
       {editingVariant && (
         <div className="fixed inset-0 bg-gray-900/60 bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -1146,7 +1182,7 @@ const VariantDetailsPage: React.FC = () => {
                         Edit
                       </button>
                       <button
-                        onClick={() => handleDeleteVariant(variant.id)}
+                        onClick={() => setVariantToDelete(variant.id)}
                         className="button inline-flex items-center px-2 py-1 text-xs text-white bg-red-500 hover:bg-red-600 rounded"
                       >
                         <TrashIcon className="w-4 h-4 mr-1" />

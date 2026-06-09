@@ -23,6 +23,7 @@ const dashboardRoutes = require("./routes/dashboard");
 const membershipRoutes = require("./routes/membershipRoutes");
 const reportRoutes = require('./routes/reportRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
+const catalogRoutes = require('./routes/catalogRoutes');
 
 app.use('/api/products', productRoutes);
 app.use("/api/carts", cartRoutes);
@@ -36,7 +37,7 @@ app.use("/api/membership", membershipRoutes);
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/admin/reports', reportRoutes);
 app.use('/api/categories', categoryRoutes);
-
+app.use('/api/catalog', catalogRoutes);
 
 app.get("/", (req, res) => {
   res.send("k2k inventory API");

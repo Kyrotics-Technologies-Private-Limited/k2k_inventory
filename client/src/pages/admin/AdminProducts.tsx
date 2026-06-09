@@ -28,8 +28,8 @@ const initialForm: Omit<Product, "id"> = {
   sku: "",
   warehouseName: "",
 
-  categories: [],
   categoryIds: [],
+  status: "active",
   images: { main: "", gallery: [], banner: "" },
   isBestseller: false,
   stockStatus: "in_stock",
@@ -186,24 +186,24 @@ const AdminProductPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!editMode && formData.categories && formData.categories.length > 0) {
-      const primaryCategory = formData.categories[0];
-      if (categoryDefaults && categoryDefaults[primaryCategory]) {
-        // Fallback to hardcoded defaults if dynamic category not found
+    if (!editMode && formData.categoryIds && formData.categoryIds.length > 0 && categories.length > 0) {
+      const primaryCat = categories.find((c) => c.id === formData.categoryIds![0]);
+      const key = primaryCat?.slug || primaryCat?.name?.toLowerCase();
+      if (key && categoryDefaults[key]) {
         setFormData((prev) => ({
           ...prev,
           images: {
             ...prev.images,
-            banner: categoryDefaults[primaryCategory].banner,
+            banner: categoryDefaults[key].banner,
           },
-          badges: categoryDefaults[primaryCategory].badges.map((b) => ({
+          badges: categoryDefaults[key].badges.map((b) => ({
             text: b.text,
             image: b.image || "",
           })),
         }));
       }
     }
-  }, [formData.categories, editMode]);
+  }, [formData.categoryIds, editMode, categories]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -276,25 +276,26 @@ const AdminProductPage: React.FC = () => {
     }
   };
 
-  const handleCategoryToggle = (catId: string, catName: string) => {
-    setFormData(prev => {
+  const handleCategoryToggle = (catId: string) => {
+    setFormData((prev) => {
       const currentIds = prev.categoryIds || [];
-      const currentNames = prev.categories || [];
-      
       if (currentIds.includes(catId)) {
-        return {
-          ...prev,
-          categoryIds: currentIds.filter(id => id !== catId),
-          categories: currentNames.filter(name => name !== catName)
-        };
-      } else {
-        return {
-          ...prev,
-          categoryIds: [...currentIds, catId],
-          categories: [...currentNames, catName]
-        };
+        return { ...prev, categoryIds: currentIds.filter((id) => id !== catId) };
       }
+      return { ...prev, categoryIds: [...currentIds, catId] };
     });
+  };
+
+  const getProductCategoryNames = (product: Product): string[] => {
+    const ids = product.categoryIds || (product.categoryId ? [product.categoryId] : []);
+    if (ids.length > 0) {
+      return ids
+        .map((id) => categories.find((c) => c.id === id)?.name)
+        .filter((name): name is string => Boolean(name));
+    }
+    if (product.categories?.length) return product.categories;
+    if (product.category) return [product.category];
+    return [];
   };
 
   const handleImageChange = (
@@ -375,11 +376,10 @@ const AdminProductPage: React.FC = () => {
   };
 
   const handleEditClick = (product: Product) => {
-    const legacyProduct = product as any;
     setFormData({
       ...product,
       categoryIds: product.categoryIds || (product.categoryId ? [product.categoryId] : []),
-      categories: product.categories || (product.category ? [product.category] : []),
+      status: product.status || "active",
       badges:
         product.badges?.map((b) => ({
           image: b.image || "",
@@ -716,7 +716,7 @@ const AdminProductPage: React.FC = () => {
                                 {cat.name}
                                 <button
                                   type="button"
-                                  onClick={() => handleCategoryToggle(catId, cat.name)}
+                                  onClick={() => handleCategoryToggle(catId)}
                                   className="text-blue-400 hover:text-blue-600 focus:outline-none transition-colors"
                                 >
                                   <XMarkIcon className="w-4 h-4" />
@@ -731,7 +731,7 @@ const AdminProductPage: React.FC = () => {
                               const selectedId = e.target.value;
                               if (selectedId) {
                                 const cat = categories.find((c) => c.id === selectedId);
-                                if (cat) handleCategoryToggle(selectedId, cat.name);
+                                if (cat) handleCategoryToggle(selectedId);
                               }
                             }}
                           >
@@ -749,6 +749,21 @@ const AdminProductPage: React.FC = () => {
                           <CheckIcon className="w-3 h-3 text-green-500" />
                           Choose multiple categories from the dropdown. Selected items appear as tags above.
                         </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Catalog Status
+                        </label>
+                        <select
+                          name="status"
+                          value={formData.status || "active"}
+                          onChange={handleChange}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="active">Active — visible on storefront</option>
+                          <option value="hidden">Hidden — not shown on storefront</option>
+                          <option value="draft">Draft — work in progress</option>
+                        </select>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1334,6 +1349,15 @@ const AdminProductPage: React.FC = () => {
                                   🏆 Bestseller
                                 </span>
                               )}
+                              {product.status && product.status !== "active" && (
+                                <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full border ${
+                                  product.status === "draft"
+                                    ? "bg-gray-100 text-gray-700 border-gray-300"
+                                    : "bg-red-50 text-red-700 border-red-200"
+                                }`}>
+                                  {product.status}
+                                </span>
+                              )}
                             </div>
                             <div className="text-sm text-gray-500">
                               {product.origin}
@@ -1343,16 +1367,12 @@ const AdminProductPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap gap-1">
-                          {product.categories && product.categories.length > 0 ? (
-                            product.categories.map((cat, index) => (
+                          {getProductCategoryNames(product).length > 0 ? (
+                            getProductCategoryNames(product).map((cat, index) => (
                               <span key={index} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 capitalize">
                                 {cat}
                               </span>
                             ))
-                          ) : product.category ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 capitalize">
-                              {product.category}
-                            </span>
                           ) : (
                             <span className="text-gray-400 text-xs italic">No categories</span>
                           )}

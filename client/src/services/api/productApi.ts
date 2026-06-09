@@ -1,5 +1,5 @@
 import api from "./api";
-import type { Product } from "../../types/index"; // adjust this path based on your project structure
+import type { Product, ProductStatus } from "../../types/index";
 
 // const BASE_URL = "http://localhost:5566/api/products";
 
@@ -19,6 +19,12 @@ export const productApi = {
   // GET single product by ID
   getProductById: async (id: string): Promise<Product> => {
     const response = await api.get(`/products/${id}`);
+    return response.data;
+  },
+
+  // PATCH product visibility status
+  patchProductStatus: async (id: string, status: ProductStatus): Promise<Product> => {
+    const response = await api.patch(`/products/${id}/status`, { status });
     return response.data;
   },
 

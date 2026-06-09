@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "backfill:category-memberships": "node scripts/backfillCategoryMemberships.js",
+    "backfill:category-memberships:dry-run": "node scripts/backfillCategoryMemberships.js --dry-run"
   },
   "keywords": [],
   "author": "",
