@@ -14,6 +14,7 @@ export interface Category {
   showInFooter?: boolean;
   isFeatured?: boolean;
   isActive?: boolean;
+  rank?: number;
   previousUrlLinkNames?: string[];
   previousSlugs?: string[]; // Kept for API compatibility
   createdBy?: string;
@@ -36,6 +37,7 @@ export interface CategoryProduct {
   image?: string;
   images?: { main?: string; gallery?: string[]; banner?: string };
   isBestseller?: boolean;
+  status?: string;
   membership: CategoryMembership;
 }
 
@@ -48,6 +50,7 @@ export interface CategoryFormData {
   showOnHomepage: boolean;
   showInFooter: boolean;
   isFeatured: boolean;
+  rank?: number;
 }
 
 export interface ReorderItem {

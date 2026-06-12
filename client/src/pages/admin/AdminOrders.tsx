@@ -10,6 +10,8 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import PageHeader from "../../components/common/PageHeader";
+import Loader from "../../components/common/Loader";
 
 const ORDER_STATUSES = [
   "placed",
@@ -226,24 +228,6 @@ const AdminOrdersPage: React.FC = () => {
       }
     }
 
-    // Debug logging for first few orders
-    if (orders.indexOf(order) < 3) {
-      console.log('Order filtering debug:', {
-        orderId: order.id,
-        orderStatus: order.status,
-        orderDate: order.created_at,
-        formattedOrderDate: formatDateForDatePicker(order.created_at),
-        revenueFilter,
-        revenueMatch,
-        statusMatch,
-        searchMatch,
-        dateMatch,
-        startDate,
-        endDate,
-        finalMatch: revenueMatch && statusMatch && searchMatch && dateMatch
-      });
-    }
-
     return revenueMatch && statusMatch && searchMatch && dateMatch;
   });
 
@@ -309,11 +293,7 @@ const AdminOrdersPage: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
+    return <Loader text="Loading orders..." />;
   }
 
   if (error) {
@@ -354,24 +334,19 @@ const AdminOrdersPage: React.FC = () => {
   };
 
   return (
-    <div className="p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold">
-          {revenueFilter ? "Revenue Orders" : "All Orders"}
-        </h2>
-        {revenueFilter && (
-          <div className="flex gap-2">
-            <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
-              Showing only revenue-generating orders
-            </div>
-            {startDate && endDate && (
-              <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                Last 1 month ({startDate.toLocaleDateString()} - {endDate.toLocaleDateString()})
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+    <div className="container mx-auto space-y-6 px-4 py-8">
+      <PageHeader
+        title={revenueFilter ? "Revenue Orders" : "All Orders"}
+        description={
+          revenueFilter
+            ? `Showing only revenue-generating orders${
+                startDate && endDate
+                  ? ` for last 1 month (${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()})`
+                  : ""
+              }`
+            : undefined
+        }
+      />
 
       {/* Filters Section */}
       <div className="mb-6 space-y-4">

@@ -1,14 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/admin/layout/Layout";
-import AdminDashboard from "./pages/admin/Admindashboard";
+import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminProducts from "./pages/admin/AdminProducts";
 import ProductDetailsPage from "./pages/admin/ProductDetailsPage";
-import ProductListPage from "./pages/admin/ProductListPage";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminCustomers from "./pages/admin/AdminCustomers";
 import MembershipPage from "./pages/admin/MembershipPage";
 import { ToastContainer, Bounce } from "react-toastify";
-import VariantDetailsPage from "./pages/admin/Variantdetailspage";
+import VariantDetailsPage from "./pages/admin/VariantDetailsPage";
 import VariantEditPage from "./pages/admin/VariantEditPage";
 import AdminOrderDetailsPage from "./pages/admin/AdminOrderDetails";
 import AdminSignupLogin from "./pages/admin/AdminSignupLogin";
@@ -96,14 +95,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <CategoryManagement />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="productlist"
-            element={
-              <ProtectedRoute>
-                <ProductListPage />
               </ProtectedRoute>
             }
           />

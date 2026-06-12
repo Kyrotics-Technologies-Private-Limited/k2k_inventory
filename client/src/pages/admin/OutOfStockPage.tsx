@@ -6,12 +6,14 @@ import variantApi from "../../services/api/variantApi";
 import type { Variant } from "../../types/variant";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
+import Loader from "../../components/common/Loader";
+import PageHeader from "../../components/common/PageHeader";
 
 interface Product {
   id: string;
   name: string;
-  category: string;
-  images: { main: string };
+  category?: string;
+  images?: { main?: string };
 }
 
 const OutOfStockPage: React.FC = () => {
@@ -26,15 +28,21 @@ const OutOfStockPage: React.FC = () => {
     try {
       const allProducts: Product[] = await productApi.getAllProducts();
       setProducts(allProducts);
-      const variantsPromises = allProducts.map((product) =>
-        variantApi.getVariantsByProductId(product.id)
-      );
-      const allVariants = await Promise.all(variantsPromises);
+      
+      // Fetch all variants in a single bulk request instead of N parallel requests
+      const allVariants = await variantApi.getVariants();
+      
       const map: Record<string, Variant[]> = {};
-      allProducts.forEach((product, idx) => {
-        // Accept any shape for variants, as long as units_in_stock exists
-        map[product.id] = (allVariants[idx] as Variant[]);
+      allProducts.forEach((product) => {
+        map[product.id] = [];
       });
+      
+      allVariants.forEach((variant) => {
+        if (map[variant.productId]) {
+          map[variant.productId].push(variant);
+        }
+      });
+      
       setVariantsMap(map);
       
       // Debug: Log the first product's variants to see the structure
@@ -108,7 +116,7 @@ const OutOfStockPage: React.FC = () => {
     }
     const exportData = allProblemVariants.map((variant: any) => ({
       Product: variant.product.name,
-      Category: variant.product.category,
+      Category: variant.product.category || "—",
       Variant: variant.weight || 'Unnamed Variant',
       'Stock Status': variant.issueType === 'outOfStock' ? 'Out of Stock' : 'Low Stock',
       'Current Stock': variant.issueType === 'outOfStock' ? 0 : variant.units_in_stock
@@ -123,28 +131,24 @@ const OutOfStockPage: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-2">
-          <span
-            onClick={() => navigate('/admin/products')}
-            className="text-blue-600 hover:text-blue-800 cursor-pointer transition-colors"
-          >
-            ← Back to Products
-          </span>
+    <div className="container mx-auto space-y-6 px-4 py-8">
+      <PageHeader
+        title="Out of Stock & Low Stock Products"
+        onBack={() => navigate('/admin/products')}
+        backText="Back to Products"
+        actions={
           <button
             onClick={fetchProductsAndVariants}
             disabled={loading}
-            className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm cursor-pointer"
           >
             <ArrowPathIcon className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
-        </div>
-        <h1 className="text-2xl font-bold">Out of Stock & Low Stock Products</h1>
-      </div>
+        }
+      />
       {loading ? (
-        <div className="flex justify-center items-center h-40">Loading...</div>
+        <Loader text="Loading products and variants..." />
       ) : filtered.length === 0 ? (
         <div className="text-gray-500">All products are sufficiently stocked.</div>
       ) : (
@@ -189,18 +193,20 @@ const OutOfStockPage: React.FC = () => {
                     >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <img
-                          src={variant.product.images.main}
-                          alt={variant.product.name}
-                          className="w-10 h-10 object-cover rounded mr-3 border"
-                        />
+                        {variant.product.images?.main && (
+                          <img
+                            src={variant.product.images.main}
+                            alt={variant.product.name}
+                            className="w-10 h-10 object-cover rounded mr-3 border"
+                          />
+                        )}
                         <div>
                           <div className="text-sm font-medium text-gray-900">{variant.product.name}</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 capitalize">{variant.product.category}</div>
+                      <div className="text-sm text-gray-900 capitalize">{variant.product.category || "—"}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../../../services/firebase/firebase";
 import type { Category, CategoryFormData } from "../../../types/category";
-import { ArrowPathIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 function nameToUrlLinkName(name: string): string {
   return name
@@ -22,6 +22,7 @@ const defaultForm: CategoryFormData = {
   showOnHomepage: true,
   showInFooter: true,
   isFeatured: true,
+  rank: undefined,
 };
 
 interface CategoryFormProps {
@@ -46,6 +47,7 @@ const CategoryForm = ({ category, saving, onSubmit, onCancel }: CategoryFormProp
         showOnHomepage: category.showOnHomepage ?? false,
         showInFooter: category.showInFooter ?? false,
         isFeatured: category.isFeatured ?? false,
+        rank: category.rank,
       });
     } else {
       setForm(defaultForm);
@@ -88,9 +90,19 @@ const CategoryForm = ({ category, saving, onSubmit, onCancel }: CategoryFormProp
       }}
       className="space-y-4 rounded-lg border bg-white p-6 shadow-md animate-fadeIn"
     >
-      <h2 className="text-lg font-semibold text-gray-900">
-        {category ? "Edit Category" : "Create Category"}
-      </h2>
+      <div className="flex justify-between items-center mb-2">
+        <h2 className="text-lg font-semibold text-gray-900">
+          {category ? "Edit Category" : "Create Category"}
+        </h2>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-gray-400 hover:text-gray-600 focus:outline-none transition-colors cursor-pointer"
+          aria-label="Close"
+        >
+          <XMarkIcon className="w-6 h-6" />
+        </button>
+      </div>
 
       <div>
         <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
@@ -104,19 +116,54 @@ const CategoryForm = ({ category, saving, onSubmit, onCancel }: CategoryFormProp
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700">Image URL</label>
-        <input
-          type="text"
-          value={form.image || ""}
-          onChange={(e) => updateField("image", e.target.value)}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500"
-        />
-        <input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} className="mt-2" />
-        {form.image && (
-          <img src={form.image} alt="Preview" className="mt-2 h-20 w-20 rounded object-cover" />
-        )}
+        <label className="mb-1 block text-sm font-medium text-gray-700">Category Image</label>
+        <div className="space-y-3">
+          <input
+            type="text"
+            value={form.image || ""}
+            onChange={(e) => updateField("image", e.target.value)}
+            placeholder="Enter image URL or upload below"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500 text-sm"
+          />
+          <div className="flex items-center gap-3">
+            <label className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md cursor-pointer transition-colors text-sm font-semibold shadow-sm">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                disabled={uploading}
+                className="hidden"
+              />
+              {uploading ? (
+                <>
+                  <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                "Upload Image"
+              )}
+            </label>
+            {form.image && (
+              <div className="relative group h-20 w-20 rounded border border-gray-200 overflow-hidden bg-gray-50">
+                <img
+                  src={form.image}
+                  alt="Preview"
+                  className="h-full w-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => updateField("image", "")}
+                  className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-semibold cursor-pointer"
+                >
+                  Remove
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
+      {/*
       {category && (
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Sort order</label>
@@ -129,11 +176,26 @@ const CategoryForm = ({ category, saving, onSubmit, onCancel }: CategoryFormProp
         </div>
       )}
 
+      <div>
+        <label className="mb-1 block text-sm font-medium text-gray-700">Display Rank (Storefront Dropdown Position)</label>
+        <input
+          type="number"
+          value={form.rank ?? ""}
+          onChange={(e) => {
+            const val = e.target.value;
+            updateField("rank", val !== "" ? Number(val) : undefined);
+          }}
+          placeholder="e.g. 1 (lower numbers show first)"
+          className="w-full rounded-md border border-gray-300 px-3 py-2"
+        />
+      </div>
+      */}
+
       <div className="flex gap-2 pt-2">
         <button
           type="submit"
           disabled={saving || uploading}
-          className="flex items-center rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+          className="flex items-center rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
         >
           {saving && <ArrowPathIcon className="mr-2 h-4 w-4 animate-spin" />}
           {category ? "Update" : "Create"}
@@ -141,7 +203,7 @@ const CategoryForm = ({ category, saving, onSubmit, onCancel }: CategoryFormProp
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-md border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
+          className="rounded-md border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50 cursor-pointer"
         >
           Cancel
         </button>

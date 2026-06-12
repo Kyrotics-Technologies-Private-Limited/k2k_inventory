@@ -7,6 +7,8 @@ import {
   CheckIcon,
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
+import PageHeader from "../../components/common/PageHeader";
+import Loader from "../../components/common/Loader";
 // interface Variant {
 //   id: string;
 //   productId: string;
@@ -123,11 +125,7 @@ const VariantEditPage: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
+    return <Loader fullscreen text="Loading variant details..." />;
   }
 
   if (!variant) {
@@ -151,21 +149,16 @@ const VariantEditPage: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <button
-          onClick={() => navigate(`/admin/products/${productId}/variants`, { 
-            state: { refreshVariants: true } 
-          })}
-          className="flex items-center text-blue-600 hover:text-blue-800"
-        >
-          <ArrowLeftIcon className="w-5 h-5 mr-2" />
-          Back to Variants
-        </button>
-      </div>
+    <div className="container mx-auto space-y-6 px-4 py-8">
+      <PageHeader
+        title="Edit Variant"
+        onBack={() => navigate(`/admin/products/${productId}/variants`, { 
+          state: { refreshVariants: true } 
+        })}
+        backText="Back to Variants"
+      />
 
       <div className="bg-white rounded-lg shadow-md overflow-hidden p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Edit Variant</h3>
         {error && (
           <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-lg border border-red-200 flex items-center">
             <ExclamationTriangleIcon className="w-5 h-5 mr-2" />

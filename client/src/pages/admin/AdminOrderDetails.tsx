@@ -3,9 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { orderApi } from "../../services/api/orderApi";
 import type { Order, OrderStatus } from "../../types/order";
 import { toast } from "react-toastify";
-import { FiArrowLeft, FiEdit2, FiTruck } from "react-icons/fi";
+import {  FiEdit2, FiTruck } from "react-icons/fi";
 import { auth } from "../../services/firebase/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import PageHeader from "../../components/common/PageHeader";
+import Loader from "../../components/common/Loader";
 
 const ORDER_STATUSES: OrderStatus[] = [
   "placed",
@@ -150,14 +152,7 @@ const AdminOrderDetailsPage: React.FC = () => {
 
   // Show loading spinner while waiting for initial load
   if (loading && !error) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading order details...</p>
-        </div>
-      </div>
-    );
+    return <Loader fullscreen text="Loading order details..." />;
   }
 
   if (error || !order) {
@@ -207,37 +202,29 @@ const AdminOrderDetailsPage: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="mb-6 flex items-center justify-between">
-        <button
-          onClick={() => navigate("/admin/orders")}
-          className="button flex items-center text-gray-600 hover:text-blue-700"
-          disabled={loading}
-        >
-          <FiArrowLeft className="mr-2" /> Back to Orders
-        </button>
-        {!["delivered", "cancelled"].includes(order.status) && (
-          <button
-            onClick={() => setIsUpdateModalOpen(true)}
-            className="button flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            disabled={loading}
-          >
-            <FiEdit2 className="mr-2" /> Update Status
-          </button>
-        )}
-      </div>
+    <div className="container mx-auto space-y-6 px-4 py-8">
+      <PageHeader
+        title={`Order #${order.id}`}
+        description={`Placed on ${new Date(order.created_at || Date.now()).toLocaleString()}`}
+        onBack={() => navigate("/admin/orders")}
+        backText="Back to Orders"
+        actions={
+          !["delivered", "cancelled"].includes(order.status) ? (
+            <button
+              onClick={() => setIsUpdateModalOpen(true)}
+              className="button flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium text-sm cursor-pointer"
+              disabled={loading}
+            >
+              <FiEdit2 className="mr-2" /> Update Status
+            </button>
+          ) : undefined
+        }
+      />
 
       <div className="bg-white rounded-lg shadow-lg p-6">
         {/* Order Header */}
         <div className="border-b pb-6 mb-6">
           <div className="flex justify-between items-start mb-4">
-            <div>
-              <h1 className="text-2xl font-bold mb-2">Order #{order.id}</h1>
-              <p className="text-gray-500">
-                Placed on{" "}
-                {new Date(order.created_at || Date.now()).toLocaleString()}
-              </p>
-            </div>
             <span
               className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusBadgeColor(
                 order.status

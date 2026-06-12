@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import PageHeader from "../../components/common/PageHeader";
+import Loader from "../../components/common/Loader";
 
 import {
   FiShoppingCart,
@@ -171,14 +173,18 @@ const AdminDashboard: React.FC = () => {
 
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Dashboard Overview</h1>
+    <div className="container mx-auto space-y-6 px-4 py-8">
+      <PageHeader title="Dashboard Overview" />
 
       {/* Out of Stock Warning */}
       {renderOutOfStockWarning()}
 
-      {/* Summary Cards */}
-      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
+      {loading && !stats ? (
+        <Loader text="Loading dashboard stats..." />
+      ) : (
+        <>
+          {/* Summary Cards */}
+          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
         {summaryCards.map((card, index) => (
           <div
             key={index}
@@ -303,6 +309,8 @@ const AdminDashboard: React.FC = () => {
            </div>
          </div>
        </div>
+        </>
+      )}
     </div>
   );
 };

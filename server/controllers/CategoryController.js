@@ -104,6 +104,25 @@ async function getMaxSortOrder() {
   return snapshot.docs[0].data().sortOrder || 0;
 }
 
+async function resolveDeprecatedCategoryFields(categoryIds) {
+  if (!categoryIds?.length) {
+    return { category: null, categories: [] };
+  }
+
+  const names = [];
+  for (const catId of categoryIds) {
+    const doc = await db.collection(CATEGORIES).doc(catId).get();
+    if (doc.exists) {
+      names.push(doc.data().name);
+    }
+  }
+
+  return {
+    category: names[0] || null,
+    categories: names,
+  };
+}
+
 function buildCategoryTree(categories) {
   const map = new Map();
   const roots = [];
@@ -122,7 +141,7 @@ function buildCategoryTree(categories) {
   }
 
   const sortNodes = (nodes) => {
-    nodes.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    // nodes.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     for (const node of nodes) {
       if (node.children?.length) sortNodes(node.children);
     }
@@ -164,7 +183,7 @@ async function findCategoryBySlug(slug) {
 
 exports.createCategory = async (req, res) => {
   try {
-    const { name, urlLinkName, image, parentCategoryId, sortOrder, showInMenu, showOnHomepage, showInFooter, isFeatured } = req.body;
+    const { name, urlLinkName, image, parentCategoryId, sortOrder, showInMenu, showOnHomepage, showInFooter, isFeatured, rank } = req.body;
 
     if (!name || !urlLinkName) {
       return res.status(400).json({ error: 'name and urlLinkName are required' });
@@ -210,6 +229,7 @@ exports.createCategory = async (req, res) => {
       showInFooter: showInFooter ?? true,
       isFeatured: isFeatured ?? true,
       isActive: true,
+      rank: rank !== undefined && rank !== null && rank !== "" ? Number(rank) : null,
       previousUrlLinkNames: [],
       previousSlugs: [], // Keep duplicate for DB consistency
       createdBy: uid,
@@ -241,8 +261,18 @@ exports.getAllCategories = async (req, res) => {
 
     const snapshot = await query.get();
     let categories = snapshot.docs
-      .map((doc) => serializeCategory(doc.id, doc.data()))
-      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      .map((doc) => serializeCategory(doc.id, doc.data()));
+
+    // Sort categories by rank (commented out as requested)
+    /*
+    categories.sort((a, b) => {
+      const rankA = a.rank !== undefined && a.rank !== null ? a.rank : 999999;
+      const rankB = b.rank !== undefined && b.rank !== null ? b.rank : 999999;
+      return rankA - rankB;
+    });
+    */
+
+    // categories.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
     if (tree === 'true') {
       categories = buildCategoryTree(categories);
@@ -301,12 +331,16 @@ exports.updateCategory = async (req, res) => {
     const updates = {};
     const allowedFields = [
       'name', 'image', 'sortOrder', 'showInMenu', 'showOnHomepage',
-      'showInFooter', 'isFeatured', 'isActive', 'parentCategoryId',
+      'showInFooter', 'isFeatured', 'isActive', 'parentCategoryId', 'rank',
     ];
 
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
-        updates[field] = req.body[field];
+        if (field === 'rank') {
+          updates.rank = req.body.rank !== null && req.body.rank !== "" ? Number(req.body.rank) : null;
+        } else {
+          updates[field] = req.body[field];
+        }
       }
     }
 
@@ -378,14 +412,51 @@ exports.deleteCategory = async (req, res) => {
       return res.status(404).json({ error: 'Category not found' });
     }
 
-    await docRef.update({
-      isActive: false,
-      updatedBy: req.user.uid,
-      updatedAt: new Date(),
+    const batch = db.batch();
+
+    // 1. Delete all membership documents in the category's products subcollection
+    const productsSubRef = docRef.collection('products');
+    const productsSnap = await productsSubRef.get();
+    productsSnap.docs.forEach(pDoc => {
+      batch.delete(pDoc.ref);
     });
+
+    // 2. Remove this categoryId from all products in the main products collection
+    const productsMainSnap = await db.collection('products').where('categoryIds', 'array-contains', id).get();
+    for (const pDoc of productsMainSnap.docs) {
+      const data = pDoc.data();
+      const newCategoryIds = (data.categoryIds || []).filter(catId => catId !== id);
+      
+      const updates = {
+        categoryIds: newCategoryIds,
+        updatedAt: new Date()
+      };
+
+      // Also update legacy display fields
+      const deprecated = await resolveDeprecatedCategoryFields(newCategoryIds);
+      updates.category = deprecated.category;
+      updates.categories = deprecated.categories;
+
+      batch.update(pDoc.ref, updates);
+    }
+
+    // 3. Update child categories that have this category as parent
+    const childCatsSnap = await db.collection(CATEGORIES).where('parentCategoryId', '==', id).get();
+    childCatsSnap.docs.forEach(cDoc => {
+      batch.update(cDoc.ref, {
+        parentCategoryId: null,
+        level: 1,
+        updatedAt: new Date()
+      });
+    });
+
+    // 4. Delete the category document itself
+    batch.delete(docRef);
+
+    await batch.commit();
     scheduleManifestRebuild();
 
-    res.status(200).json({ message: 'Category deactivated', id });
+    res.status(200).json({ message: 'Category deleted successfully', id });
   } catch (error) {
     console.error('deleteCategory error:', error);
     res.status(500).json({ error: error.message });
@@ -431,7 +502,7 @@ exports.reorderCategories = async (req, res) => {
 
 exports.getCategoryProducts = async (req, res) => {
   try {
-    const products = await membershipService.getCategoryProducts(req.params.id);
+    const products = await membershipService.getCategoryProducts(req.params.id, { activeOnly: false });
     res.status(200).json(products);
   } catch (error) {
     if (error.status === 404) {
@@ -468,6 +539,8 @@ exports.assignProduct = async (req, res) => {
       { isFeatured, sortOrder },
     );
 
+    scheduleManifestRebuild();
+
     res.status(membership.idempotent ? 200 : 201).json(membership);
   } catch (error) {
     if (error.status === 404) {
@@ -488,6 +561,8 @@ exports.removeProduct = async (req, res) => {
     if (!result.removed) {
       return res.status(404).json({ error: result.message });
     }
+
+    scheduleManifestRebuild();
 
     res.status(200).json(result);
   } catch (error) {
@@ -510,6 +585,7 @@ exports.reorderCategoryProducts = async (req, res) => {
     }
 
     const result = await membershipService.reorderCategoryProducts(req.params.id, items);
+    scheduleManifestRebuild();
     res.status(200).json({ message: 'Products reordered', ...result });
   } catch (error) {
     if (error.status === 404) {
@@ -527,6 +603,7 @@ exports.updateMembership = async (req, res) => {
       req.params.productId,
       req.body,
     );
+    scheduleManifestRebuild();
     res.status(200).json(result);
   } catch (error) {
     if (error.status === 404 || error.status === 400) {

@@ -76,10 +76,12 @@ exports.createProduct = async (req, res) => {
     const deprecated = await resolveDeprecatedCategoryFields(categoryIds);
     const now = new Date();
 
+    const rank = req.body.rank !== undefined && req.body.rank !== null && req.body.rank !== "" ? Number(req.body.rank) : null;
     const productData = {
       ...rest,
       categoryIds,
       status,
+      rank,
       category: deprecated.category,
       categories: deprecated.categories,
       createdAt: now,
@@ -105,6 +107,8 @@ exports.createProduct = async (req, res) => {
       console.error('Traceability snapshot sync failed:', syncErr.message);
     }
 
+    scheduleManifestRebuild();
+
     const created = await productRef.get();
     const formatted = await attachStockStatus(formatProduct(created));
     res.status(201).json(formatted);
@@ -119,6 +123,14 @@ exports.getAllProducts = async (req, res) => {
   try {
     const snapshot = await db.collection(PRODUCTS).get();
     const products = await attachStockStatusToMany(snapshot.docs.map(formatProduct));
+    
+    // Sort products by rank ascending (treating undefined/null as lowest priority, i.e., end of list)
+    products.sort((a, b) => {
+      const rankA = a.rank !== undefined && a.rank !== null ? a.rank : 999999;
+      const rankB = b.rank !== undefined && b.rank !== null ? b.rank : 999999;
+      return rankA - rankB;
+    });
+
     res.status(200).json(products);
   } catch (error) {
     console.error('getAllProducts error:', error);
@@ -140,6 +152,10 @@ exports.updateProduct = async (req, res) => {
     const body = stripServerOwnedFields(req.body);
     const { categoryIds: inputCategoryIds, status: inputStatus, ...rest } = body;
     const updates = { ...rest };
+
+    if (req.body.rank !== undefined) {
+      updates.rank = req.body.rank !== null && req.body.rank !== "" ? Number(req.body.rank) : null;
+    }
 
     if (inputStatus !== undefined) {
       if (!VALID_STATUSES.includes(inputStatus)) {
@@ -173,9 +189,7 @@ exports.updateProduct = async (req, res) => {
       console.error('Traceability snapshot sync failed:', syncErr.message);
     }
 
-    if (updates.status !== undefined) {
-      scheduleManifestRebuild();
-    }
+    scheduleManifestRebuild();
 
     const refreshed = await docRef.get();
     const formatted = await attachStockStatus(formatProduct(refreshed));
@@ -233,6 +247,7 @@ exports.deleteProduct = async (req, res) => {
       console.error('Category membership cleanup failed:', membershipErr.message);
     }
     await db.collection(PRODUCTS).doc(id).delete();
+    scheduleManifestRebuild();
     res.status(200).json({ message: 'Product deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });

@@ -9,9 +9,17 @@ const BUILD_STATE_DOC = 'build_state';
 let rebuildTimer = null;
 let isRebuilding = false;
 
-function isProductActive(product) {
+function isProductActive(product, disabledCategoryIds = new Set()) {
   const status = product.status;
-  return !status || status === 'active';
+  if (status && status !== 'active') return false;
+
+  const categoryIds = product.categoryIds || [];
+  for (const catId of categoryIds) {
+    if (disabledCategoryIds.has(catId)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function toCategorySummary(cat) {
@@ -51,7 +59,7 @@ function buildCategoryTree(categories) {
   }
 
   const sortNodes = (nodes) => {
-    nodes.sort((a, b) => a.sortOrder - b.sortOrder);
+    // nodes.sort((a, b) => a.sortOrder - b.sortOrder);
     for (const node of nodes) {
       if (node.children.length) sortNodes(node.children);
     }
@@ -66,7 +74,7 @@ function bannerKeyForCategory(cat) {
   return `hero_${cat.slug.replace(/-/g, '_')}`;
 }
 
-async function getFeaturedProductsForCategory(categoryId) {
+async function getFeaturedProductsForCategory(categoryId, disabledCategoryIds) {
   const membershipSnap = await db
     .collection(CATEGORIES)
     .doc(categoryId)
@@ -84,7 +92,7 @@ async function getFeaturedProductsForCategory(categoryId) {
     if (!productSnap.exists) continue;
 
     const product = productSnap.data();
-    if (!isProductActive(product)) continue;
+    if (!isProductActive(product, disabledCategoryIds)) continue;
 
     featured.push({
       id: productSnap.id,
@@ -92,19 +100,40 @@ async function getFeaturedProductsForCategory(categoryId) {
       slug: product.slug || productSnap.id,
       image: product.images?.main || product.image || null,
       sortOrder: membership.sortOrder || 0,
+      rank: product.rank !== undefined && product.rank !== null ? product.rank : null,
     });
   }
 
-  return featured.sort((a, b) => a.sortOrder - b.sortOrder);
+  return featured.sort((a, b) => {
+    const rankA = a.rank !== null && a.rank !== undefined ? a.rank : 999999;
+    const rankB = b.rank !== null && b.rank !== undefined ? b.rank : 999999;
+    if (rankA !== rankB) return rankA - rankB;
+    return a.sortOrder - b.sortOrder;
+  });
 }
 
 async function buildCatalogManifest() {
   try {
-    const categoriesSnap = await db.collection(CATEGORIES).where('isActive', '==', true).get();
+    const categoriesSnap = await db.collection(CATEGORIES).get();
 
-    const categories = categoriesSnap.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }))
-      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    const allCategories = categoriesSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    // Sort categories by rank (commented out as requested)
+    /*
+    const categories = allCategories
+      .filter((c) => c.isActive !== false)
+      .sort((a, b) => {
+        const rankA = a.rank !== undefined && a.rank !== null ? a.rank : 999999;
+        const rankB = b.rank !== undefined && b.rank !== null ? b.rank : 999999;
+        return rankA - rankB;
+      });
+    */
+    const categories = allCategories
+      .filter((c) => c.isActive !== false);
+      // .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+    const disabledCategoryIds = new Set(
+      allCategories.filter((c) => c.isActive === false).map((c) => c.id)
+    );
 
     const menuCategories = buildCategoryTree(
       categories.filter((c) => c.showInMenu),
@@ -112,13 +141,13 @@ async function buildCatalogManifest() {
 
     const footerCategories = categories
       .filter((c) => c.showInFooter)
-      .map(toCategorySummary)
-      .sort((a, b) => a.sortOrder - b.sortOrder);
+      .map(toCategorySummary);
+      // .sort((a, b) => a.sortOrder - b.sortOrder);
 
     const featuredCategories = categories
       .filter((c) => c.isFeatured)
-      .map(toCategorySummary)
-      .sort((a, b) => a.sortOrder - b.sortOrder);
+      .map(toCategorySummary);
+      // .sort((a, b) => a.sortOrder - b.sortOrder);
 
     const homepageCategories = categories.filter((c) => c.showOnHomepage);
     const homepageSections = await Promise.all(
@@ -130,10 +159,10 @@ async function buildCatalogManifest() {
         link: `/c/${cat.slug}`,
         image: cat.image || null,
         sortOrder: cat.sortOrder || 0,
-        featuredProducts: await getFeaturedProductsForCategory(cat.id),
+        featuredProducts: await getFeaturedProductsForCategory(cat.id, disabledCategoryIds),
       })),
     );
-    homepageSections.sort((a, b) => a.sortOrder - b.sortOrder);
+    // homepageSections.sort((a, b) => a.sortOrder - b.sortOrder);
 
     const latestRef = db.collection(MANIFEST_COLLECTION).doc(MANIFEST_DOC);
     const latestSnap = await latestRef.get();

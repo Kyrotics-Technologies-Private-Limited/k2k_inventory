@@ -5,9 +5,17 @@ const { attachStockStatusToMany } = require('./productStockService');
 const CATEGORIES = 'categories';
 const PRODUCTS = 'products';
 
-function isProductActive(product) {
+function isProductActive(product, disabledCategoryIds = new Set()) {
   const status = product.status;
-  return !status || status === 'active';
+  if (status && status !== 'active') return false;
+
+  const categoryIds = getProductCategoryIds(product);
+  for (const catId of categoryIds) {
+    if (disabledCategoryIds.has(catId)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function serializeTimestamp(value) {
@@ -56,6 +64,20 @@ async function getCategoryProducts(categoryId, { activeOnly = true } = {}) {
     throw Object.assign(new Error('Category not found'), { status: 404 });
   }
 
+  const categoryData = categorySnap.data();
+  if (activeOnly && categoryData.isActive === false) {
+    return [];
+  }
+
+  // Fetch all categories to identify disabled ones
+  const allCatsSnap = await db.collection(CATEGORIES).get();
+  const disabledCategoryIds = new Set(
+    allCatsSnap.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter(c => c.isActive === false)
+      .map(c => c.id)
+  );
+
   const membershipSnap = await categoryRef.collection('products').orderBy('sortOrder').get();
   const results = [];
 
@@ -65,7 +87,7 @@ async function getCategoryProducts(categoryId, { activeOnly = true } = {}) {
     if (!productSnap.exists) continue;
 
     const product = { id: productSnap.id, ...productSnap.data() };
-    if (activeOnly && !isProductActive(product)) continue;
+    if (activeOnly && !isProductActive(product, disabledCategoryIds)) continue;
 
     results.push({
       ...product,

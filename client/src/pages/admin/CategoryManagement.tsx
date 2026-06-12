@@ -4,8 +4,11 @@ import { PlusIcon } from "@heroicons/react/24/outline";
 import CategoryForm from "../../components/admin/categories/CategoryForm";
 import CategoryList from "../../components/admin/categories/CategoryList";
 import CategoryProductsPanel from "../../components/admin/categories/CategoryProductsPanel";
+import ConfirmationModal from "../../components/common/ConfirmationModal";
 import { categoryApi } from "../../services/api/categoryApi";
 import type { Category, CategoryFormData } from "../../types/category";
+import PageHeader from "../../components/common/PageHeader";
+import Loader from "../../components/common/Loader";
 
 const CategoryManagement = () => {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -15,11 +18,15 @@ const CategoryManagement = () => {
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Modal target states
+  const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
+  const [disableTarget, setDisableTarget] = useState<Category | null>(null);
+
   const loadCategories = useCallback(async () => {
     setLoading(true);
     try {
       const data = await categoryApi.getAll();
-      const sorted = [...data].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      const sorted = [...data]; // Sorting logic commented out: [...data].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
       setCategories(sorted);
     } catch (err) {
       console.error("Failed to load categories:", err);
@@ -41,9 +48,10 @@ const CategoryManagement = () => {
       toast.success("Category created");
       setCreating(false);
       await loadCategories();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Failed to create category");
+      const errMsg = err.response?.data?.error || err.message || "Failed to create category";
+      toast.error(errMsg);
     } finally {
       setSaving(false);
     }
@@ -61,22 +69,25 @@ const CategoryManagement = () => {
         setSelected({ ...editing, ...data });
       }
       await loadCategories();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Failed to update category");
+      const errMsg = err.response?.data?.error || err.message || "Failed to update category";
+      toast.error(errMsg);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (category: Category) => {
-    if (!confirm(`Deactivate "${category.name}"? Products will keep their assignments.`)) return;
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    const cat = deleteTarget;
+    setDeleteTarget(null);
     try {
-      await categoryApi.delete(category.id);
+      await categoryApi.delete(cat.id);
       await categoryApi.rebuildManifest();
-      toast.success("Category deactivated");
-      if (selected?.id === category.id) setSelected(null);
-      if (editing?.id === category.id) setEditing(null);
+      toast.success(`Category "${cat.name}" deleted successfully`);
+      if (selected?.id === cat.id) setSelected(null);
+      if (editing?.id === cat.id) setEditing(null);
       await loadCategories();
     } catch (err) {
       console.error(err);
@@ -84,55 +95,92 @@ const CategoryManagement = () => {
     }
   };
 
+  const handleDisableConfirm = async () => {
+    if (!disableTarget) return;
+    const cat = disableTarget;
+    setDisableTarget(null);
+    try {
+      await categoryApi.update(cat.id, { isActive: false });
+      await categoryApi.rebuildManifest();
+      toast.success(`Category "${cat.name}" disabled successfully`);
+      if (selected?.id === cat.id) {
+        setSelected({ ...cat, isActive: false });
+      }
+      await loadCategories();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to disable category");
+    }
+  };
+
+  const handleDisableToggle = (category: Category) => {
+    if (category.isActive !== false) {
+      // Show confirmation modal to disable
+      setDisableTarget(category);
+    } else {
+      // Enable directly without confirmation
+      enableCategory(category);
+    }
+  };
+
+  const enableCategory = async (cat: Category) => {
+    try {
+      await categoryApi.update(cat.id, { isActive: true });
+      await categoryApi.rebuildManifest();
+      toast.success(`Category "${cat.name}" enabled successfully`);
+      if (selected?.id === cat.id) {
+        setSelected({ ...cat, isActive: true });
+      }
+      await loadCategories();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to enable category");
+    }
+  };
 
   const showForm = creating || editing;
 
   return (
     <div className="container mx-auto space-y-6 px-4 py-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Categories</h1>
-          <p className="text-sm text-gray-500">Manage catalog categories and storefront visibility</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            setCreating(true);
-            setEditing(null);
-          }}
-          className="flex items-center rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-        >
-          <PlusIcon className="mr-2 h-5 w-5" />
-          New Category
-        </button>
-      </div>
+      <PageHeader
+        title="Categories"
+        description="Manage catalog categories and storefront visibility"
+        actions={
+          <button
+            type="button"
+            onClick={() => {
+              setCreating(true);
+              setEditing(null);
+            }}
+            className="flex items-center rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 font-medium text-sm transition-colors cursor-pointer"
+          >
+            <PlusIcon className="mr-2 h-5 w-5" />
+            New Category
+          </button>
+        }
+      />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div>
-          {loading ? (
-            <p className="text-gray-500">Loading…</p>
-          ) : (
-            <CategoryList
-              categories={categories.filter((c) => c.isActive !== false)}
-              selectedId={selected?.id ?? null}
-              onSelect={setSelected}
-              onEdit={(cat) => {
-                setEditing(cat);
-                setCreating(false);
-              }}
-              onDelete={handleDelete}
-            />
-          )}
-        </div>
-        <div>
-          {selected ? (
-            <CategoryProductsPanel category={selected} />
-          ) : (
-            <div className="rounded-lg border bg-white p-6 text-center text-gray-500 shadow-md">
-              Select a category to see its products
-            </div>
-          )}
-        </div>
+      <div className="space-y-6">
+        {loading ? (
+          <Loader text="Loading categories..." />
+        ) : (
+          <CategoryList
+            categories={categories}
+            selectedId={selected?.id ?? null}
+            onSelect={setSelected}
+            onEdit={(cat) => {
+              setEditing(cat);
+              setCreating(false);
+            }}
+            onDisableToggle={handleDisableToggle}
+            onDelete={(cat) => setDeleteTarget(cat)}
+            productsPanel={
+              selected ? (
+                <CategoryProductsPanel category={selected} onClose={() => setSelected(null)} />
+              ) : null
+            }
+          />
+        )}
       </div>
 
       {showForm && (
@@ -150,6 +198,29 @@ const CategoryManagement = () => {
           </div>
         </div>
       )}
+
+      {/* Confirmation Modals */}
+      <ConfirmationModal
+        isOpen={deleteTarget !== null}
+        title="Delete Category"
+        message={`Are you sure you want to permanently delete category "${deleteTarget?.name}"?\n\nThis will permanently delete the category and remove its assignment from all products. This action cannot be undone.`}
+        confirmText="Delete Category"
+        cancelText="Cancel"
+        type="danger"
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmationModal
+        isOpen={disableTarget !== null}
+        title="Disable Category"
+        message={`Are you sure you want to disable category "${disableTarget?.name}"?\n\nThis will hide the category and all products belonging to it from the storefront.`}
+        confirmText="Disable Category"
+        cancelText="Cancel"
+        type="warning"
+        onConfirm={handleDisableConfirm}
+        onCancel={() => setDisableTarget(null)}
+      />
     </div>
   );
 };

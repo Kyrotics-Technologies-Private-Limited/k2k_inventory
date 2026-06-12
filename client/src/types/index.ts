@@ -18,6 +18,7 @@ export interface Product {
   warehouseName: string;
   status?: ProductStatus;
   categoryIds?: string[];
+  rank?: number;
   /** @deprecated Use categoryIds */
   categories?: string[];
   /** @deprecated Use categoryIds */

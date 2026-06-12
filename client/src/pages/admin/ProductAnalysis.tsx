@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
+import PageHeader from "../../components/common/PageHeader";
+import Loader from "../../components/common/Loader";
 import { fetchDashboardStats, type DashboardStatsResponse } from "../../services/api/dashApi";
 import { categoryApi, type Category } from "../../services/api/categoryApi";
 import {
@@ -181,21 +183,28 @@ const ProductAnalysis: React.FC = () => {
 
   // ── JSX ───────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Product Analysis</h1>
-        <button
-          onClick={exportData}
-          disabled={loading || categoryPieData.length === 0}
-          className={`px-6 py-2 rounded-md font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200 ${loading || categoryPieData.length === 0
-            ? "bg-gray-400 cursor-not-allowed text-gray-600"
-            : "bg-green-600 hover:bg-green-700 focus:ring-green-500 text-white"
+    <div className="container mx-auto space-y-6 px-4 py-8">
+      <PageHeader
+        title="Product Analysis"
+        actions={
+          <button
+            onClick={exportData}
+            disabled={loading || categoryPieData.length === 0}
+            className={`px-6 py-2 rounded-md font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200 ${
+              loading || categoryPieData.length === 0
+                ? "bg-gray-400 cursor-not-allowed text-gray-600"
+                : "bg-green-600 hover:bg-green-700 focus:ring-green-500 text-white"
             }`}
-        >
-          {loading ? "Loading..." : "Export Data"}
-        </button>
-      </div>
+          >
+            Export Data
+          </button>
+        }
+      />
+
+      {loading ? (
+        <Loader text="Loading product analysis data..." />
+      ) : (
+        <>
 
       {/* Top 4 product lists */}
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
@@ -634,6 +643,8 @@ const ProductAnalysis: React.FC = () => {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 };

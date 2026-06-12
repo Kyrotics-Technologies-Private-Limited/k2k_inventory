@@ -27,7 +27,10 @@ export const categoryApi = {
     return response.data;
   },
 
-  update: async (id: string, data: Partial<CategoryFormData>): Promise<Category> => {
+  update: async (
+    id: string,
+    data: Partial<CategoryFormData> & { isActive?: boolean; parentCategoryId?: string | null }
+  ): Promise<Category> => {
     const response = await api.put<Category>(`/categories/${id}`, data);
     return response.data;
   },

@@ -16,7 +16,8 @@ const requireAdmin = async (req, res, next) => {
       return res.status(403).json({ error: 'Forbidden - User not found' });
     }
 
-    if (userDoc.data().isAdmin !== true) {
+    const userData = userDoc.data();
+    if (userData.isAdmin !== true && userData.isAdmin !== 'true') {
       return res.status(403).json({ error: 'Forbidden - Admin access required' });
     }
 
