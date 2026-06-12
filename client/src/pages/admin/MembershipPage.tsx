@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { membershipApi } from "../../services/api/membershipApi";
 import type { Membership, CreateMembershipInput } from "../../types/MembershipSettings";
+import PageHeader from "../../components/common/PageHeader";
+import Loader from "../../components/common/Loader";
 
 const MembershipPage: React.FC = () => {
   const [memberships, setMemberships] = useState<Membership[]>([]);
@@ -111,16 +113,18 @@ const MembershipPage: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Membership Management</h1>
-        <button
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          onClick={() => setShowAddForm(true)}
-        >
-          {editingMembership ? "Edit Membership" : "Add Plan"}
-        </button>
-      </div>
+    <div className="container mx-auto space-y-6 px-4 py-8 max-w-6xl">
+      <PageHeader
+        title="Membership Management"
+        actions={
+          <button
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-medium text-sm transition-colors cursor-pointer"
+            onClick={() => setShowAddForm(true)}
+          >
+            {editingMembership ? "Edit Membership" : "Add Plan"}
+          </button>
+        }
+      />
 
       {showAddForm && (
         <div className="mb-6 p-6 bg-white rounded-lg shadow">
@@ -234,10 +238,7 @@ const MembershipPage: React.FC = () => {
         </div>
         
         {loading ? (
-          <div className="p-6 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="mt-2 text-gray-500">Loading memberships...</p>
-          </div>
+          <Loader text="Loading memberships..." />
         ) : memberships.length === 0 ? (
           <div className="p-6 text-center text-gray-500">
             No memberships found. Create your first membership plan.

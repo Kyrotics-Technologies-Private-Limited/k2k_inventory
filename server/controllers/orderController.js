@@ -5,6 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const db = admin.firestore();
 const ordersCollection = db.collection('orders');
 const usersCollection = db.collection('users');
+const { enrichOrderLineItem } = require('../services/orderItemSnapshotService');
 
 // Helper
 const getTimestamp = () => admin.firestore.FieldValue.serverTimestamp();
@@ -75,18 +76,10 @@ exports.createOrder = async (req, res) => {
         return res.status(400).json({ message: `Not enough stock for variant ${variantId}` });
       }
       
-      // Enrich item with variant data including discount and GST
-      const enrichedItem = {
-        ...item,
-        productId,
-        variantId,
-        quantity,
-        price: variantData.price || 0,
-        discount: variantData.discount || 0,
-        gstPercentage: variantData.gstPercentage || 0,
-        variant_name: variantData.weight || variantData.name || 'Variant',
-        unit_price: variantData.price || 0,
-      };
+      const enrichedItem = await enrichOrderLineItem(
+        { ...item, productId, variantId, quantity },
+        variantData,
+      );
       enrichedItems.push(enrichedItem);
       
       const newStock = variantData.units_in_stock - quantity;

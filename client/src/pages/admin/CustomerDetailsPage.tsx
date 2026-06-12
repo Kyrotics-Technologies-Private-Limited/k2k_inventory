@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import PageHeader from "../../components/common/PageHeader";
+import Loader from "../../components/common/Loader";
 
 interface Order {
   id: string;
@@ -45,7 +47,7 @@ const CustomerDetailsPage: React.FC = () => {
     fetchDetails();
   }, [customerId]);
 
-  if (loading) return <div className="p-8 text-center">Loading...</div>;
+  if (loading) return <Loader fullscreen text="Loading customer details..." />;
   if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
   if (!customer)
     return <div className="p-8 text-center">Customer not found</div>;
@@ -56,13 +58,12 @@ const CustomerDetailsPage: React.FC = () => {
   };
 
   return (
-    <div className="w-full max-w-none px-4 sm:px-6 lg:px-8 py-8 mx-auto">
-      <button
-        onClick={() => navigate(-1)}
-        className="button mb-6 flex items-center text-blue-600 hover:underline text-sm"
-      >
-        <span className="mr-2">&larr;</span> Back to Customers
-      </button>
+    <div className="container mx-auto space-y-6 px-4 py-8">
+      <PageHeader
+        title={customer.name || "Customer Details"}
+        onBack={() => navigate(-1)}
+        backText="Back to Customers"
+      />
       <div className="bg-white shadow-lg rounded-lg p-6 flex flex-col sm:flex-row gap-8 mb-8">
         <div className="flex-shrink-0 flex items-center justify-center w-28 h-28 rounded-full bg-blue-100 text-blue-600 text-5xl font-bold">
           {customer.name &&
@@ -72,9 +73,9 @@ const CustomerDetailsPage: React.FC = () => {
             : "?"}
         </div>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold mb-1 text-gray-900">
-            {customer.name}
-          </h1>
+          <h2 className="text-xl font-semibold mb-2 text-gray-800">
+            Profile Details
+          </h2>
           <div className="flex flex-wrap gap-4 mb-2 text-gray-700">
             <span className="inline-flex items-center text-sm">
               <span className="font-medium mr-1">Email:</span> {customer.email}

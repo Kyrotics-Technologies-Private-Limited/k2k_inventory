@@ -1,58 +1,105 @@
-import axios from "axios";
-
-// Define the API URL based on environment or default to local
-const API_URL = "http://localhost:5567/api/categories";
-
-export interface Category {
-    id: string;
-    name: string;
-    key: string;
-    image?: string;
-    createdAt?: string;
-    updatedAt?: string;
-}
+import api from "./api";
+import type {
+  Category,
+  CategoryFormData,
+  CategoryProduct,
+  ProductReorderItem,
+  ReorderItem,
+} from "../../types/category";
 
 export const categoryApi = {
-    // Get all categories
-    getAllCategories: async (): Promise<Category[]> => {
-        try {
-            const response = await axios.get(API_URL);
-            return response.data;
-        } catch (error) {
-            console.error("Error fetching categories:", error);
-            throw error;
-        }
-    },
+  getAll: async (params?: {
+    active?: boolean;
+    showInMenu?: boolean;
+    tree?: boolean;
+  }): Promise<Category[]> => {
+    const response = await api.get<Category[]>("/categories", { params });
+    return response.data;
+  },
 
-    // Create a new category
-    createCategory: async (categoryData: Partial<Category>): Promise<Category> => {
-        try {
-            const response = await axios.post(`${API_URL}/create`, categoryData);
-            return response.data;
-        } catch (error) {
-            console.error("Error creating category:", error);
-            throw error;
-        }
-    },
+  getById: async (id: string): Promise<Category> => {
+    const response = await api.get<Category>(`/categories/${id}`);
+    return response.data;
+  },
 
-    // Update a category
-    updateCategory: async (id: string, categoryData: Partial<Category>): Promise<Category> => {
-        try {
-            const response = await axios.put(`${API_URL}/${id}`, categoryData);
-            return response.data;
-        } catch (error) {
-            console.error("Error updating category:", error);
-            throw error;
-        }
-    },
+  create: async (data: CategoryFormData): Promise<Category> => {
+    const response = await api.post<Category>("/categories", data);
+    return response.data;
+  },
 
-    // Delete a category
-    deleteCategory: async (id: string): Promise<void> => {
-        try {
-            await axios.delete(`${API_URL}/${id}`);
-        } catch (error) {
-            console.error("Error deleting category:", error);
-            throw error;
-        }
-    }
+  update: async (
+    id: string,
+    data: Partial<CategoryFormData> & { isActive?: boolean; parentCategoryId?: string | null }
+  ): Promise<Category> => {
+    const response = await api.put<Category>(`/categories/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: string): Promise<{ message: string; id: string }> => {
+    const response = await api.delete(`/categories/${id}`);
+    return response.data;
+  },
+
+  reorder: async (items: ReorderItem[]): Promise<{ message: string; count: number }> => {
+    const response = await api.put("/categories/reorder", items);
+    return response.data;
+  },
+
+  getProducts: async (categoryId: string): Promise<CategoryProduct[]> => {
+    const response = await api.get<CategoryProduct[]>(`/categories/${categoryId}/products`);
+    return response.data;
+  },
+
+  assignProduct: async (
+    categoryId: string,
+    productId: string,
+    opts?: { isFeatured?: boolean }
+  ): Promise<unknown> => {
+    const response = await api.post(`/categories/${categoryId}/products`, {
+      productId,
+      ...opts,
+    });
+    return response.data;
+  },
+
+  removeProduct: async (
+    categoryId: string,
+    productId: string
+  ): Promise<{ removed: boolean }> => {
+    const response = await api.delete(`/categories/${categoryId}/products/${productId}`);
+    return response.data;
+  },
+
+  reorderProducts: async (
+    categoryId: string,
+    items: ProductReorderItem[]
+  ): Promise<{ message: string }> => {
+    const response = await api.put(`/categories/${categoryId}/products/reorder`, items);
+    return response.data;
+  },
+
+  patchMembership: async (
+    categoryId: string,
+    productId: string,
+    data: { isFeatured?: boolean; sortOrder?: number }
+  ): Promise<unknown> => {
+    const response = await api.patch(
+      `/categories/${categoryId}/products/${productId}`,
+      data
+    );
+    return response.data;
+  },
+
+  rebuildManifest: async (): Promise<unknown> => {
+    const response = await api.post("/catalog/manifest/rebuild");
+    return response.data;
+  },
+
+  /** @deprecated Use getAll — kept for existing admin pages */
+  getAllCategories: async (): Promise<Category[]> => {
+    const response = await api.get<Category[]>("/categories");
+    return response.data;
+  },
 };
+
+export type { Category };

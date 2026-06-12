@@ -6,7 +6,6 @@ import {
   EnvelopeIcon,
   PhoneIcon,
   UserCircleIcon,
-  ArrowPathIcon,
   ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 
@@ -14,6 +13,8 @@ import api from "../../services/api/api";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { membershipApi } from "../../services/api/membershipApi";
+import PageHeader from "../../components/common/PageHeader";
+import Loader from "../../components/common/Loader";
 
 interface Customer {
   id: string;
@@ -193,47 +194,40 @@ const CustomersManagement: React.FC = () => {
   };
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-8">
-      <div className="sm:flex sm:items-center sm:justify-between mb-8">
-        <div>
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-gray-900">
-              {revenueFilter ? "Revenue Customers" : "Customers Management"}
-            </h1>
+    <div className="container mx-auto space-y-6 px-4 py-8">
+      <PageHeader
+        title={revenueFilter ? "Revenue Customers" : "Customers Management"}
+        description={
+          revenueFilter
+            ? "Customers who have placed revenue-generating orders"
+            : "Manage and analyze your customer base"
+        }
+        actions={
+          <div className="mt-4 sm:mt-0 flex space-x-3">
             {revenueFilter && (
-              <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
-                Showing only customers with orders
-              </div>
+              <button
+                type="button"
+                className="button inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+                onClick={() => {
+                  setRevenueFilter(false);
+                  navigate("/admin/customers", { replace: true });
+                }}
+              >
+                Clear Revenue Filter
+              </button>
             )}
-          </div>
-          <p className="mt-2 text-sm text-gray-700">
-            {revenueFilter ? "Customers who have placed revenue-generating orders" : "Manage and analyze your customer base"}
-          </p>
-        </div>
-        <div className="mt-4 sm:mt-0 flex space-x-3">
-          {revenueFilter && (
             <button
               type="button"
-              className="button inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-              onClick={() => {
-                setRevenueFilter(false);
-                navigate("/admin/customers", { replace: true });
-              }}
+              className="button inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+              onClick={handleExportExcel}
+              disabled={filteredCustomers.length === 0}
             >
-              Clear Revenue Filter
+              <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
+              Export
             </button>
-          )}
-          <button
-            type="button"
-            className="button inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-            onClick={handleExportExcel}
-            disabled={filteredCustomers.length === 0}
-          >
-            <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
-            Export
-          </button>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {/* Membership Summary */}
       <div className="mb-6 bg-white shadow rounded-lg p-4">
@@ -334,9 +328,7 @@ const CustomersManagement: React.FC = () => {
       {/* Customers Table */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
         {loading ? (
-          <div className="flex justify-center items-center p-12">
-            <ArrowPathIcon className="h-12 w-12 text-blue-500 animate-spin" />
-          </div>
+          <Loader text="Loading customers..." />
         ) : displayCustomers.length === 0 ? (
           <div className="text-center p-12">
             <p className="text-gray-500">

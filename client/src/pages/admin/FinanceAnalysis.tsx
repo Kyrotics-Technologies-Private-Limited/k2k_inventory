@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import PageHeader from "../../components/common/PageHeader";
+import Loader from "../../components/common/Loader";
 import { fetchDashboardStats } from "../../services/api/dashApi";
 import { categoryApi, type Category } from "../../services/api/categoryApi";
 import variantApi from "../../services/api/variantApi";
@@ -236,10 +238,13 @@ const FinanceAnalysis: React.FC = () => {
 
   // ── JSX ───────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Finance Analysis</h1>
-      </div>
+    <div className="container mx-auto space-y-6 px-4 py-8">
+      <PageHeader title="Finance Analysis" />
+
+      {loading ? (
+        <Loader text="Loading financial analysis data..." />
+      ) : (
+        <>
 
       {/* KPI Cards Row 1 */}
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
@@ -665,6 +670,8 @@ const FinanceAnalysis: React.FC = () => {
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 };

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { ArrowDownTrayIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
+import PageHeader from "../../components/common/PageHeader";
+import Loader from "../../components/common/Loader";
+import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import api from "../../services/api/api";
@@ -132,25 +134,21 @@ const Reports: React.FC = () => {
   };
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-8">
-      <div className="sm:flex sm:items-center sm:justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Sales Reports</h1>
-          <p className="mt-2 text-sm text-gray-700">
-            View and export all delivered order invoices
-          </p>
-        </div>
-        <div className="mt-4 sm:mt-0">
+    <div className="container mx-auto space-y-6 px-4 py-8">
+      <PageHeader
+        title="Sales Reports"
+        description="View and export all delivered order invoices"
+        actions={
           <button
             type="button"
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors cursor-pointer"
             onClick={handleExportExcel}
           >
             <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
             Export Report
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Date Range Filter */}
       <div className="bg-white shadow rounded-lg p-6 mb-6">
@@ -183,9 +181,7 @@ const Reports: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="flex justify-center items-center p-12">
-          <ArrowPathIcon className="h-12 w-12 text-blue-500 animate-spin" />
-        </div>
+        <Loader text="Loading reports data..." />
       ) : (
         <div className="bg-white shadow rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
