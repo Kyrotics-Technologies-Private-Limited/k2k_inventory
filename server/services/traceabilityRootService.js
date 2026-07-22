@@ -208,7 +208,12 @@ async function ensureTraceabilityRoot(productId) {
     }
 
     const newRootRef = db.collection(COLLECTION_TRACEABILITY_ROOTS).doc();
-    const productCategoryId = await getNextProductCategoryId();
+    let productCategoryId = pdata.productCategoryId;
+    if (productCategoryId && typeof productCategoryId === 'string' && productCategoryId.trim()) {
+      productCategoryId = productCategoryId.trim().padStart(3, '0');
+    } else {
+      productCategoryId = await getNextProductCategoryId();
+    }
     t.set(newRootRef, buildNewTraceabilityRootDocument(productId, pdata, productCategoryId));
     t.update(productRef, {
       traceabilityDocId: newRootRef.id,
@@ -230,7 +235,14 @@ async function ensureTraceabilityRoot(productId) {
  */
 async function createProductWithTraceabilityRootTransaction(productRef, rootRef, productPayload) {
   const productId = productRef.id;
-  const productCategoryId = await getNextProductCategoryId();
+  
+  let productCategoryId = productPayload.productCategoryId;
+  if (productCategoryId && typeof productCategoryId === 'string' && productCategoryId.trim()) {
+    productCategoryId = productCategoryId.trim().padStart(3, '0');
+  } else {
+    productCategoryId = await getNextProductCategoryId();
+  }
+
   const rootBody = buildNewTraceabilityRootDocument(productId, productPayload, productCategoryId);
 
   await db.runTransaction(async (t) => {
