@@ -22,7 +22,6 @@ const VALID_STATUSES = ['active', 'hidden', 'draft'];
 const SERVER_OWNED_FIELDS = new Set([
   'id',
   'traceabilityDocId',
-  'productCategoryId',
   'schemaVersion',
 ]);
 
