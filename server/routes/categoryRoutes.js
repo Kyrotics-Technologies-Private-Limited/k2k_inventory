@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const categoryController = require('../controllers/categoryController');
+const categoryController = require('../controllers/CategoryController');
 const firebaseAuth = require('../middleware/firebaseAuth');
 const requireAdmin = require('../middleware/requireAdmin');
 

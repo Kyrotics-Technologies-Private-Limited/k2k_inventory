@@ -19,6 +19,14 @@ if (!admin.apps.length) {
     ? admin.credential.cert({
         type: process.env.FIREBASE_TYPE,
         project_id: projectId,
+// Initialize Firebase Admin
+if (!admin.apps.length) {
+  const hasPrivateKey = process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL;
+  
+  const credential = hasPrivateKey
+    ? admin.credential.cert({
+        type: process.env.FIREBASE_TYPE,
+        project_id: process.env.FIREBASE_PROJECT_ID,
         private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
         private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
         client_email: process.env.FIREBASE_CLIENT_EMAIL,
@@ -35,6 +43,8 @@ if (!admin.apps.length) {
     credential,
     projectId,
     storageBucket,
+    projectId: process.env.FIREBASE_PROJECT_ID || 'univillage-503009',
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'univillage-503009.firebasestorage.app',
   });
 
   console.log(`Firebase Admin initialized with ${hasPrivateKey ? 'service account' : 'ADC'} for ${projectId}`);
@@ -55,3 +65,4 @@ module.exports = {
   bucket,
   FieldValue
 };
+
