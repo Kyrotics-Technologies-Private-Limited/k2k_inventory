@@ -6,34 +6,38 @@ const path = require("path");
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '../config.env') });
 
-const projectId = process.env.FIREBASE_PROJECT_ID;
-const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+const projectId = process.env.FIREBASE_PROJECT_ID || 'univillage-503009';
 const storageBucket =
   process.env.FIREBASE_STORAGE_BUCKET ||
-  (projectId ? `${projectId}.firebasestorage.app` : undefined);
+  (projectId ? `${projectId}.firebasestorage.app` : 'univillage-503009.firebasestorage.app');
 
 // Initialize Firebase Admin
 if (!admin.apps.length) {
-  if (clientEmail && privateKey) {
-    admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId,
-        clientEmail,
-        privateKey: privateKey.replace(/\\n/g, "\n"),
-      }),
-      projectId,
-      storageBucket,
-    });
-    console.log(`Firebase Admin initialized with service account for ${projectId}`);
-  } else {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      projectId,
-      storageBucket,
-    });
-    console.log(`Firebase Admin initialized with ADC for ${projectId}`);
-  }
+  const hasPrivateKey = Boolean(process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL);
+
+  const credential = hasPrivateKey
+    ? admin.credential.cert({
+        type: process.env.FIREBASE_TYPE,
+        project_id: projectId,
+        private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+        private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+        client_email: process.env.FIREBASE_CLIENT_EMAIL,
+        client_id: process.env.FIREBASE_CLIENT_ID,
+        auth_uri: process.env.FIREBASE_AUTH_URI,
+        token_uri: process.env.FIREBASE_TOKEN_URI,
+        auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_CERT_URL,
+        client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL,
+        universe_domain: process.env.FIREBASE_UNIVERSE_DOMAIN,
+      })
+    : admin.credential.applicationDefault();
+
+  admin.initializeApp({
+    credential,
+    projectId,
+    storageBucket,
+  });
+
+  console.log(`Firebase Admin initialized with ${hasPrivateKey ? 'service account' : 'ADC'} for ${projectId}`);
 }
 
 // Export Firestore, Auth, and Storage
@@ -51,4 +55,3 @@ module.exports = {
   bucket,
   FieldValue
 };
-
