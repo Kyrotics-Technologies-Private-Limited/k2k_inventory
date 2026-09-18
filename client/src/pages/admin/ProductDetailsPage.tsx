@@ -11,6 +11,8 @@ import type { Variant } from "../../types/variant";
 // import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import PageHeader from "../../components/common/PageHeader";
 import Loader from "../../components/common/Loader";
+import VariantListTable from "../../components/admin/variants/VariantListTable";
+import EditVariantModal from "../../components/admin/variants/EditVariantModal";
 
 const ProductDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -20,8 +22,20 @@ const ProductDetailsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedImage, setSelectedImage] = useState("");
-  // const [isDeleting, setIsDeleting] = useState(false);
   const [variants, setVariants] = useState<Variant[]>([]);
+  const [editingVariant, setEditingVariant] = useState<Variant | null>(null);
+
+  const handleDeleteVariant = async (variantId: string) => {
+    if (!id) return;
+    if (!window.confirm("Are you sure you want to delete this variant?")) return;
+    try {
+      await variantApi.deleteVariant(id, variantId);
+      const updated = await variantApi.getVariantsByProductId(id);
+      setVariants(updated);
+    } catch (err) {
+      console.error("Delete variant error:", err);
+    }
+  };
 
   const fetchProductDetails = async () => {
     try {
@@ -229,41 +243,30 @@ const ProductDetailsPage: React.FC = () => {
 
 
 
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <h2 className="text-lg font-semibold text-gray-700 mb-2">
-                Inventory
-              </h2>
-              {variants && variants.length > 0 ? (
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead>
-                    <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Variant</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Units in Stock</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {variants.map((variant) => (
-                      <tr key={variant.id || variant.weight}>
-                        <td className="px-4 py-2 whitespace-nowrap">{variant.weight}</td>
-                        <td className="px-4 py-2 whitespace-nowrap">{variant.units_in_stock}</td>
-                        <td className="px-4 py-2 whitespace-nowrap">
-                          <span className={
-                            variant.units_in_stock > 0
-                              ? "text-green-600 font-medium"
-                              : "text-red-600 font-medium"
-                          }>
-                            {variant.units_in_stock > 0 ? "In Stock" : "Out of Stock"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="text-gray-500">No variants found.</div>
-              )}
-            </div>
+      {/* Full Variant List Table */}
+      <div className="p-6 border-t border-gray-200">
+        <VariantListTable
+          variants={variants}
+          loadingVariants={loading}
+          onEdit={(v) => setEditingVariant(v)}
+          onDelete={handleDeleteVariant}
+        />
+      </div>
+
+      {editingVariant && id && (
+        <EditVariantModal
+          variant={editingVariant}
+          productId={id}
+          onClose={() => setEditingVariant(null)}
+          onSuccess={(updated) => {
+            setVariants((prev) => prev.map((v) => (v.id === updated.id ? updated : v)));
+            setEditingVariant(null);
+          }}
+          isWeightDuplicate={(weight, excludeId) =>
+            variants.some((v) => v.id !== excludeId && v.weight.toLowerCase() === weight.toLowerCase())
+          }
+        />
+      )}
 
 
           </div>

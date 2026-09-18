@@ -48,59 +48,131 @@ export const productApi = {
     return response.data; // Assuming the products are in response.data
   },
 
+  // Helper to convert file to Base64 Data URL
+  fileToDataUrl: async (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(file);
+    });
+  },
+
   // UPLOAD gallery images
   uploadGalleryImages: async (files: FileList | File[]) => {
-    const formData = new FormData();
-    Array.from(files).forEach((file) => {
-      formData.append("gallery", file);
-    });
-    const response = await api.post(`/products/upload-gallery`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return response.data.urls as string[];
+    try {
+      const formData = new FormData();
+      Array.from(files).forEach((file) => {
+        formData.append("gallery", file);
+      });
+      const response = await api.post(`/products/upload-gallery`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return response.data.urls as string[];
+    } catch (err) {
+      console.warn("Backend upload failed, falling back to local base64 Data URLs:", err);
+      return Promise.all(
+        Array.from(files).map((file) =>
+          new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          })
+        )
+      );
+    }
   },
 
   // UPLOAD main image
   uploadMainImage: async (file: File) => {
-    const formData = new FormData();
-    formData.append("mainImage", file);
-    const response = await api.post(`/products/upload-main-image`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return response.data.url as string;
+    try {
+      const formData = new FormData();
+      formData.append("mainImage", file);
+      const response = await api.post(`/products/upload-main-image`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return response.data.url as string;
+    } catch (err) {
+      console.warn("Backend upload failed, falling back to local base64 Data URL:", err);
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
   },
 
   // UPLOAD badge image
   uploadBadgeImage: async (file: File) => {
-    const formData = new FormData();
-    formData.append("badgeImage", file);
-    const response = await api.post(`/products/upload-badge-image`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return response.data.url as string;
+    try {
+      const formData = new FormData();
+      formData.append("badgeImage", file);
+      const response = await api.post(`/products/upload-badge-image`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return response.data.url as string;
+    } catch (err) {
+      console.warn("Backend upload failed, falling back to local base64 Data URL:", err);
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
   },
 
   // UPLOAD multiple badge images
   uploadMultipleBadgeImages: async (files: FileList | File[]) => {
-    const formData = new FormData();
-    Array.from(files).forEach((file) => {
-      formData.append("badgeImages", file);
-    });
-    const response = await api.post(`/products/upload-multiple-badge-images`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return response.data.urls as string[];
+    try {
+      const formData = new FormData();
+      Array.from(files).forEach((file) => {
+        formData.append("badgeImages", file);
+      });
+      const response = await api.post(`/products/upload-multiple-badge-images`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return response.data.urls as string[];
+    } catch (err) {
+      console.warn("Backend upload failed, falling back to local base64 Data URLs:", err);
+      return Promise.all(
+        Array.from(files).map((file) =>
+          new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          })
+        )
+      );
+    }
   },
 
   // UPLOAD multiple health badge images
   uploadMultipleHealthBadgeImages: async (files: FileList | File[]) => {
-    const formData = new FormData();
-    Array.from(files).forEach((file) => {
-      formData.append("healthBadgeImages", file);
-    });
-    const response = await api.post(`/products/upload-multiple-health-badge-images`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return response.data.urls as string[];
+    try {
+      const formData = new FormData();
+      Array.from(files).forEach((file) => {
+        formData.append("healthBadgeImages", file);
+      });
+      const response = await api.post(`/products/upload-multiple-health-badge-images`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return response.data.urls as string[];
+    } catch (err) {
+      console.warn("Backend upload failed, falling back to local base64 Data URLs:", err);
+      return Promise.all(
+        Array.from(files).map((file) =>
+          new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          })
+        )
+      );
+    }
   },
 };

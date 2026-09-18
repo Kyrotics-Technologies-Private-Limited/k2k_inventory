@@ -9,6 +9,9 @@ import {
   ArrowPathIcon,
   PencilIcon,
   PlusIcon,
+  DocumentTextIcon,
+  PhotoIcon,
+  TagIcon,
 } from "@heroicons/react/24/outline";
 
 interface ProductFormModalProps {
@@ -21,6 +24,20 @@ interface ProductFormModalProps {
   onSubmit: (formData: Omit<Product, "id">) => Promise<void>;
   formLoading: boolean;
 }
+
+type ProductFormTab = "basics" | "media" | "badges";
+
+const TABS: { id: ProductFormTab; label: string; icon: React.ElementType }[] = [
+  { id: "basics", label: "Basics", icon: DocumentTextIcon },
+  { id: "media", label: "Media & Banners", icon: PhotoIcon },
+  { id: "badges", label: "Badges & Benefits", icon: TagIcon },
+];
+
+const inputClass =
+  "w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors";
+const labelClass = "block text-xs font-semibold text-gray-700 mb-1";
+const uploadBtnClass =
+  "inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded-md text-xs font-medium cursor-pointer transition-colors";
 
 const initialForm: Omit<Product, "id"> = {
   name: "",
@@ -35,6 +52,7 @@ const initialForm: Omit<Product, "id"> = {
   status: "active",
   images: { main: "", gallery: [], banner: "" },
   isBestseller: false,
+  isSample: false,
   stockStatus: "in_stock",
   ratings: 0,
   reviews: 0,
@@ -151,6 +169,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
   onSubmit,
   formLoading,
 }) => {
+  const [activeTab, setActiveTab] = useState<ProductFormTab>("basics");
   const [formData, setFormData] = useState<Omit<Product, "id">>(initialForm);
   const [, setPriceInput] = useState("");
 
@@ -185,8 +204,10 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
         badges: initialData.badges ? [...initialData.badges] : [],
         healthBadges: initialData.healthBadges ? [...initialData.healthBadges] : [],
         benefits: initialData.benefits ? [...initialData.benefits] : [],
+        isSample: Boolean(initialData.isSample),
       });
       setPriceInput(initialData.price?.amount ? String(initialData.price.amount) : "");
+      setActiveTab("basics");
     }
   }, [isOpen, initialData]);
 
@@ -334,7 +355,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
         },
       }));
     } catch (err) {
-      setGalleryUploadError("Failed to upload gallery images.");
+      setGalleryUploadError("Failed to upload gallery images. Please try again.");
     } finally {
       setGalleryUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -349,35 +370,20 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
     setBadgeImageUploadError("");
     try {
       const urls = await productApi.uploadMultipleBadgeImages(e.target.files);
+      const newBadges = urls.map((url: string) => ({
+        text: "",
+        image: url,
+      }));
       setFormData((prev) => ({
         ...prev,
-        badges: [
-          ...(prev.badges || []),
-          ...urls.map((url) => ({ image: url, text: "" })),
-        ],
+        badges: [...(prev.badges || []), ...newBadges],
       }));
     } catch (err) {
-      setBadgeImageUploadError("Failed to upload badge images.");
+      setBadgeImageUploadError("Failed to upload badge images. Please try again.");
     } finally {
       setBadgeImageUploading(false);
       if (badgeImageInputRef.current) badgeImageInputRef.current.value = "";
     }
-  };
-
-  const handleBadgeNameChange = (idx: number, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      badges: prev.badges.map((badge, i) =>
-        i === idx ? { ...badge, text: value } : badge
-      ),
-    }));
-  };
-
-  const handleRemoveBadge = (idx: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      badges: prev.badges.filter((_, i) => i !== idx),
-    }));
   };
 
   const handleMultipleHealthBadgeFilesSelect = async (
@@ -387,38 +393,58 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
     setHealthBadgeUploading(true);
     setHealthBadgeUploadError("");
     try {
-      const urls = await productApi.uploadMultipleHealthBadgeImages(e.target.files);
+      const urls = await productApi.uploadMultipleHealthBadgeImages(
+        e.target.files
+      );
+      const newHealthBadges = urls.map((url: string) => ({
+        title: "",
+        description: "",
+        image: url,
+      }));
       setFormData((prev) => ({
         ...prev,
-        healthBadges: [
-          ...(prev.healthBadges || []),
-          ...urls.map((url) => ({ image: url, title: "", description: "" })),
-        ],
+        healthBadges: [...(prev.healthBadges || []), ...newHealthBadges],
       }));
     } catch (err) {
-      setHealthBadgeUploadError("Failed to upload health badge images.");
+      setHealthBadgeUploadError("Failed to upload health badge images. Please try again.");
     } finally {
       setHealthBadgeUploading(false);
       if (healthBadgeInputRef.current) healthBadgeInputRef.current.value = "";
     }
   };
 
-  const handleHealthBadgeTitleChange = (idx: number, value: string) => {
+  const handleBadgeNameChange = (idx: number, name: string) => {
+    setFormData((prev) => {
+      const newBadges = [...(prev.badges || [])];
+      newBadges[idx] = { ...newBadges[idx], text: name };
+      return { ...prev, badges: newBadges };
+    });
+  };
+
+  const handleRemoveBadge = (idx: number) => {
     setFormData((prev) => ({
       ...prev,
-      healthBadges: (prev.healthBadges || []).map((badge, i) =>
-        i === idx ? { ...badge, title: value } : badge
-      ),
+      badges: (prev.badges || []).filter((_, i) => i !== idx),
     }));
   };
 
-  const handleHealthBadgeDescriptionChange = (idx: number, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      healthBadges: (prev.healthBadges || []).map((badge, i) =>
-        i === idx ? { ...badge, description: value } : badge
-      ),
-    }));
+  const handleHealthBadgeTitleChange = (idx: number, title: string) => {
+    setFormData((prev) => {
+      const newBadges = [...(prev.healthBadges || [])];
+      newBadges[idx] = { ...newBadges[idx], title };
+      return { ...prev, healthBadges: newBadges };
+    });
+  };
+
+  const handleHealthBadgeDescriptionChange = (
+    idx: number,
+    description: string
+  ) => {
+    setFormData((prev) => {
+      const newBadges = [...(prev.healthBadges || [])];
+      newBadges[idx] = { ...newBadges[idx], description };
+      return { ...prev, healthBadges: newBadges };
+    });
   };
 
   const handleRemoveHealthBadge = (idx: number) => {
@@ -430,12 +456,16 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    const finalData = {
+      ...formData,
+      name: (formData.name || "").trim() || "Untitled Product",
+    };
+    onSubmit(finalData);
   };
 
   return (
     <Transition.Root show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-10" onClose={onClose}>
+      <Dialog as="div" className="relative z-50" onClose={onClose}>
         <Transition.Child
           as={Fragment}
           enter="ease-out duration-300"
@@ -445,534 +475,640 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-gray-800/50 bg-opacity-75 transition-opacity" />
+          <div className="fixed inset-0 bg-gray-800/50 transition-opacity" />
         </Transition.Child>
 
-        <div className="fixed inset-0 z-10 overflow-y-auto">
-          <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-3 sm:p-4">
             <Transition.Child
               as={Fragment}
               enter="ease-out duration-300"
-              enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              enterFrom="opacity-0 translate-y-4 sm:scale-95"
               enterTo="opacity-100 translate-y-0 sm:scale-100"
               leave="ease-in duration-200"
               leaveFrom="opacity-100 translate-y-0 sm:scale-100"
-              leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              leaveTo="opacity-0 translate-y-4 sm:scale-95"
             >
-              <Dialog.Panel className="relative bg-white rounded-lg px-6 pt-6 pb-4 text-left shadow-xl transform transition-all sm:my-8 sm:max-w-4xl w-full">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold text-gray-800">
-                    {editMode ? "Edit Product" : "Create New Product"}
-                  </h2>
-                  <button
-                    onClick={onClose}
-                    className="button text-gray-400 hover:text-gray-600 focus:outline-none"
-                  >
-                    <XMarkIcon className="w-6 h-6" />
-                  </button>
-                </div>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Categories
-                      </label>
-                      <div className="min-h-[42px] p-2 border border-gray-300 rounded-md bg-white flex flex-wrap gap-2 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all duration-200">
-                        {(formData.categoryIds || []).map((catId) => {
-                          const cat = categories.find((c) => c.id === catId);
-                          if (!cat) return null;
-                          return (
-                            <span
-                              key={catId}
-                              className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-md border border-blue-100 shadow-sm transition-all"
-                            >
-                              {cat.name}
-                              <button
-                                type="button"
-                                onClick={() => handleCategoryToggle(catId)}
-                                className="text-blue-400 hover:text-blue-600 focus:outline-none transition-colors"
-                              >
-                                <XMarkIcon className="w-4 h-4" />
-                              </button>
-                            </span>
-                          );
-                        })}
-                        <select
-                          className="flex-grow border-none focus:ring-0 text-sm py-1 bg-transparent cursor-pointer min-w-[150px]"
-                          value=""
-                          onChange={(e) => {
-                            const selectedId = e.target.value;
-                            if (selectedId) {
-                              handleCategoryToggle(selectedId);
-                            }
-                          }}
-                        >
-                          <option value="" disabled>Select category...</option>
-                          {categories
-                            .filter((cat) => !(formData.categoryIds || []).includes(cat.id))
-                            .map((cat) => (
-                              <option key={cat.id} value={cat.id}>
-                                {cat.name}
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                      <p className="mt-2 text-xs text-gray-500 italic flex items-center gap-1">
-                        <CheckIcon className="w-3 h-3 text-green-500" />
-                        Choose multiple categories from the dropdown. Selected items appear as tags above.
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Catalog Status
-                      </label>
-                      <select
-                        name="status"
-                        value={formData.status || "active"}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="active">Active — visible on storefront</option>
-                        <option value="hidden">Hidden — not shown on storefront</option>
-                        <option value="draft">Draft — work in progress</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Display Rank (Storefront Dropdown Position)
-                      </label>
-                      <input
-                        type="number"
-                        name="rank"
-                        value={formData.rank ?? ""}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setFormData((prev) => ({
-                            ...prev,
-                            rank: val !== "" ? Number(val) : undefined,
-                          }));
-                        }}
-                        placeholder="e.g. 1 (lower numbers show first)"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Product Name
-                      </label>
-                      <input
-                        name="name"
-                        value={formData.name || ""}
-                        onChange={handleChange}
-                        placeholder="Enter product name"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Origin
-                      </label>
-                      <input
-                        name="origin"
-                        value={formData.origin || ""}
-                        onChange={handleChange}
-                        placeholder="Enter product origin"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Short Description
-                      </label>
-                      <input
-                        name="shortDescription"
-                        value={formData.shortDescription || ""}
-                        onChange={handleChange}
-                        placeholder="Enter short description"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Description
-                      </label>
-                      <textarea
-                        name="description"
-                        value={formData.description || ""}
-                        onChange={handleChange}
-                        placeholder="Enter product description"
-                        rows={3}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Dialog.Panel className="relative transform overflow-hidden rounded-xl bg-white text-left shadow-2xl transition-all w-full max-w-3xl flex flex-col h-[min(90vh,820px)]">
+                <form onSubmit={handleSubmit} className="flex flex-col h-full min-h-0">
+                  {/* Modal Header */}
+                  <div className="shrink-0 border-b border-gray-200 bg-white px-5 pt-4 pb-0">
+                    <div className="flex items-start justify-between gap-3 mb-3">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          SKU
-                        </label>
-                        <input
-                          name="sku"
-                          value={formData.sku || ""}
-                          onChange={handleChange}
-                          placeholder="Enter Product SKU"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Warehouse Name
-                        </label>
-                        <input
-                          list="warehouse-options"
-                          name="warehouseName"
-                          value={formData.warehouseName || ""}
-                          onChange={handleChange}
-                          placeholder="Select or enter warehouse name"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                        />
-                        <datalist id="warehouse-options">
-                          <option value="Ghee Warehouse" />
-                          <option value="Oils Warehouse" />
-                          <option value="Honey Warehouse" />
-                        </datalist>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Main Image URL
-                    </label>
-                    <input
-                      name="images.main"
-                      value={formData.images.main || ""}
-                      onChange={(e) =>
-                        handleImageChange("main", e.target.value)
-                      }
-                      placeholder="Enter main image URL"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    />
-                    <div className="mt-2 flex items-center space-x-2">
-                      <label className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition text-sm font-medium">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          ref={mainImageInputRef}
-                          onChange={handleMainImageFileSelect}
-                          disabled={mainImageUploading}
-                        />
-                        {mainImageUploading
-                          ? "Uploading..."
-                          : "Upload Main Image"}
-                      </label>
-                      {mainImageUploadError && (
-                        <span className="text-red-500 text-sm">
-                          {mainImageUploadError}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 space-y-4">
-                    <label className="block text-sm font-medium">
-                      Gallery Images
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      ref={fileInputRef}
-                      onChange={handleGalleryFileSelect}
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleGalleryButtonClick}
-                      disabled={galleryUploading}
-                      className="button mb-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
-                    >
-                      {galleryUploading ? "Uploading..." : "Upload Images"}
-                    </button>
-                    {galleryUploadError && (
-                      <div className="text-red-500 text-sm">{galleryUploadError}</div>
-                    )}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {formData.images.gallery.map((url, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center space-x-2"
-                        >
-                          {typeof url === "string" && url.trim() !== "" && (
-                            <img
-                              src={url}
-                              alt={`Gallery ${idx + 1}`}
-                              className="w-20 h-20 object-contain rounded border"
-                            />
-                          )}
-                          <input
-                            type="text"
-                            value={url || ""}
-                            readOnly
-                            className="flex-1 px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 bg-gray-100 cursor-not-allowed"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeGalleryImage(idx)}
-                            className="ml-1 p-1 rounded-full hover:bg-red-500 focus:outline-none"
-                            aria-label="Remove image"
-                          >
-                            <XMarkIcon className="w-5 h-5 text-red-500 hover:text-white" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Banner Image
-                    </label>
-                    {formData.images.banner &&
-                      typeof formData.images.banner === "string" &&
-                      formData.images.banner.trim() !== "" && (
-                        <div className="mb-2 relative group">
-                          <img
-                            src={formData.images.banner}
-                            alt="Banner Preview"
-                            className="w-full h-32 object-contain rounded border"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleRemoveBanner}
-                            className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:bg-red-200 transition-opacity opacity-0 group-hover:opacity-100"
-                            style={{ zIndex: 10 }}
-                            aria-label="Remove banner"
-                          >
-                            <XMarkIcon className="h-5 w-5" />
-                          </button>
-                        </div>
-                      )}
-                    <label className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition text-sm font-medium">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        ref={bannerInputRef}
-                        onChange={handleBannerFileSelect}
-                        disabled={bannerUploading}
-                      />
-                      {bannerUploading
-                        ? "Uploading..."
-                        : "Upload Banner Image"}
-                    </label>
-                    {bannerUploadError && (
-                      <span className="text-red-500 text-sm ml-2">
-                        {bannerUploadError}
-                      </span>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Health Badges
-                    </label>
-                    <div className="flex space-x-2 mb-2 items-center">
-                      <label className="inline-block px-3 py-1 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition text-sm font-medium">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          ref={healthBadgeInputRef}
-                          onChange={handleMultipleHealthBadgeFilesSelect}
-                          multiple
-                          disabled={healthBadgeUploading}
-                        />
-                        {healthBadgeUploading
-                          ? "Uploading..."
-                          : "Upload Health Badge Images"}
-                      </label>
-                    </div>
-                    {healthBadgeUploadError && (
-                      <span className="text-red-500 text-sm">
-                        {healthBadgeUploadError}
-                      </span>
-                    )}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
-                      {(formData.healthBadges || []).map((badge, idx) => (
-                        <div
-                          key={idx}
-                          className="flex flex-col space-y-2 p-4 border rounded-lg relative"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveHealthBadge(idx)}
-                            className="absolute top-1 right-1 p-1 rounded-full hover:bg-red-100 focus:outline-none"
-                            aria-label="Remove health badge"
-                          >
-                            <XMarkIcon className="w-4 h-4 text-red-500" />
-                          </button>
-                          {typeof badge.image === "string" &&
-                            badge.image.trim() !== "" && (
-                              <img
-                                src={badge.image}
-                                alt="Health Badge"
-                                className="w-20 h-20 object-contain rounded border mx-auto"
-                              />
-                            )}
-                          <input
-                            type="text"
-                            value={badge.title || ""}
-                            onChange={(e) =>
-                              handleHealthBadgeTitleChange(idx, e.target.value)
-                            }
-                            placeholder="Health badge title"
-                            className="px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm"
-                          />
-                          <textarea
-                            value={badge.description || ""}
-                            onChange={(e) =>
-                              handleHealthBadgeDescriptionChange(idx, e.target.value)
-                            }
-                            placeholder="Health badge description"
-                            rows={2}
-                            className="px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 resize-none text-sm"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Badges
-                    </label>
-                    <div className="flex space-x-2 mb-2 items-center">
-                      <label className="inline-block px-3 py-1 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition text-sm font-medium">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          ref={badgeImageInputRef}
-                          onChange={handleMultipleBadgeFilesSelect}
-                          multiple
-                          disabled={badgeImageUploading}
-                        />
-                        {badgeImageUploading
-                          ? "Uploading..."
-                          : "Upload Badge Images"}
-                      </label>
-                    </div>
-                    {badgeImageUploadError && (
-                      <span className="text-red-500 text-sm">
-                        {badgeImageUploadError}
-                      </span>
-                    )}
-                    <div className="flex flex-wrap gap-4 mt-2">
-                      {(formData.badges || []).map((badge, idx) => (
-                        <div
-                          key={idx}
-                          className="flex flex-col items-center relative border p-2 rounded-md"
-                        >
-                          {typeof badge.image === "string" &&
-                            badge.image.trim() !== "" && (
-                              <img
-                                src={badge.image}
-                                alt="Badge"
-                                className="w-20 h-20 object-contain rounded border mb-1"
-                              />
-                            )}
-                          <input
-                            type="text"
-                            value={badge.text || ""}
-                            onChange={(e) =>
-                              handleBadgeNameChange(idx, e.target.value)
-                            }
-                            placeholder="Badge name"
-                            className="px-2 py-1 border rounded-md text-center text-xs"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveBadge(idx)}
-                            className="absolute top-0 right-0 mt-1 mr-1 p-1 rounded-full hover:bg-red-100 focus:outline-none"
-                            aria-label="Remove badge"
-                          >
-                            <XMarkIcon className="w-4 h-4 text-red-500" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  {/* Bestseller Toggle */}
-                  <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-sm font-semibold text-amber-800">🏆 Bestseller Tag</h3>
-                        <p className="text-xs text-amber-600 mt-0.5">
-                          Mark this product as a bestseller — it will be highlighted on the storefront.
+                        <Dialog.Title className="text-lg font-bold text-gray-900">
+                          {editMode ? "Edit Product" : "Create New Product"}
+                        </Dialog.Title>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Configure product details, categories, media assets & badges
                         </p>
                       </div>
                       <button
                         type="button"
-                        onClick={() =>
-                          setFormData((prev) => ({ ...prev, isBestseller: !prev.isBestseller }))
-                        }
-                        className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 ${
-                          formData.isBestseller ? "bg-amber-500" : "bg-gray-300"
-                        }`}
-                        aria-checked={formData.isBestseller}
-                        role="switch"
-                        aria-label="Toggle bestseller"
+                        onClick={onClose}
+                        className="rounded-md p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                       >
-                        <span
-                          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-300 ${
-                            formData.isBestseller ? "translate-x-8" : "translate-x-1"
-                          }`}
-                        />
+                        <XMarkIcon className="h-5 w-5" />
                       </button>
                     </div>
-                    {formData.isBestseller && (
-                      <div className="mt-3 flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-amber-500 text-white text-xs font-bold rounded-full shadow">
-                          🏆 BESTSELLER
-                        </span>
-                        <span className="text-xs text-amber-700">This badge will appear on the product card.</span>
+
+                    {/* Tab Navigation Bar */}
+                    <nav className="flex gap-1 -mb-px overflow-x-auto" aria-label="Form tabs">
+                      {TABS.map(({ id, label, icon: Icon }) => {
+                        const active = activeTab === id;
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => setActiveTab(id)}
+                            className={`inline-flex items-center gap-1.5 px-3 py-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors cursor-pointer ${active
+                                ? "border-blue-600 text-blue-600"
+                                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                              }`}
+                          >
+                            <Icon className="w-4 h-4" />
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </nav>
+                  </div>
+
+                  {/* Modal Body */}
+                  <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 bg-gray-50/50 space-y-4">
+                    {/* TAB 1: BASICS */}
+                    {activeTab === "basics" && (
+                      <div className="space-y-4">
+                        {/* Categories Selection */}
+                        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-2">
+                          <label className={labelClass}>Product Categories</label>
+                          <div className="min-h-[42px] p-2 border border-gray-300 rounded-md bg-white flex flex-wrap gap-2 focus-within:ring-2 focus-within:ring-blue-500">
+                            {(formData.categoryIds || []).map((catId) => {
+                              const cat = categories.find((c) => c.id === catId);
+                              if (!cat) return null;
+                              return (
+                                <span
+                                  key={catId}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-md border border-blue-100"
+                                >
+                                  {cat.name}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCategoryToggle(catId)}
+                                    className="text-blue-400 hover:text-blue-600"
+                                  >
+                                    <XMarkIcon className="w-3.5 h-3.5" />
+                                  </button>
+                                </span>
+                              );
+                            })}
+                            <select
+                              className="flex-grow border-none focus:ring-0 text-xs py-1 bg-transparent cursor-pointer min-w-[140px]"
+                              value=""
+                              onChange={(e) => {
+                                const selectedId = e.target.value;
+                                if (selectedId) handleCategoryToggle(selectedId);
+                              }}
+                            >
+                              <option value="" disabled>Select category...</option>
+                              {categories
+                                .filter((cat) => !(formData.categoryIds || []).includes(cat.id))
+                                .map((cat) => (
+                                  <option key={cat.id} value={cat.id}>
+                                    {cat.name}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+                          <p className="text-[11px] text-gray-500 flex items-center gap-1">
+                            <CheckIcon className="w-3 h-3 text-emerald-500" />
+                            Select one or multiple categories to associate this product.
+                          </p>
+                        </div>
+
+                        {/* Status, Display Rank, Bestseller Toggle */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div>
+                            <label className={labelClass}>Catalog Status</label>
+                            <select
+                              name="status"
+                              value={formData.status || "active"}
+                              onChange={handleChange}
+                              className={inputClass}
+                            >
+                              <option value="active">Active — Visible</option>
+                              <option value="hidden">Hidden — Hidden</option>
+                              <option value="draft">Draft — Work in Progress</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className={labelClass}>Display Rank</label>
+                            <input
+                              type="number"
+                              name="rank"
+                              value={formData.rank ?? ""}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  rank: val !== "" ? Number(val) : undefined,
+                                }));
+                              }}
+                              placeholder="e.g. 1 (Priority position)"
+                              className={inputClass}
+                            />
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:col-span-2 mt-1">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setFormData((prev) => ({ ...prev, isBestseller: !prev.isBestseller }))
+                              }
+                              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-md border text-xs font-semibold transition cursor-pointer ${formData.isBestseller
+                                  ? "bg-amber-50 border-amber-300 text-amber-800"
+                                  : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                                }`}
+                            >
+                              <span>🏆 Bestseller Product</span>
+                              <span
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${formData.isBestseller ? "bg-amber-500" : "bg-gray-300"
+                                  }`}
+                              >
+                                <span
+                                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${formData.isBestseller ? "translate-x-4" : "translate-x-0.5"
+                                    }`}
+                                />
+                              </span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setFormData((prev) => ({ ...prev, isSample: !prev.isSample }))
+                              }
+                              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-md border text-xs font-semibold transition cursor-pointer ${formData.isSample
+                                  ? "bg-emerald-50 border-emerald-300 text-emerald-800"
+                                  : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                                }`}
+                            >
+                              <span>🎁 Sample Product</span>
+                              <span
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${formData.isSample ? "bg-emerald-500" : "bg-gray-300"
+                                  }`}
+                              >
+                                <span
+                                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${formData.isSample ? "translate-x-4" : "translate-x-0.5"
+                                    }`}
+                                />
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Product Title */}
+                        <div>
+                          <label className={labelClass}>Product Name</label>
+                          <input
+                            name="name"
+                            value={formData.name || ""}
+                            onChange={handleChange}
+                            placeholder="Enter product name"
+                            className={inputClass}
+                          />
+                        </div>
+
+                        {/* Origin & Short Description */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className={labelClass}>Origin</label>
+                            <input
+                              name="origin"
+                              value={formData.origin || ""}
+                              onChange={handleChange}
+                              placeholder="e.g. Gir, Gujarat"
+                              className={inputClass}
+                            />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Short Description</label>
+                            <input
+                              name="shortDescription"
+                              value={formData.shortDescription || ""}
+                              onChange={handleChange}
+                              placeholder="Short highlight text"
+                              className={inputClass}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Full Description */}
+                        <div>
+                          <label className={labelClass}>Full Description</label>
+                          <textarea
+                            name="description"
+                            value={formData.description || ""}
+                            onChange={handleChange}
+                            placeholder="Detailed product story & benefits..."
+                            rows={3}
+                            className={inputClass}
+                          />
+                        </div>
+
+                        {/* SKU & Warehouse */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className={labelClass}>SKU</label>
+                            <input
+                              name="sku"
+                              value={formData.sku || ""}
+                              onChange={handleChange}
+                              placeholder="Unique Product SKU"
+                              className={inputClass}
+                            />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Warehouse Location</label>
+                            <input
+                              list="warehouse-options"
+                              name="warehouseName"
+                              value={formData.warehouseName || ""}
+                              onChange={handleChange}
+                              placeholder="Select or type warehouse"
+                              className={inputClass}
+                            />
+                            <datalist id="warehouse-options">
+                              <option value="Ghee Warehouse" />
+                              <option value="Oils Warehouse" />
+                              <option value="Honey Warehouse" />
+                            </datalist>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TAB 2: MEDIA & BANNERS */}
+                    {activeTab === "media" && (
+                      <div className="space-y-4">
+                        {/* Main Feature Image */}
+                        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold text-gray-800 uppercase tracking-wider">
+                              Main Feature Image
+                            </label>
+                            <div>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                ref={mainImageInputRef}
+                                onChange={handleMainImageFileSelect}
+                                disabled={mainImageUploading}
+                              />
+                              <button
+                                type="button"
+                                disabled={mainImageUploading}
+                                onClick={() => mainImageInputRef.current?.click()}
+                                className={uploadBtnClass}
+                              >
+                                {mainImageUploading ? "Uploading..." : "Upload File"}
+                              </button>
+                            </div>
+                          </div>
+                          {mainImageUploadError && (
+                            <p className="text-xs text-red-600 font-medium">{mainImageUploadError}</p>
+                          )}
+                          {formData.images.main ? (
+                            <div className="relative group border border-gray-200 rounded-lg overflow-hidden bg-gray-50 p-2">
+                              <img src={formData.images.main} alt="Main" className="w-full h-36 object-contain" />
+                              <button
+                                type="button"
+                                onClick={() => handleImageChange("main", "")}
+                                className="absolute top-2 right-2 bg-white/90 text-red-600 rounded-full p-1 shadow-sm"
+                              >
+                                <XMarkIcon className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="h-28 rounded-lg border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
+                              No main image uploaded
+                            </div>
+                          )}
+                          <input
+                            name="images.main"
+                            value={formData.images.main || ""}
+                            onChange={(e) => handleImageChange("main", e.target.value)}
+                            placeholder="Or paste main image URL directly..."
+                            className={inputClass}
+                          />
+                        </div>
+
+                        {/* Banner Image */}
+                        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold text-gray-800 uppercase tracking-wider">
+                              Banner Image
+                            </label>
+                            <div>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                ref={bannerInputRef}
+                                onChange={handleBannerFileSelect}
+                                disabled={bannerUploading}
+                              />
+                              <button
+                                type="button"
+                                disabled={bannerUploading}
+                                onClick={() => bannerInputRef.current?.click()}
+                                className={uploadBtnClass}
+                              >
+                                {bannerUploading ? "Uploading..." : "Upload Banner"}
+                              </button>
+                            </div>
+                          </div>
+                          {bannerUploadError && (
+                            <p className="text-xs text-red-600 font-medium">{bannerUploadError}</p>
+                          )}
+                          {formData.images.banner ? (
+                            <div className="relative group border border-gray-200 rounded-lg overflow-hidden bg-gray-50 p-2">
+                              <img src={formData.images.banner} alt="Banner" className="w-full h-36 object-contain" />
+                              <button
+                                type="button"
+                                onClick={handleRemoveBanner}
+                                className="absolute top-2 right-2 bg-white/90 text-red-600 rounded-full p-1 shadow-sm"
+                              >
+                                <XMarkIcon className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="h-28 rounded-lg border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
+                              No banner image uploaded
+                            </div>
+                          )}
+                          <input
+                            name="images.banner"
+                            value={formData.images.banner || ""}
+                            onChange={(e) => handleImageChange("banner", e.target.value)}
+                            placeholder="Or paste banner image URL directly..."
+                            className={inputClass}
+                          />
+                        </div>
+
+                        {/* Gallery Images */}
+                        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold text-gray-800 uppercase tracking-wider">
+                              Gallery Images
+                            </label>
+                            <div>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                ref={fileInputRef}
+                                onChange={handleGalleryFileSelect}
+                                className="hidden"
+                              />
+                              <button
+                                type="button"
+                                disabled={galleryUploading}
+                                onClick={handleGalleryButtonClick}
+                                className={uploadBtnClass}
+                              >
+                                {galleryUploading ? "Uploading..." : "Upload Gallery"}
+                              </button>
+                            </div>
+                          </div>
+                          {galleryUploadError && (
+                            <p className="text-xs text-red-600 font-medium">{galleryUploadError}</p>
+                          )}
+                          {formData.images.gallery.length === 0 ? (
+                            <div className="h-20 rounded-lg border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
+                              No gallery images added yet
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                              {formData.images.gallery.map((url, idx) => (
+                                <div
+                                  key={idx}
+                                  className="relative group border border-gray-200 rounded-md overflow-hidden bg-gray-50 p-1"
+                                >
+                                  <img
+                                    src={url}
+                                    alt={`Gallery ${idx + 1}`}
+                                    className="w-full h-16 object-contain rounded"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeGalleryImage(idx)}
+                                    className="absolute top-1 right-1 bg-white/90 text-red-600 rounded-full p-0.5 shadow-sm"
+                                  >
+                                    <XMarkIcon className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TAB 3: BADGES & BENEFITS */}
+                    {activeTab === "badges" && (
+                      <div className="space-y-4">
+                        {/* Standard Badges */}
+                        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold text-gray-800 uppercase tracking-wider">
+                              Product Badges
+                            </label>
+                            <div>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                ref={badgeImageInputRef}
+                                onChange={handleMultipleBadgeFilesSelect}
+                                className="hidden"
+                              />
+                              <button
+                                type="button"
+                                disabled={badgeImageUploading}
+                                onClick={() => badgeImageInputRef.current?.click()}
+                                className={uploadBtnClass}
+                              >
+                                {badgeImageUploading ? "Uploading..." : "Upload Badges"}
+                              </button>
+                            </div>
+                          </div>
+                          {badgeImageUploadError && (
+                            <p className="text-xs text-red-600 font-medium">{badgeImageUploadError}</p>
+                          )}
+                          {(formData.badges || []).length === 0 ? (
+                            <div className="h-16 rounded-lg border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
+                              No badges uploaded
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                              {(formData.badges || []).map((badge, idx) => (
+                                <div
+                                  key={idx}
+                                  className="relative group border border-gray-200 rounded-md p-2 bg-gray-50 flex flex-col items-center gap-1.5"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveBadge(idx)}
+                                    className="absolute top-1 right-1 bg-white/90 text-red-600 rounded-full p-0.5 shadow-sm"
+                                  >
+                                    <XMarkIcon className="w-3.5 h-3.5" />
+                                  </button>
+                                  {badge.image ? (
+                                    <img
+                                      src={badge.image}
+                                      alt="Badge"
+                                      className="w-12 h-12 object-contain"
+                                    />
+                                  ) : (
+                                    <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-[10px] text-gray-400">
+                                      No Image
+                                    </div>
+                                  )}
+                                  <input
+                                    type="text"
+                                    value={badge.text || ""}
+                                    onChange={(e) => handleBadgeNameChange(idx, e.target.value)}
+                                    placeholder="Badge label"
+                                    className="w-full text-center px-1 py-0.5 border border-gray-200 rounded text-xs"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Health Badges */}
+                        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold text-gray-800 uppercase tracking-wider">
+                              Health Badges & Certifications
+                            </label>
+                            <div>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                ref={healthBadgeInputRef}
+                                onChange={handleMultipleHealthBadgeFilesSelect}
+                                className="hidden"
+                              />
+                              <button
+                                type="button"
+                                disabled={healthBadgeUploading}
+                                onClick={() => healthBadgeInputRef.current?.click()}
+                                className={uploadBtnClass}
+                              >
+                                {healthBadgeUploading ? "Uploading..." : "Upload Certifications"}
+                              </button>
+                            </div>
+                          </div>
+                          {healthBadgeUploadError && (
+                            <p className="text-xs text-red-600 font-medium">{healthBadgeUploadError}</p>
+                          )}
+                          {(formData.healthBadges || []).length === 0 ? (
+                            <div className="h-16 rounded-lg border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
+                              No health badges added
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {(formData.healthBadges || []).map((badge, idx) => (
+                                <div
+                                  key={idx}
+                                  className="relative group border border-gray-200 rounded-lg p-3 bg-gray-50 space-y-2"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveHealthBadge(idx)}
+                                    className="absolute top-2 right-2 bg-white/90 text-red-600 rounded-full p-1 shadow-sm"
+                                  >
+                                    <XMarkIcon className="w-4 h-4" />
+                                  </button>
+                                  <div className="flex items-center gap-3">
+                                    {badge.image ? (
+                                      <img
+                                        src={badge.image}
+                                        alt="Health Badge"
+                                        className="w-12 h-12 object-contain shrink-0 rounded border bg-white"
+                                      />
+                                    ) : (
+                                      <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-[10px] text-gray-400 shrink-0">
+                                        No Img
+                                      </div>
+                                    )}
+                                    <input
+                                      type="text"
+                                      value={badge.title || ""}
+                                      onChange={(e) => handleHealthBadgeTitleChange(idx, e.target.value)}
+                                      placeholder="Title (e.g., 100% Organic)"
+                                      className="flex-1 px-2.5 py-1 border border-gray-300 rounded text-xs font-semibold"
+                                    />
+                                  </div>
+                                  <textarea
+                                    value={badge.description || ""}
+                                    onChange={(e) => handleHealthBadgeDescriptionChange(idx, e.target.value)}
+                                    placeholder="Short certification detail..."
+                                    rows={2}
+                                    className="w-full px-2.5 py-1 border border-gray-300 rounded text-xs resize-none"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
 
-                  <div className="mt-6 flex justify-end space-x-3">
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      className="button px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition text-sm font-medium"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={formLoading}
-                      className={`button px-4 py-2 rounded-md text-white flex items-center text-sm font-medium ${
-                        formLoading
-                          ? "bg-blue-400 cursor-not-allowed"
-                          : "bg-blue-600 hover:bg-blue-700"
-                      }`}
-                    >
-                      {formLoading ? (
-                        <>
-                          <ArrowPathIcon className="w-5 h-5 mr-2 animate-spin" />
-                          Processing...
-                        </>
-                      ) : editMode ? (
-                        <>
-                          <PencilIcon className="w-5 h-5 mr-2" />
-                          Update Product
-                        </>
-                      ) : (
-                        <>
-                          <PlusIcon className="w-5 h-5 mr-2" />
-                          Create Product
-                        </>
-                      )}
-                    </button>
+                  {/* Modal Footer */}
+                  <div className="shrink-0 border-t border-gray-200 bg-white px-5 py-3 flex items-center justify-between gap-3">
+                    <p className="hidden sm:block text-xs text-gray-500">
+                      {activeTab === "basics" && "Product basics, display rank & categories"}
+                      {activeTab === "media" && "Product main feature image, banner & gallery"}
+                      {activeTab === "badges" && "Product badges, certifications & health highlights"}
+                    </p>
+                    <div className="flex justify-end gap-3 ml-auto">
+                      <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-xs font-medium cursor-pointer transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={formLoading}
+                        className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-white text-xs font-semibold shadow-sm transition-colors cursor-pointer ${formLoading
+                            ? "bg-blue-400 cursor-not-allowed"
+                            : "bg-blue-600 hover:bg-blue-700"
+                          }`}
+                      >
+                        {formLoading ? (
+                          <>
+                            <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                            Saving...
+                          </>
+                        ) : editMode ? (
+                          <>
+                            <PencilIcon className="w-4 h-4" />
+                            Update Product
+                          </>
+                        ) : (
+                          <>
+                            <PlusIcon className="w-4 h-4" />
+                            Create Product
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </form>
               </Dialog.Panel>

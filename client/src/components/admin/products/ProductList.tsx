@@ -50,11 +50,30 @@ const ProductList: React.FC<ProductListProps> = ({
     );
   }
 
-  return (
-    <div className="space-y-4">
-      {/* List Presentation (Table) */}
-      <div className="bg-white rounded-lg shadow overflow-hidden border border-gray-200 w-full">
-        <div className="w-full">
+  const standardProducts = products.filter((p) => !p.isSample);
+  const sampleProducts = products.filter((p) => Boolean(p.isSample));
+
+  const renderTable = (items: Product[], sectionTitle: string, subtitle: string, iconBadge: string) => (
+    <div className="bg-white rounded-lg shadow overflow-hidden border border-gray-200 w-full mb-8">
+      <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex items-center justify-between">
+        <div>
+          <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+            <span>{iconBadge}</span>
+            {sectionTitle}
+            <span className="ml-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-200 text-gray-700">
+              {items.length}
+            </span>
+          </h3>
+          <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
+        </div>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="p-6 text-center text-gray-400 text-sm italic">
+          No products in this section.
+        </div>
+      ) : (
+        <div className="w-full overflow-x-auto">
           <table className="w-full min-w-full divide-y divide-gray-200 table-fixed">
             <colgroup>
               <col className="w-[45%]" />
@@ -83,7 +102,7 @@ const ProductList: React.FC<ProductListProps> = ({
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {products.map((product) => {
+              {items.map((product) => {
                 const catInfos = getProductCategoryInfo(product);
                 const isProductDisabled = (product.status && product.status !== "active") || catInfos.some(cat => !cat.isActive);
                 return (
@@ -113,8 +132,13 @@ const ProductList: React.FC<ProductListProps> = ({
                           )}
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-semibold text-gray-900">
+                          <div className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                             {product.name}
+                            {product.isSample && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 rounded">
+                                SAMPLE
+                              </span>
+                            )}
                           </div>
                           <div className="text-xs text-gray-500 max-w-xs truncate">
                             {product.description}
@@ -193,7 +217,27 @@ const ProductList: React.FC<ProductListProps> = ({
             </tbody>
           </table>
         </div>
-      </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Table 1: Standard Products */}
+      {renderTable(
+        standardProducts,
+        "Standard Products",
+        "Regular catalog items displayed on storefront",
+        "📦"
+      )}
+
+      {/* Table 2: Sample Products */}
+      {renderTable(
+        sampleProducts,
+        "Try Our Sample Products",
+        "Products flagged to appear in 'Try Our Sample' storefront section",
+        "🎯"
+      )}
     </div>
   );
 };

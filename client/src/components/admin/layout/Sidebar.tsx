@@ -13,6 +13,7 @@ import {
   FiUser,
   FiLogOut,
   FiChevronDown,
+  FiLayers,
 } from "react-icons/fi";
 import { useAdmin } from "../../../context/AdminContext";
 import { getAuth, signOut } from "firebase/auth";
@@ -67,6 +68,11 @@ const Sidebar = () => {
       path: "/admin/products",
       icon: <FiPackage size={20} />,
       name: "Products",
+    },
+    {
+      path: "/admin/combos",
+      icon: <FiLayers size={20} />,
+      name: "Combos",
     },
     {
       path: "/admin/orders",

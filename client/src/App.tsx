@@ -20,6 +20,7 @@ import FinanceAnalysis from "./pages/admin/FinanceAnalysis";
 import ProductAnalysis from "./pages/admin/ProductAnalysis";
 import Reports from "./pages/admin/Reports";
 import CategoryManagement from "./pages/admin/CategoryManagement";
+import AdminCombos from "./pages/admin/AdminCombos";
 
 function App() {
   return (
@@ -95,6 +96,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <CategoryManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="combos"
+            element={
+              <ProtectedRoute>
+                <AdminCombos />
               </ProtectedRoute>
             }
           />
