@@ -1,0 +1,3325 @@
+﻿diff --git a/client/src/components/admin/products/ProductFormModal.tsx b/client/src/components/admin/products/ProductFormModal.tsx
+deleted file mode 100644
+index e754b5b..0000000
+--- a/client/src/components/admin/products/ProductFormModal.tsx
++++ /dev/null
+@@ -1,987 +0,0 @@
+-import React, { Fragment, useEffect, useState, useRef } from "react";
+-import type { Product } from "../../../types";
+-import type { Category } from "../../../services/api/categoryApi";
+-import { productApi } from "../../../services/api/productApi";
+-import { Dialog, Transition } from "@headlessui/react";
+-import {
+-  XMarkIcon,
+-  CheckIcon,
+-  ArrowPathIcon,
+-  PencilIcon,
+-  PlusIcon,
+-} from "@heroicons/react/24/outline";
+-
+-interface ProductFormModalProps {
+-  isOpen: boolean;
+-  onClose: () => void;
+-  editMode: boolean;
+-  editId: string | null;
+-  categories: Category[];
+-  initialData: Product | Omit<Product, "id">;
+-  onSubmit: (formData: Omit<Product, "id">) => Promise<void>;
+-  formLoading: boolean;
+-}
+-
+-const initialForm: Omit<Product, "id"> = {
+-  name: "",
+-  price: { amount: 0, currency: "INR" },
+-  description: "",
+-  shortDescription: "",
+-  origin: "",
+-  sku: "",
+-  warehouseName: "",
+-  rank: undefined,
+-  categoryIds: [],
+-  status: "active",
+-  images: { main: "", gallery: [], banner: "" },
+-  isBestseller: false,
+-  stockStatus: "in_stock",
+-  ratings: 0,
+-  reviews: 0,
+-  badges: [],
+-  healthBadges: [],
+-  benefits: [],
+-};
+-
+-const categoryDefaults: Record<
+-  string,
+-  { banner: string; badges: { text: string; image?: string }[] }
+-> = {
+-  ghee: {
+-    banner:
+-      "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/product-main/1752089018798-1.png",
+-    badges: [
+-      {
+-        text: "Zero Adulteration",
+-        image:
+-          "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752089074276-ZERO ADULTERATION.png",
+-      },
+-      {
+-        text: "Lab Tested",
+-        image:
+-          "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752089074276-LAB TESTED.png",
+-      },
+-      {
+-        text: "Made at Home- Not in Factories",
+-        image:
+-          "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752089074276-MADE AT HOME.png",
+-      },
+-      {
+-        text: "Zero Preservatives",
+-        image:
+-          "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752089074276-ZERO PRESERVATIVES.png",
+-      },
+-      {
+-        text: "No Bad Cholesterol",
+-        image:
+-          "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752089074276-NO BAD CHOLESTEROL.png",
+-      },
+-    ],
+-  },
+-  oils: {
+-    banner:
+-      "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/product-main/1752142641203-3.png",
+-    badges: [
+-      {
+-        text: "Cold Pressed",
+-        image:
+-          "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752142641203-COLD PRESSED.png",
+-      },
+-      {
+-        text: "Zero Adulteration",
+-        image:
+-          "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752142641203-ZERO ADULTERATION.png",
+-      },
+-      {
+-        text: "Zero Preservatives",
+-        image:
+-          "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752142641203-ZERO PRESERVATIVES.png",
+-      },
+-      {
+-        text: "Non Refined",
+-        image:
+-          "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752142641203-NON REFINED.png",
+-      },
+-      {
+-        text: "Sourced from Rural Farmers",
+-        image:
+-          "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752142641203-SOURCED FROM RURAL FARMERS.png",
+-      },
+-    ],
+-  },
+-  honey: {
+-    banner:
+-      "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/product-main/1752143076344-2.png",
+-    badges: [
+-      {
+-        text: "Zero Adulteration",
+-        image:
+-          "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752143076344-ZERO ADULTERATION.png",
+-      },
+-      {
+-        text: "No added sugar",
+-        image:
+-          "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752143076344-NO ADDED SUGAR.png",
+-      },
+-      {
+-        text: "Unprocessed",
+-        image:
+-          "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752143076344-UNPROCESSED.png",
+-      },
+-      {
+-        text: "Immunity Booster",
+-        image:
+-          "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752143076344-IMMUNITY BOOSTER.png",
+-      },
+-      {
+-        text: "Sourced from Beekeepers",
+-        image:
+-          "https://storage.googleapis.com/testing-41ba7.firebasestorage.app/badge-images/1752143076344-SOURCED FROM BEEKEEPERS.png",
+-      },
+-    ],
+-  },
+-};
+-
+-const ProductFormModal: React.FC<ProductFormModalProps> = ({
+-  isOpen,
+-  onClose,
+-  editMode,
+-  categories,
+-  initialData,
+-  onSubmit,
+-  formLoading,
+-}) => {
+-  const [formData, setFormData] = useState<Omit<Product, "id">>(initialForm);
+-  const [, setPriceInput] = useState("");
+-
+-  const [mainImageUploading, setMainImageUploading] = useState(false);
+-  const [mainImageUploadError, setMainImageUploadError] = useState("");
+-  const mainImageInputRef = useRef<HTMLInputElement>(null);
+-
+-  const [bannerUploading, setBannerUploading] = useState(false);
+-  const [bannerUploadError, setBannerUploadError] = useState("");
+-  const bannerInputRef = useRef<HTMLInputElement>(null);
+-
+-  const [galleryUploading, setGalleryUploading] = useState(false);
+-  const [galleryUploadError, setGalleryUploadError] = useState("");
+-  const fileInputRef = useRef<HTMLInputElement>(null);
+-
+-  const [badgeImageUploading, setBadgeImageUploading] = useState(false);
+-  const [badgeImageUploadError, setBadgeImageUploadError] = useState("");
+-  const badgeImageInputRef = useRef<HTMLInputElement>(null);
+-
+-  const [healthBadgeUploading, setHealthBadgeUploading] = useState(false);
+-  const [healthBadgeUploadError, setHealthBadgeUploadError] = useState("");
+-  const healthBadgeInputRef = useRef<HTMLInputElement>(null);
+-
+-  useEffect(() => {
+-    if (isOpen) {
+-      setFormData({
+-        ...initialForm,
+-        ...initialData,
+-        price: initialData.price ? { ...initialData.price } : { amount: 0, currency: "INR" },
+-        images: initialData.images ? { ...initialData.images } : { main: "", gallery: [], banner: "" },
+-        categoryIds: initialData.categoryIds ? [...initialData.categoryIds] : [],
+-        badges: initialData.badges ? [...initialData.badges] : [],
+-        healthBadges: initialData.healthBadges ? [...initialData.healthBadges] : [],
+-        benefits: initialData.benefits ? [...initialData.benefits] : [],
+-      });
+-      setPriceInput(initialData.price?.amount ? String(initialData.price.amount) : "");
+-    }
+-  }, [isOpen, initialData]);
+-
+-  // Handle Category defaults banner and badges auto-population
+-  useEffect(() => {
+-    if (!editMode && formData.categoryIds && formData.categoryIds.length > 0 && categories.length > 0) {
+-      const primaryCat = categories.find((c) => c.id === formData.categoryIds![0]);
+-      const key = primaryCat?.slug || primaryCat?.name?.toLowerCase();
+-      if (key && categoryDefaults[key]) {
+-        setFormData((prev) => ({
+-          ...prev,
+-          images: {
+-            ...prev.images,
+-            banner: categoryDefaults[key].banner,
+-          },
+-          badges: categoryDefaults[key].badges.map((b) => ({
+-            text: b.text,
+-            image: b.image || "",
+-          })),
+-        }));
+-      }
+-    }
+-  }, [formData.categoryIds, editMode, categories]);
+-
+-  const handleChange = (
+-    e: React.ChangeEvent<
+-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+-    >
+-  ) => {
+-    const { name, value } = e.target;
+-    if (name === "amount") {
+-      if (/^\d*\.?\d*$/.test(value)) {
+-        setPriceInput(value);
+-        setFormData((prev) => ({
+-          ...prev,
+-          price: {
+-            ...prev.price,
+-            amount: value === "" ? 0 : parseFloat(value),
+-          },
+-        }));
+-      }
+-    } else {
+-      setFormData((prev) => ({ ...prev, [name]: value }));
+-    }
+-  };
+-
+-  const handleCategoryToggle = (catId: string) => {
+-    setFormData((prev) => {
+-      const currentIds = prev.categoryIds || [];
+-      if (currentIds.includes(catId)) {
+-        return { ...prev, categoryIds: currentIds.filter((id) => id !== catId) };
+-      }
+-      return { ...prev, categoryIds: [...currentIds, catId] };
+-    });
+-  };
+-
+-  const handleImageChange = (
+-    type: "main" | "gallery" | "banner",
+-    value: string
+-  ) => {
+-    setFormData((prev) => ({
+-      ...prev,
+-      images: {
+-        ...prev.images,
+-        [type]: type === "gallery" ? [...prev.images.gallery, value] : value,
+-      },
+-    }));
+-  };
+-
+-  const removeGalleryImage = (idx: number) => {
+-    setFormData((prev) => {
+-      const newGallery = prev.images.gallery.filter((_, i) => i !== idx);
+-      return {
+-        ...prev,
+-        images: { ...prev.images, gallery: newGallery },
+-      };
+-    });
+-  };
+-
+-  const handleRemoveBanner = () => {
+-    setFormData((prev) => ({
+-      ...prev,
+-      images: { ...prev.images, banner: "" },
+-    }));
+-  };
+-
+-  // Upload Logic
+-  const handleMainImageFileSelect = async (
+-    e: React.ChangeEvent<HTMLInputElement>
+-  ) => {
+-    if (!e.target.files || e.target.files.length === 0) return;
+-    setMainImageUploading(true);
+-    setMainImageUploadError("");
+-    try {
+-      const url = await productApi.uploadMainImage(e.target.files[0]);
+-      setFormData((prev) => ({
+-        ...prev,
+-        images: { ...prev.images, main: url },
+-      }));
+-    } catch (err) {
+-      setMainImageUploadError("Failed to upload main image. Please try again.");
+-    } finally {
+-      setMainImageUploading(false);
+-      if (mainImageInputRef.current) mainImageInputRef.current.value = "";
+-    }
+-  };
+-
+-  const handleBannerFileSelect = async (
+-    e: React.ChangeEvent<HTMLInputElement>
+-  ) => {
+-    if (!e.target.files || e.target.files.length === 0) return;
+-    setBannerUploading(true);
+-    setBannerUploadError("");
+-    try {
+-      const url = await productApi.uploadMainImage(e.target.files[0]);
+-      setFormData((prev) => ({
+-        ...prev,
+-        images: { ...prev.images, banner: url },
+-      }));
+-    } catch (err) {
+-      setBannerUploadError("Failed to upload banner image. Please try again.");
+-    } finally {
+-      setBannerUploading(false);
+-      if (bannerInputRef.current) bannerInputRef.current.value = "";
+-    }
+-  };
+-
+-  const handleGalleryButtonClick = () => {
+-    fileInputRef.current?.click();
+-  };
+-
+-  const handleGalleryFileSelect = async (
+-    e: React.ChangeEvent<HTMLInputElement>
+-  ) => {
+-    if (!e.target.files || e.target.files.length === 0) return;
+-    setGalleryUploading(true);
+-    setGalleryUploadError("");
+-    try {
+-      const urls = await productApi.uploadGalleryImages(e.target.files);
+-      setFormData((prev) => ({
+-        ...prev,
+-        images: {
+-          ...prev.images,
+-          gallery: [...prev.images.gallery, ...urls],
+-        },
+-      }));
+-    } catch (err) {
+-      setGalleryUploadError("Failed to upload gallery images.");
+-    } finally {
+-      setGalleryUploading(false);
+-      if (fileInputRef.current) fileInputRef.current.value = "";
+-    }
+-  };
+-
+-  const handleMultipleBadgeFilesSelect = async (
+-    e: React.ChangeEvent<HTMLInputElement>
+-  ) => {
+-    if (!e.target.files || e.target.files.length === 0) return;
+-    setBadgeImageUploading(true);
+-    setBadgeImageUploadError("");
+-    try {
+-      const urls = await productApi.uploadMultipleBadgeImages(e.target.files);
+-      setFormData((prev) => ({
+-        ...prev,
+-        badges: [
+-          ...(prev.badges || []),
+-          ...urls.map((url) => ({ image: url, text: "" })),
+-        ],
+-      }));
+-    } catch (err) {
+-      setBadgeImageUploadError("Failed to upload badge images.");
+-    } finally {
+-      setBadgeImageUploading(false);
+-      if (badgeImageInputRef.current) badgeImageInputRef.current.value = "";
+-    }
+-  };
+-
+-  const handleBadgeNameChange = (idx: number, value: string) => {
+-    setFormData((prev) => ({
+-      ...prev,
+-      badges: prev.badges.map((badge, i) =>
+-        i === idx ? { ...badge, text: value } : badge
+-      ),
+-    }));
+-  };
+-
+-  const handleRemoveBadge = (idx: number) => {
+-    setFormData((prev) => ({
+-      ...prev,
+-      badges: prev.badges.filter((_, i) => i !== idx),
+-    }));
+-  };
+-
+-  const handleMultipleHealthBadgeFilesSelect = async (
+-    e: React.ChangeEvent<HTMLInputElement>
+-  ) => {
+-    if (!e.target.files || e.target.files.length === 0) return;
+-    setHealthBadgeUploading(true);
+-    setHealthBadgeUploadError("");
+-    try {
+-      const urls = await productApi.uploadMultipleHealthBadgeImages(e.target.files);
+-      setFormData((prev) => ({
+-        ...prev,
+-        healthBadges: [
+-          ...(prev.healthBadges || []),
+-          ...urls.map((url) => ({ image: url, title: "", description: "" })),
+-        ],
+-      }));
+-    } catch (err) {
+-      setHealthBadgeUploadError("Failed to upload health badge images.");
+-    } finally {
+-      setHealthBadgeUploading(false);
+-      if (healthBadgeInputRef.current) healthBadgeInputRef.current.value = "";
+-    }
+-  };
+-
+-  const handleHealthBadgeTitleChange = (idx: number, value: string) => {
+-    setFormData((prev) => ({
+-      ...prev,
+-      healthBadges: (prev.healthBadges || []).map((badge, i) =>
+-        i === idx ? { ...badge, title: value } : badge
+-      ),
+-    }));
+-  };
+-
+-  const handleHealthBadgeDescriptionChange = (idx: number, value: string) => {
+-    setFormData((prev) => ({
+-      ...prev,
+-      healthBadges: (prev.healthBadges || []).map((badge, i) =>
+-        i === idx ? { ...badge, description: value } : badge
+-      ),
+-    }));
+-  };
+-
+-  const handleRemoveHealthBadge = (idx: number) => {
+-    setFormData((prev) => ({
+-      ...prev,
+-      healthBadges: (prev.healthBadges || []).filter((_, i) => i !== idx),
+-    }));
+-  };
+-
+-  const handleSubmit = (e: React.FormEvent) => {
+-    e.preventDefault();
+-    onSubmit(formData);
+-  };
+-
+-  return (
+-    <Transition.Root show={isOpen} as={Fragment}>
+-      <Dialog as="div" className="relative z-10" onClose={onClose}>
+-        <Transition.Child
+-          as={Fragment}
+-          enter="ease-out duration-300"
+-          enterFrom="opacity-0"
+-          enterTo="opacity-100"
+-          leave="ease-in duration-200"
+-          leaveFrom="opacity-100"
+-          leaveTo="opacity-0"
+-        >
+-          <div className="fixed inset-0 bg-gray-800/50 bg-opacity-75 transition-opacity" />
+-        </Transition.Child>
+-
+-        <div className="fixed inset-0 z-10 overflow-y-auto">
+-          <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+-            <Transition.Child
+-              as={Fragment}
+-              enter="ease-out duration-300"
+-              enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+-              enterTo="opacity-100 translate-y-0 sm:scale-100"
+-              leave="ease-in duration-200"
+-              leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+-              leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+-            >
+-              <Dialog.Panel className="relative bg-white rounded-lg px-6 pt-6 pb-4 text-left shadow-xl transform transition-all sm:my-8 sm:max-w-4xl w-full">
+-                <div className="flex justify-between items-center mb-4">
+-                  <h2 className="text-xl font-semibold text-gray-800">
+-                    {editMode ? "Edit Product" : "Create New Product"}
+-                  </h2>
+-                  <button
+-                    onClick={onClose}
+-                    className="button text-gray-400 hover:text-gray-600 focus:outline-none"
+-                  >
+-                    <XMarkIcon className="w-6 h-6" />
+-                  </button>
+-                </div>
+-                <form onSubmit={handleSubmit} className="space-y-6">
+-                  <div className="space-y-4">
+-                    <div>
+-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+-                        Categories
+-                      </label>
+-                      <div className="min-h-[42px] p-2 border border-gray-300 rounded-md bg-white flex flex-wrap gap-2 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all duration-200">
+-                        {(formData.categoryIds || []).map((catId) => {
+-                          const cat = categories.find((c) => c.id === catId);
+-                          if (!cat) return null;
+-                          return (
+-                            <span
+-                              key={catId}
+-                              className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-md border border-blue-100 shadow-sm transition-all"
+-                            >
+-                              {cat.name}
+-                              <button
+-                                type="button"
+-                                onClick={() => handleCategoryToggle(catId)}
+-                                className="text-blue-400 hover:text-blue-600 focus:outline-none transition-colors"
+-                              >
+-                                <XMarkIcon className="w-4 h-4" />
+-                              </button>
+-                            </span>
+-                          );
+-                        })}
+-                        <select
+-                          className="flex-grow border-none focus:ring-0 text-sm py-1 bg-transparent cursor-pointer min-w-[150px]"
+-                          value=""
+-                          onChange={(e) => {
+-                            const selectedId = e.target.value;
+-                            if (selectedId) {
+-                              handleCategoryToggle(selectedId);
+-                            }
+-                          }}
+-                        >
+-                          <option value="" disabled>Select category...</option>
+-                          {categories
+-                            .filter((cat) => !(formData.categoryIds || []).includes(cat.id))
+-                            .map((cat) => (
+-                              <option key={cat.id} value={cat.id}>
+-                                {cat.name}
+-                              </option>
+-                            ))}
+-                        </select>
+-                      </div>
+-                      <p className="mt-2 text-xs text-gray-500 italic flex items-center gap-1">
+-                        <CheckIcon className="w-3 h-3 text-green-500" />
+-                        Choose multiple categories from the dropdown. Selected items appear as tags above.
+-                      </p>
+-                    </div>
+-                    <div>
+-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+-                        Catalog Status
+-                      </label>
+-                      <select
+-                        name="status"
+-                        value={formData.status || "active"}
+-                        onChange={handleChange}
+-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+-                      >
+-                        <option value="active">Active ΓÇö visible on storefront</option>
+-                        <option value="hidden">Hidden ΓÇö not shown on storefront</option>
+-                        <option value="draft">Draft ΓÇö work in progress</option>
+-                      </select>
+-                    </div>
+-                    <div>
+-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+-                        Display Rank (Storefront Dropdown Position)
+-                      </label>
+-                      <input
+-                        type="number"
+-                        name="rank"
+-                        value={formData.rank ?? ""}
+-                        onChange={(e) => {
+-                          const val = e.target.value;
+-                          setFormData((prev) => ({
+-                            ...prev,
+-                            rank: val !== "" ? Number(val) : undefined,
+-                          }));
+-                        }}
+-                        placeholder="e.g. 1 (lower numbers show first)"
+-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+-                      />
+-                    </div>
+-                    <div>
+-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+-                        Product Name
+-                      </label>
+-                      <input
+-                        name="name"
+-                        value={formData.name || ""}
+-                        onChange={handleChange}
+-                        placeholder="Enter product name"
+-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+-                        required
+-                      />
+-                    </div>
+-                    <div>
+-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+-                        Origin
+-                      </label>
+-                      <input
+-                        name="origin"
+-                        value={formData.origin || ""}
+-                        onChange={handleChange}
+-                        placeholder="Enter product origin"
+-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+-                      />
+-                    </div>
+-                    <div>
+-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+-                        Short Description
+-                      </label>
+-                      <input
+-                        name="shortDescription"
+-                        value={formData.shortDescription || ""}
+-                        onChange={handleChange}
+-                        placeholder="Enter short description"
+-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+-                      />
+-                    </div>
+-                    <div>
+-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+-                        Description
+-                      </label>
+-                      <textarea
+-                        name="description"
+-                        value={formData.description || ""}
+-                        onChange={handleChange}
+-                        placeholder="Enter product description"
+-                        rows={3}
+-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+-                      />
+-                    </div>
+-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+-                      <div>
+-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+-                          SKU
+-                        </label>
+-                        <input
+-                          name="sku"
+-                          value={formData.sku || ""}
+-                          onChange={handleChange}
+-                          placeholder="Enter Product SKU"
+-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+-                        />
+-                      </div>
+-                      <div>
+-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+-                          Warehouse Name
+-                        </label>
+-                        <input
+-                          list="warehouse-options"
+-                          name="warehouseName"
+-                          value={formData.warehouseName || ""}
+-                          onChange={handleChange}
+-                          placeholder="Select or enter warehouse name"
+-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+-                        />
+-                        <datalist id="warehouse-options">
+-                          <option value="Ghee Warehouse" />
+-                          <option value="Oils Warehouse" />
+-                          <option value="Honey Warehouse" />
+-                        </datalist>
+-                      </div>
+-                    </div>
+-                  </div>
+-
+-                  <div>
+-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+-                      Main Image URL
+-                    </label>
+-                    <input
+-                      name="images.main"
+-                      value={formData.images.main || ""}
+-                      onChange={(e) =>
+-                        handleImageChange("main", e.target.value)
+-                      }
+-                      placeholder="Enter main image URL"
+-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+-                    />
+-                    <div className="mt-2 flex items-center space-x-2">
+-                      <label className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition text-sm font-medium">
+-                        <input
+-                          type="file"
+-                          accept="image/*"
+-                          className="hidden"
+-                          ref={mainImageInputRef}
+-                          onChange={handleMainImageFileSelect}
+-                          disabled={mainImageUploading}
+-                        />
+-                        {mainImageUploading
+-                          ? "Uploading..."
+-                          : "Upload Main Image"}
+-                      </label>
+-                      {mainImageUploadError && (
+-                        <span className="text-red-500 text-sm">
+-                          {mainImageUploadError}
+-                        </span>
+-                      )}
+-                    </div>
+-                  </div>
+-
+-                  <div className="mt-4 space-y-4">
+-                    <label className="block text-sm font-medium">
+-                      Gallery Images
+-                    </label>
+-                    <input
+-                      type="file"
+-                      accept="image/*"
+-                      multiple
+-                      ref={fileInputRef}
+-                      onChange={handleGalleryFileSelect}
+-                      className="hidden"
+-                    />
+-                    <button
+-                      type="button"
+-                      onClick={handleGalleryButtonClick}
+-                      disabled={galleryUploading}
+-                      className="button mb-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
+-                    >
+-                      {galleryUploading ? "Uploading..." : "Upload Images"}
+-                    </button>
+-                    {galleryUploadError && (
+-                      <div className="text-red-500 text-sm">{galleryUploadError}</div>
+-                    )}
+-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+-                      {formData.images.gallery.map((url, idx) => (
+-                        <div
+-                          key={idx}
+-                          className="flex items-center space-x-2"
+-                        >
+-                          {typeof url === "string" && url.trim() !== "" && (
+-                            <img
+-                              src={url}
+-                              alt={`Gallery ${idx + 1}`}
+-                              className="w-20 h-20 object-contain rounded border"
+-                            />
+-                          )}
+-                          <input
+-                            type="text"
+-                            value={url || ""}
+-                            readOnly
+-                            className="flex-1 px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 bg-gray-100 cursor-not-allowed"
+-                          />
+-                          <button
+-                            type="button"
+-                            onClick={() => removeGalleryImage(idx)}
+-                            className="ml-1 p-1 rounded-full hover:bg-red-500 focus:outline-none"
+-                            aria-label="Remove image"
+-                          >
+-                            <XMarkIcon className="w-5 h-5 text-red-500 hover:text-white" />
+-                          </button>
+-                        </div>
+-                      ))}
+-                    </div>
+-                  </div>
+-                  <div>
+-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+-                      Banner Image
+-                    </label>
+-                    {formData.images.banner &&
+-                      typeof formData.images.banner === "string" &&
+-                      formData.images.banner.trim() !== "" && (
+-                        <div className="mb-2 relative group">
+-                          <img
+-                            src={formData.images.banner}
+-                            alt="Banner Preview"
+-                            className="w-full h-32 object-contain rounded border"
+-                          />
+-                          <button
+-                            type="button"
+-                            onClick={handleRemoveBanner}
+-                            className="absolute top-1 right-1 bg-white bg-opacity-80 rounded-full p-1 text-red-600 hover:bg-red-200 transition-opacity opacity-0 group-hover:opacity-100"
+-                            style={{ zIndex: 10 }}
+-                            aria-label="Remove banner"
+-                          >
+-                            <XMarkIcon className="h-5 w-5" />
+-                          </button>
+-                        </div>
+-                      )}
+-                    <label className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition text-sm font-medium">
+-                      <input
+-                        type="file"
+-                        accept="image/*"
+-                        className="hidden"
+-                        ref={bannerInputRef}
+-                        onChange={handleBannerFileSelect}
+-                        disabled={bannerUploading}
+-                      />
+-                      {bannerUploading
+-                        ? "Uploading..."
+-                        : "Upload Banner Image"}
+-                    </label>
+-                    {bannerUploadError && (
+-                      <span className="text-red-500 text-sm ml-2">
+-                        {bannerUploadError}
+-                      </span>
+-                    )}
+-                  </div>
+-                  <div>
+-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+-                      Health Badges
+-                    </label>
+-                    <div className="flex space-x-2 mb-2 items-center">
+-                      <label className="inline-block px-3 py-1 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition text-sm font-medium">
+-                        <input
+-                          type="file"
+-                          accept="image/*"
+-                          className="hidden"
+-                          ref={healthBadgeInputRef}
+-                          onChange={handleMultipleHealthBadgeFilesSelect}
+-                          multiple
+-                          disabled={healthBadgeUploading}
+-                        />
+-                        {healthBadgeUploading
+-                          ? "Uploading..."
+-                          : "Upload Health Badge Images"}
+-                      </label>
+-                    </div>
+-                    {healthBadgeUploadError && (
+-                      <span className="text-red-500 text-sm">
+-                        {healthBadgeUploadError}
+-                      </span>
+-                    )}
+-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+-                      {(formData.healthBadges || []).map((badge, idx) => (
+-                        <div
+-                          key={idx}
+-                          className="flex flex-col space-y-2 p-4 border rounded-lg relative"
+-                        >
+-                          <button
+-                            type="button"
+-                            onClick={() => handleRemoveHealthBadge(idx)}
+-                            className="absolute top-1 right-1 p-1 rounded-full hover:bg-red-100 focus:outline-none"
+-                            aria-label="Remove health badge"
+-                          >
+-                            <XMarkIcon className="w-4 h-4 text-red-500" />
+-                          </button>
+-                          {typeof badge.image === "string" &&
+-                            badge.image.trim() !== "" && (
+-                              <img
+-                                src={badge.image}
+-                                alt="Health Badge"
+-                                className="w-20 h-20 object-contain rounded border mx-auto"
+-                              />
+-                            )}
+-                          <input
+-                            type="text"
+-                            value={badge.title || ""}
+-                            onChange={(e) =>
+-                              handleHealthBadgeTitleChange(idx, e.target.value)
+-                            }
+-                            placeholder="Health badge title"
+-                            className="px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm"
+-                          />
+-                          <textarea
+-                            value={badge.description || ""}
+-                            onChange={(e) =>
+-                              handleHealthBadgeDescriptionChange(idx, e.target.value)
+-                            }
+-                            placeholder="Health badge description"
+-                            rows={2}
+-                            className="px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 resize-none text-sm"
+-                          />
+-                        </div>
+-                      ))}
+-                    </div>
+-                  </div>
+-                  <div>
+-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+-                      Badges
+-                    </label>
+-                    <div className="flex space-x-2 mb-2 items-center">
+-                      <label className="inline-block px-3 py-1 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition text-sm font-medium">
+-                        <input
+-                          type="file"
+-                          accept="image/*"
+-                          className="hidden"
+-                          ref={badgeImageInputRef}
+-                          onChange={handleMultipleBadgeFilesSelect}
+-                          multiple
+-                          disabled={badgeImageUploading}
+-                        />
+-                        {badgeImageUploading
+-                          ? "Uploading..."
+-                          : "Upload Badge Images"}
+-                      </label>
+-                    </div>
+-                    {badgeImageUploadError && (
+-                      <span className="text-red-500 text-sm">
+-                        {badgeImageUploadError}
+-                      </span>
+-                    )}
+-                    <div className="flex flex-wrap gap-4 mt-2">
+-                      {(formData.badges || []).map((badge, idx) => (
+-                        <div
+-                          key={idx}
+-                          className="flex flex-col items-center relative border p-2 rounded-md"
+-                        >
+-                          {typeof badge.image === "string" &&
+-                            badge.image.trim() !== "" && (
+-                              <img
+-                                src={badge.image}
+-                                alt="Badge"
+-                                className="w-20 h-20 object-contain rounded border mb-1"
+-                              />
+-                            )}
+-                          <input
+-                            type="text"
+-                            value={badge.text || ""}
+-                            onChange={(e) =>
+-                              handleBadgeNameChange(idx, e.target.value)
+-                            }
+-                            placeholder="Badge name"
+-                            className="px-2 py-1 border rounded-md text-center text-xs"
+-                          />
+-                          <button
+-                            type="button"
+-                            onClick={() => handleRemoveBadge(idx)}
+-                            className="absolute top-0 right-0 mt-1 mr-1 p-1 rounded-full hover:bg-red-100 focus:outline-none"
+-                            aria-label="Remove badge"
+-                          >
+-                            <XMarkIcon className="w-4 h-4 text-red-500" />
+-                          </button>
+-                        </div>
+-                      ))}
+-                    </div>
+-                  </div>
+-                  {/* Bestseller Toggle */}
+-                  <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+-                    <div className="flex items-center justify-between">
+-                      <div>
+-                        <h3 className="text-sm font-semibold text-amber-800">≡ƒÅå Bestseller Tag</h3>
+-                        <p className="text-xs text-amber-600 mt-0.5">
+-                          Mark this product as a bestseller ΓÇö it will be highlighted on the storefront.
+-                        </p>
+-                      </div>
+-                      <button
+-                        type="button"
+-                        onClick={() =>
+-                          setFormData((prev) => ({ ...prev, isBestseller: !prev.isBestseller }))
+-                        }
+-                        className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 ${
+-                          formData.isBestseller ? "bg-amber-500" : "bg-gray-300"
+-                        }`}
+-                        aria-checked={formData.isBestseller}
+-                        role="switch"
+-                        aria-label="Toggle bestseller"
+-                      >
+-                        <span
+-                          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-300 ${
+-                            formData.isBestseller ? "translate-x-8" : "translate-x-1"
+-                          }`}
+-                        />
+-                      </button>
+-                    </div>
+-                    {formData.isBestseller && (
+-                      <div className="mt-3 flex items-center gap-2">
+-                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-amber-500 text-white text-xs font-bold rounded-full shadow">
+-                          ≡ƒÅå BESTSELLER
+-                        </span>
+-                        <span className="text-xs text-amber-700">This badge will appear on the product card.</span>
+-                      </div>
+-                    )}
+-                  </div>
+-
+-                  <div className="mt-6 flex justify-end space-x-3">
+-                    <button
+-                      type="button"
+-                      onClick={onClose}
+-                      className="button px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition text-sm font-medium"
+-                    >
+-                      Cancel
+-                    </button>
+-                    <button
+-                      type="submit"
+-                      disabled={formLoading}
+-                      className={`button px-4 py-2 rounded-md text-white flex items-center text-sm font-medium ${
+-                        formLoading
+-                          ? "bg-blue-400 cursor-not-allowed"
+-                          : "bg-blue-600 hover:bg-blue-700"
+-                      }`}
+-                    >
+-                      {formLoading ? (
+-                        <>
+-                          <ArrowPathIcon className="w-5 h-5 mr-2 animate-spin" />
+-                          Processing...
+-                        </>
+-                      ) : editMode ? (
+-                        <>
+-                          <PencilIcon className="w-5 h-5 mr-2" />
+-                          Update Product
+-                        </>
+-                      ) : (
+-                        <>
+-                          <PlusIcon className="w-5 h-5 mr-2" />
+-                          Create Product
+-                        </>
+-                      )}
+-                    </button>
+-                  </div>
+-                </form>
+-              </Dialog.Panel>
+-            </Transition.Child>
+-          </div>
+-        </div>
+-      </Dialog>
+-    </Transition.Root>
+-  );
+-};
+-
+-export default ProductFormModal;
+diff --git a/client/src/components/admin/variants/AddVariantForm.tsx b/client/src/components/admin/variants/AddVariantForm.tsx
+deleted file mode 100644
+index b49dc0a..0000000
+--- a/client/src/components/admin/variants/AddVariantForm.tsx
++++ /dev/null
+@@ -1,344 +0,0 @@
+-import React, { useState } from "react";
+-import type { Variant } from "../../../types/variant";
+-import variantApi from "../../../services/api/variantApi";
+-import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+-import {
+-  calculatePriceIncludingGST,
+-  calculateGSTAmount,
+-  formatPrice,
+-  GST_RATE_OPTIONS,
+-} from "../../../utils/gstCalculations";
+-
+-const WEIGHT_UNITS = ["g", "kg", "ml", "l"];
+-
+-interface AddVariantFormProps {
+-  productId: string;
+-  onSuccess: (newVariant: Variant) => void;
+-  isWeightDuplicate: (weight: string) => boolean;
+-}
+-
+-const AddVariantForm: React.FC<AddVariantFormProps> = ({
+-  productId,
+-  onSuccess,
+-  isWeightDuplicate,
+-}) => {
+-  const [formData, setFormData] = useState({
+-    weight: "",
+-    weightNumber: "",
+-    weightUnit: "g",
+-    price: "",
+-    originalPrice: "",
+-    discount: "",
+-    gstPercentage: "18",
+-    customGstPercentage: "",
+-    useCustomGst: false,
+-    inStock: true,
+-    units_in_stock: "",
+-  });
+-  const [error, setError] = useState("");
+-  const [loading, setLoading] = useState(false);
+-
+-  const handleInputChange = (
+-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+-  ) => {
+-    const { name, value, type } = e.target;
+-    const checked = (e.target as HTMLInputElement).checked;
+-
+-    if (error) {
+-      setError("");
+-    }
+-
+-    setFormData((prev) => {
+-      const updatedData = {
+-        ...prev,
+-        [name]:
+-          type === "checkbox"
+-            ? checked
+-            : ["price", "originalPrice", "units_in_stock", "gstPercentage"].includes(name)
+-            ? value === ""
+-              ? 0
+-              : Number(value)
+-            : value,
+-      };
+-
+-      if (name === "weightNumber" || name === "weightUnit") {
+-        const number = name === "weightNumber" ? value : prev.weightNumber;
+-        const unit = name === "weightUnit" ? value : prev.weightUnit;
+-        updatedData.weight = `${number || ""} ${unit || ""}`.trim();
+-      }
+-
+-      if (name === "price" || name === "originalPrice") {
+-        const price = name === "price" ? Number(value) : Number(prev.price);
+-        const originalPrice =
+-          name === "originalPrice" ? Number(value) : Number(prev.originalPrice);
+-
+-        if (originalPrice > 0 && price > 0) {
+-          const discountPercent = ((originalPrice - price) / originalPrice) * 100;
+-          updatedData.discount = (Math.round(discountPercent * 100) / 100).toString();
+-        } else {
+-          updatedData.discount = "0";
+-        }
+-      }
+-
+-      return updatedData;
+-    });
+-  };
+-
+-  const handleSubmit = async (e: React.FormEvent) => {
+-    e.preventDefault();
+-    setError("");
+-    setLoading(true);
+-
+-    const finalWeight = `${formData.weightNumber || ""} ${formData.weightUnit || ""}`.trim();
+-
+-    if (isWeightDuplicate(finalWeight)) {
+-      const [number] = finalWeight.trim().split(/\s+/);
+-      setError(`A variant with ${number} already exists . Please choose a different quantity.`);
+-      setLoading(false);
+-      return;
+-    }
+-
+-    try {
+-      const newVariant = await variantApi.createVariant(productId, {
+-        weight: finalWeight,
+-        productId,
+-        price: Number(formData.price),
+-        originalPrice: Number(formData.originalPrice),
+-        discount: Number(formData.discount),
+-        gstPercentage: Number(
+-          formData.useCustomGst ? formData.customGstPercentage : formData.gstPercentage
+-        ),
+-        inStock: formData.inStock,
+-        units_in_stock: Number(formData.units_in_stock),
+-      });
+-
+-      onSuccess(newVariant);
+-      setFormData({
+-        weight: "",
+-        weightNumber: "",
+-        weightUnit: "g",
+-        price: "",
+-        originalPrice: "",
+-        discount: "",
+-        gstPercentage: "18",
+-        customGstPercentage: "",
+-        useCustomGst: false,
+-        inStock: true,
+-        units_in_stock: "",
+-      });
+-    } catch (err) {
+-      setError("Failed to add variant. Please try again.");
+-    } finally {
+-      setLoading(false);
+-    }
+-  };
+-
+-  return (
+-    <form onSubmit={handleSubmit} className="mb-6 bg-white p-6 rounded shadow border border-gray-200">
+-      <h3 className="text-lg font-medium text-gray-900 mb-4">Add New Variant</h3>
+-      {error && <div className="mb-2 text-red-600">{error}</div>}
+-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+-        <div className="grid grid-cols-3 gap-2">
+-          <div className="col-span-2">
+-            <label className="block text-sm font-medium text-gray-700 mb-1">Weight</label>
+-            <input
+-              type="number"
+-              name="weightNumber"
+-              value={formData.weightNumber}
+-              onChange={handleInputChange}
+-              min="0"
+-              step="0.01"
+-              placeholder="Enter weight"
+-              className={`w-full px-3 py-2 border rounded-md ${
+-                formData.weightNumber &&
+-                formData.weightUnit &&
+-                isWeightDuplicate(`${formData.weightNumber} ${formData.weightUnit}`.trim())
+-                  ? "border-red-300 bg-red-50"
+-                  : "border-gray-300"
+-              }`}
+-              required
+-            />
+-          </div>
+-          <div>
+-            <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+-            <select
+-              name="weightUnit"
+-              value={formData.weightUnit}
+-              onChange={handleInputChange}
+-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+-              required
+-            >
+-              {WEIGHT_UNITS.map((unit) => (
+-                <option key={unit} value={unit}>
+-                  {unit}
+-                </option>
+-              ))}
+-            </select>
+-          </div>
+-        </div>
+-        {formData.weightNumber &&
+-          formData.weightUnit &&
+-          isWeightDuplicate(`${formData.weightNumber} ${formData.weightUnit}`.trim()) && (
+-            <div className="text-sm text-red-600 flex items-center">
+-              <ExclamationTriangleIcon className="w-4 h-4 mr-1" />
+-              A variant with {formData.weightNumber} already exists
+-            </div>
+-          )}
+-        <div>
+-          <label className="block text-sm font-medium text-gray-700 mb-1">Price (Γé╣)</label>
+-          <input
+-            name="price"
+-            type="number"
+-            min="0"
+-            step="0.01"
+-            value={formData.price}
+-            onChange={handleInputChange}
+-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+-            required
+-          />
+-        </div>
+-        <div>
+-          <label className="block text-sm font-medium text-gray-700 mb-1">
+-            Striked-Through Price (Γé╣)
+-          </label>
+-          <input
+-            name="originalPrice"
+-            type="number"
+-            min="0"
+-            step="0.01"
+-            value={formData.originalPrice}
+-            onChange={handleInputChange}
+-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+-          />
+-        </div>
+-        <div>
+-          <label className="block text-sm font-medium text-gray-700 mb-1">Discount (%)</label>
+-          <input
+-            name="discount"
+-            type="number"
+-            value={formData.discount}
+-            readOnly
+-            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
+-            placeholder="Automatically calculated"
+-          />
+-        </div>
+-        <div>
+-          <label className="block text-sm font-medium text-gray-700 mb-1">GST (%)</label>
+-          <div className="space-y-2">
+-            <div className="flex items-center space-x-2">
+-              <input
+-                type="radio"
+-                name="gstInputType"
+-                checked={!formData.useCustomGst}
+-                onChange={() => setFormData((prev) => ({ ...prev, useCustomGst: false }))}
+-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+-              />
+-              <label className="text-sm text-gray-700">Select from options</label>
+-            </div>
+-            <select
+-              name="gstPercentage"
+-              value={formData.gstPercentage}
+-              onChange={handleInputChange}
+-              disabled={formData.useCustomGst}
+-              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+-                formData.useCustomGst ? "bg-gray-100 text-gray-500" : ""
+-              }`}
+-              required={!formData.useCustomGst}
+-            >
+-              {GST_RATE_OPTIONS.map((option) => (
+-                <option key={option.value} value={option.value}>
+-                  {option.label}
+-                </option>
+-              ))}
+-            </select>
+-
+-            <div className="flex items-center space-x-2">
+-              <input
+-                type="radio"
+-                name="gstInputType"
+-                checked={formData.useCustomGst}
+-                onChange={() => setFormData((prev) => ({ ...prev, useCustomGst: true }))}
+-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+-              />
+-              <label className="text-sm text-gray-700">Enter custom GST</label>
+-            </div>
+-            <input
+-              name="customGstPercentage"
+-              type="number"
+-              value={formData.customGstPercentage}
+-              onChange={handleInputChange}
+-              disabled={!formData.useCustomGst}
+-              min="0"
+-              max="100"
+-              step="0.01"
+-              placeholder="Enter GST percentage"
+-              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+-                !formData.useCustomGst ? "bg-gray-100 text-gray-500" : ""
+-              }`}
+-              required={formData.useCustomGst}
+-            />
+-          </div>
+-        </div>
+-        <div>
+-          <label className="block text-sm font-medium text-gray-700 mb-1">
+-            Price Including GST (Γé╣)
+-          </label>
+-          <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-blue-50 text-blue-800 font-semibold">
+-            {formData.price && (formData.gstPercentage || formData.customGstPercentage)
+-              ? formatPrice(
+-                  calculatePriceIncludingGST(
+-                    Number(formData.price),
+-                    Number(formData.useCustomGst ? formData.customGstPercentage : formData.gstPercentage)
+-                  )
+-                )
+-              : "Γé╣0.00"}
+-          </div>
+-          <div className="text-xs text-gray-500 mt-1">
+-            Base Price: {formData.price ? formatPrice(Number(formData.price)) : "Γé╣0.00"} + GST:{" "}
+-            {formData.price && (formData.gstPercentage || formData.customGstPercentage)
+-              ? formatPrice(
+-                  calculateGSTAmount(
+-                    Number(formData.price),
+-                    Number(formData.useCustomGst ? formData.customGstPercentage : formData.gstPercentage)
+-                  )
+-                )
+-              : "Γé╣0.00"}
+-          </div>
+-        </div>
+-        <div>
+-          <label className="block text-sm font-medium text-gray-700 mb-1">Units in Stock</label>
+-          <input
+-            type="number"
+-            name="units_in_stock"
+-            value={formData.units_in_stock}
+-            onChange={handleInputChange}
+-            min="0"
+-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+-            required
+-          />
+-        </div>
+-        <div className="flex items-center mt-2">
+-          <input
+-            name="inStock"
+-            type="checkbox"
+-            checked={formData.inStock}
+-            onChange={handleInputChange}
+-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+-          />
+-          <label className="ml-2 block text-sm text-gray-700">In Stock</label>
+-        </div>
+-      </div>
+-      <div className="mt-4 flex justify-end">
+-        <button
+-          type="submit"
+-          disabled={loading}
+-          className="button px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
+-        >
+-          {loading ? "Adding..." : "Add Variant"}
+-        </button>
+-      </div>
+-    </form>
+-  );
+-};
+-
+-export default AddVariantForm;
+diff --git a/client/src/components/admin/variants/EditVariantModal.tsx b/client/src/components/admin/variants/EditVariantModal.tsx
+deleted file mode 100644
+index 67848ab..0000000
+--- a/client/src/components/admin/variants/EditVariantModal.tsx
++++ /dev/null
+@@ -1,376 +0,0 @@
+-import React, { useState, useEffect } from "react";
+-import type { Variant } from "../../../types/variant";
+-import variantApi from "../../../services/api/variantApi";
+-import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+-import {
+-  calculatePriceIncludingGST,
+-  calculateGSTAmount,
+-  formatPrice,
+-  GST_RATE_OPTIONS,
+-} from "../../../utils/gstCalculations";
+-
+-const WEIGHT_UNITS = ["g", "kg", "ml", "l"];
+-
+-interface EditVariantModalProps {
+-  variant: Variant;
+-  productId: string;
+-  onClose: () => void;
+-  onSuccess: (updatedVariant: Variant) => void;
+-  isWeightDuplicate: (weight: string, excludeId?: string) => boolean;
+-}
+-
+-const EditVariantModal: React.FC<EditVariantModalProps> = ({
+-  variant,
+-  productId,
+-  onClose,
+-  onSuccess,
+-  isWeightDuplicate,
+-}) => {
+-  const [formData, setFormData] = useState({
+-    weight: "",
+-    weightNumber: "",
+-    weightUnit: "g",
+-    price: 0,
+-    originalPrice: 0,
+-    discount: 0,
+-    gstPercentage: 18,
+-    customGstPercentage: "",
+-    useCustomGst: false,
+-    inStock: true,
+-    units_in_stock: 0,
+-  });
+-  const [error, setError] = useState("");
+-  const [loading, setLoading] = useState(false);
+-
+-  useEffect(() => {
+-    const [weightNumber, weightUnit] = variant.weight.split(/\s+/);
+-    setFormData({
+-      weight: variant.weight,
+-      weightNumber: weightNumber || "",
+-      weightUnit: weightUnit || "g",
+-      price: variant.price,
+-      originalPrice: variant.originalPrice || 0,
+-      discount: variant.discount || 0,
+-      gstPercentage: variant.gstPercentage || 18,
+-      customGstPercentage: "",
+-      useCustomGst: false,
+-      inStock: variant.inStock,
+-      units_in_stock: typeof variant.units_in_stock === "number" ? variant.units_in_stock : 0,
+-    });
+-    setError("");
+-  }, [variant]);
+-
+-  const handleInputChange = (
+-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+-  ) => {
+-    const { name, value, type } = e.target;
+-    const checked = (e.target as HTMLInputElement).checked;
+-
+-    if (error) {
+-      setError("");
+-    }
+-
+-    if (name === "weightNumber" || name === "weightUnit") {
+-      const number = name === "weightNumber" ? value : formData.weightNumber;
+-      const unit = name === "weightUnit" ? value : formData.weightUnit;
+-      const updatedValue = `${number || ""} ${unit || ""}`.trim();
+-
+-      setFormData((prev) => ({
+-        ...prev,
+-        weight: updatedValue,
+-        [name]: value,
+-      }));
+-    } else {
+-      setFormData((prev) => {
+-        const updatedData = {
+-          ...prev,
+-          [name]:
+-            type === "checkbox"
+-              ? checked
+-              : ["price", "originalPrice", "units_in_stock"].includes(name)
+-              ? value === ""
+-                ? 0
+-                : Number(value)
+-              : value,
+-        };
+-
+-        if (name === "price" || name === "originalPrice") {
+-          const price = name === "price" ? Number(value) : prev.price;
+-          const originalPrice = name === "originalPrice" ? Number(value) : prev.originalPrice;
+-
+-          if (originalPrice > 0 && price > 0) {
+-            const discountPercent = ((originalPrice - price) / originalPrice) * 100;
+-            updatedData.discount = Math.round(discountPercent * 100) / 100;
+-          } else {
+-            updatedData.discount = 0;
+-          }
+-        }
+-
+-        return updatedData;
+-      });
+-    }
+-  };
+-
+-  const handleSubmit = async (e: React.FormEvent) => {
+-    e.preventDefault();
+-    setError("");
+-    setLoading(true);
+-
+-    if (isWeightDuplicate(formData.weight, variant.id)) {
+-      const [number] = formData.weight.trim().split(/\s+/);
+-      setError(
+-        `A variant with ${number} already exists (regardless of unit). Please choose a different quantity.`
+-      );
+-      setLoading(false);
+-      return;
+-    }
+-
+-    try {
+-      const updatedVariant = await variantApi.updateVariant(productId, variant.id, {
+-        id: variant.id,
+-        ...formData,
+-        gstPercentage: Number(
+-          formData.useCustomGst ? formData.customGstPercentage : formData.gstPercentage
+-        ),
+-        productId,
+-      });
+-
+-      onSuccess(updatedVariant);
+-    } catch (err) {
+-      setError("Failed to update variant. Please check the data and try again.");
+-    } finally {
+-      setLoading(false);
+-    }
+-  };
+-
+-  return (
+-    <div className="fixed inset-0 bg-gray-900/60 bg-opacity-50 flex items-center justify-center p-4 z-50">
+-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md border border-gray-200">
+-        <div className="p-6">
+-          <h2 className="text-xl font-bold text-gray-800 mb-4">Edit Variant</h2>
+-          {error && (
+-            <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg border border-red-200 flex items-center">
+-              <ExclamationTriangleIcon className="w-5 h-5 mr-2" />
+-              {error}
+-            </div>
+-          )}
+-          <form onSubmit={handleSubmit}>
+-            <div className="space-y-4">
+-              <div className="grid grid-cols-3 gap-2">
+-                <div className="col-span-2">
+-                  <label className="block text-sm font-medium text-gray-700 mb-1">Weight</label>
+-                  <input
+-                    type="number"
+-                    name="weightNumber"
+-                    value={formData.weightNumber || ""}
+-                    onChange={handleInputChange}
+-                    min="0"
+-                    step="0.01"
+-                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+-                      formData.weight && isWeightDuplicate(formData.weight, variant.id)
+-                        ? "border-red-300 bg-red-50"
+-                        : "border-gray-300"
+-                    }`}
+-                    required
+-                  />
+-                </div>
+-                <div>
+-                  <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+-                  <select
+-                    name="weightUnit"
+-                    value={formData.weightUnit}
+-                    onChange={handleInputChange}
+-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+-                    required
+-                  >
+-                    {WEIGHT_UNITS.map((unit) => (
+-                      <option key={unit} value={unit}>
+-                        {unit}
+-                      </option>
+-                    ))}
+-                  </select>
+-                </div>
+-              </div>
+-              {formData.weight && isWeightDuplicate(formData.weight, variant.id) && (
+-                <div className="text-sm text-red-600 flex items-center">
+-                  <ExclamationTriangleIcon className="w-4 h-4 mr-1" />
+-                  A variant with {formData.weightNumber} already exists (regardless of unit)
+-                </div>
+-              )}
+-
+-              <div>
+-                <label className="block text-sm font-medium text-gray-700 mb-1">Price (Γé╣)</label>
+-                <input
+-                  type="number"
+-                  name="price"
+-                  value={formData.price}
+-                  onChange={handleInputChange}
+-                  step="0.01"
+-                  min="0"
+-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+-                  required
+-                />
+-              </div>
+-
+-              <div>
+-                <label className="block text-sm font-medium text-gray-700 mb-1">
+-                  Strike-Through Price (Γé╣)
+-                </label>
+-                <input
+-                  type="number"
+-                  name="originalPrice"
+-                  value={formData.originalPrice}
+-                  onChange={handleInputChange}
+-                  step="0.01"
+-                  min="0"
+-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+-                />
+-              </div>
+-
+-              <div>
+-                <label className="block text-sm font-medium text-gray-700 mb-1">Discount (%)</label>
+-                <input
+-                  type="number"
+-                  name="discount"
+-                  value={formData.discount}
+-                  readOnly
+-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-gray-50"
+-                  placeholder="Automatically calculated"
+-                />
+-              </div>
+-
+-              <div>
+-                <label className="block text-sm font-medium text-gray-700 mb-1">GST (%)</label>
+-                <div className="space-y-2">
+-                  <div className="flex items-center space-x-2">
+-                    <input
+-                      type="radio"
+-                      name="editGstInputType"
+-                      checked={!formData.useCustomGst}
+-                      onChange={() => setFormData((prev) => ({ ...prev, useCustomGst: false }))}
+-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+-                    />
+-                    <label className="text-sm text-gray-700">Select from options</label>
+-                  </div>
+-                  <select
+-                    name="gstPercentage"
+-                    value={formData.gstPercentage}
+-                    onChange={handleInputChange}
+-                    disabled={formData.useCustomGst}
+-                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+-                      formData.useCustomGst ? "bg-gray-100 text-gray-500" : ""
+-                    }`}
+-                    required={!formData.useCustomGst}
+-                  >
+-                    {GST_RATE_OPTIONS.map((option) => (
+-                      <option key={option.value} value={option.value}>
+-                        {option.label}
+-                      </option>
+-                    ))}
+-                  </select>
+-
+-                  <div className="flex items-center space-x-2">
+-                    <input
+-                      type="radio"
+-                      name="editGstInputType"
+-                      checked={formData.useCustomGst}
+-                      onChange={() => setFormData((prev) => ({ ...prev, useCustomGst: true }))}
+-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+-                    />
+-                    <label className="text-sm text-gray-700">Enter custom GST</label>
+-                  </div>
+-                  <input
+-                    name="customGstPercentage"
+-                    type="number"
+-                    value={formData.customGstPercentage}
+-                    onChange={handleInputChange}
+-                    disabled={!formData.useCustomGst}
+-                    min="0"
+-                    max="100"
+-                    step="0.01"
+-                    placeholder="Enter GST percentage"
+-                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+-                      !formData.useCustomGst ? "bg-gray-100 text-gray-500" : ""
+-                    }`}
+-                    required={formData.useCustomGst}
+-                  />
+-                </div>
+-              </div>
+-
+-              <div>
+-                <label className="block text-sm font-medium text-gray-700 mb-1">
+-                  Price Including GST (Γé╣)
+-                </label>
+-                <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-blue-50 text-blue-800 font-semibold">
+-                  {formData.price && (formData.gstPercentage || formData.customGstPercentage)
+-                    ? formatPrice(
+-                        calculatePriceIncludingGST(
+-                          formData.price,
+-                          Number(formData.useCustomGst ? formData.customGstPercentage : formData.gstPercentage)
+-                        )
+-                      )
+-                    : "Γé╣0.00"}
+-                </div>
+-                <div className="text-xs text-gray-500 mt-1">
+-                  Base Price: {formatPrice(formData.price)} + GST:{" "}
+-                  {formData.price && (formData.gstPercentage || formData.customGstPercentage)
+-                    ? formatPrice(
+-                        calculateGSTAmount(
+-                          formData.price,
+-                          Number(formData.useCustomGst ? formData.customGstPercentage : formData.gstPercentage)
+-                        )
+-                      )
+-                    : "Γé╣0.00"}
+-                </div>
+-              </div>
+-
+-              <div>
+-                <label className="block text-sm font-medium text-gray-700 mb-1">Units in Stock</label>
+-                <input
+-                  type="number"
+-                  name="units_in_stock"
+-                  value={formData.units_in_stock}
+-                  onChange={handleInputChange}
+-                  min="0"
+-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+-                  required
+-                />
+-              </div>
+-
+-              <div className="flex items-center">
+-                <input
+-                  type="checkbox"
+-                  name="inStock"
+-                  checked={formData.inStock}
+-                  onChange={handleInputChange}
+-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+-                />
+-                <label className="ml-2 block text-sm text-gray-700">In Stock</label>
+-              </div>
+-            </div>
+-
+-            <div className="mt-6 flex justify-end space-x-3">
+-              <button
+-                type="button"
+-                onClick={onClose}
+-                disabled={loading}
+-                className="button px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
+-              >
+-                Cancel
+-              </button>
+-              <button
+-                type="submit"
+-                disabled={loading}
+-                className="button px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+-              >
+-                {loading ? "Saving..." : "Save Changes"}
+-              </button>
+-            </div>
+-          </form>
+-        </div>
+-      </div>
+-    </div>
+-  );
+-};
+-
+-export default EditVariantModal;
+diff --git a/client/src/pages/admin/AdminLogin.tsx b/client/src/pages/admin/AdminLogin.tsx
+index 3d29300..3646e90 100644
+--- a/client/src/pages/admin/AdminLogin.tsx
++++ b/client/src/pages/admin/AdminLogin.tsx
+@@ -82,7 +82,9 @@ const AdminLogin = () => {
+ 
+     const errorMessage =
+       errorMap[error.code] ||
++      error.response?.data?.error ||
+       error.response?.data?.message ||
++      error.message ||
+       "Login failed. Please try again.";
+ 
+     setError(errorMessage);
+diff --git a/client/src/pages/admin/AdminProducts.tsx b/client/src/pages/admin/AdminProducts.tsx
+index a85cc63..fd01b18 100644
+--- a/client/src/pages/admin/AdminProducts.tsx
++++ b/client/src/pages/admin/AdminProducts.tsx
+@@ -19,7 +19,7 @@ import PageHeader from "../../components/common/PageHeader";
+ 
+ // Import Product Subcomponents
+ import ProductList from "../../components/admin/products/ProductList";
+-import ProductFormModal from "../../components/admin/products/ProductFormModal";
++import ProductFormModal from "../../components/admin/products/productForm/ProductFormModal";
+ import ErrorBoundary from "../../components/common/ErrorBoundary";
+ 
+ const initialForm: Omit<Product, "id"> = {
+@@ -138,10 +138,28 @@ const AdminProductPage: React.FC = () => {
+ 
+   // Form Submit (Create or Edit)
+   const handleSubmit = async (submitData: Omit<Product, "id">) => {
+-    setFormLoading(true);
+     setError("");
+     setSuccess("");
+ 
++    // Validate rank before any loading/processing UI
++    const rank = submitData.rank;
++    if (rank !== undefined && rank !== null && !Number.isNaN(Number(rank))) {
++      const conflict = products.find(
++        (p) =>
++          p.rank !== undefined &&
++          p.rank !== null &&
++          Number(p.rank) === Number(rank) &&
++          p.id !== editId
++      );
++      if (conflict) {
++        const message = `Rank ${rank} is already assigned to "${conflict.name}". Please choose a different rank.`;
++        const err: any = new Error(message);
++        err.response = { status: 409, data: { error: message } };
++        throw err;
++      }
++    }
++
++    setFormLoading(true);
+     try {
+       if (editMode && editId) {
+         const updated = await productApi.updateProduct(editId, submitData);
+@@ -154,8 +172,12 @@ const AdminProductPage: React.FC = () => {
+       }
+       resetForm();
+       closeModal();
+-    } catch (err) {
+-      setError("Failed to save product. Please try again.");
++    } catch (err: any) {
++      const apiMessage = err?.response?.data?.error || err?.message;
++      if (err?.response?.status === 409 || /rank/i.test(apiMessage || "")) {
++        throw err;
++      }
++      setError(apiMessage || "Failed to save product. Please try again.");
+       console.error("Product save error:", err);
+     } finally {
+       setFormLoading(false);
+@@ -307,6 +329,7 @@ const AdminProductPage: React.FC = () => {
+         editMode={editMode}
+         editId={editId}
+         categories={categories}
++        existingProducts={products}
+         initialData={formData}
+         onSubmit={handleSubmit}
+         formLoading={formLoading}
+diff --git a/client/src/pages/admin/ProductDetailsPage.tsx b/client/src/pages/admin/ProductDetailsPage.tsx
+index 8f2b8c2..e8d0c39 100644
+--- a/client/src/pages/admin/ProductDetailsPage.tsx
++++ b/client/src/pages/admin/ProductDetailsPage.tsx
+@@ -1,285 +1,464 @@
+-import React, { useEffect, useState } from "react";
++import React, { useEffect, useMemo, useState } from "react";
+ import { useParams, useNavigate, useLocation } from "react-router-dom";
+ import { productApi } from "../../services/api/productApi";
+ import type { Product } from "../../types";
+ import variantApi from "../../services/api/variantApi";
+ import type { Variant } from "../../types/variant";
+-// import {
+-//   TrashIcon,
+-//   ArrowTopRightOnSquareIcon,
+-// } from "@heroicons/react/24/solid";
+-// import { ArrowPathIcon } from "@heroicons/react/24/outline";
+-import PageHeader from "../../components/common/PageHeader";
++import { categoryApi, type Category } from "../../services/api/categoryApi";
+ import Loader from "../../components/common/Loader";
++import {
++  calculatePriceIncludingGST,
++  formatPrice,
++} from "../../utils/gstCalculations";
++import {
++  ArrowLeftIcon,
++  QueueListIcon,
++  ExclamationTriangleIcon,
++} from "@heroicons/react/24/outline";
++
++function sortVariantsByWeight(list: Variant[]): Variant[] {
++  return [...list].sort((a, b) => {
++    const parse = (w: string) => {
++      const [num, unit] = (w || "").split(/\s+/);
++      let n = parseFloat(num);
++      if (isNaN(n)) return 0;
++      if (unit === "kg" || unit === "l") n *= 1000;
++      return n;
++    };
++    return parse(a.weight) - parse(b.weight);
++  });
++}
+ 
+ const ProductDetailsPage: React.FC = () => {
+   const { id } = useParams<{ id: string }>();
+   const navigate = useNavigate();
+   const location = useLocation();
+   const [product, setProduct] = useState<Product | null>(null);
++  const [categories, setCategories] = useState<Category[]>([]);
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState("");
+   const [selectedImage, setSelectedImage] = useState("");
+-  // const [isDeleting, setIsDeleting] = useState(false);
+   const [variants, setVariants] = useState<Variant[]>([]);
+ 
+-  const fetchProductDetails = async () => {
+-    try {
+-      if (id) {
+-        const fetchedProduct = await productApi.getProductById(id);
++  useEffect(() => {
++    const load = async () => {
++      try {
++        if (!id) return;
++        const [fetchedProduct, fetchedVariants, cats] = await Promise.all([
++          productApi.getProductById(id),
++          variantApi.getVariantsByProductId(id),
++          categoryApi.getAllCategories().catch(() => [] as Category[]),
++        ]);
+         setProduct(fetchedProduct);
+-        setSelectedImage(fetchedProduct.images.main);
+-        // Fetch variants for this product
+-        const fetchedVariants = await variantApi.getVariantsByProductId(id);
+-        setVariants(fetchedVariants);
++        setSelectedImage(fetchedProduct.images?.main || "");
++        setVariants(sortVariantsByWeight(fetchedVariants));
++        setCategories(cats);
++      } catch (err) {
++        setError("Failed to fetch product details. Please try again later.");
++        console.error("Fetch error:", err);
++      } finally {
++        setLoading(false);
+       }
+-    } catch (err) {
+-      setError("Failed to fetch product details. Please try again later.");
+-      console.error("Fetch error:", err);
+-    } finally {
+-      setLoading(false);
+-    }
+-  };
+-
+-  // const refreshVariants = async () => {
+-  //   if (id) {
+-  //     try {
+-  //       const fetchedVariants = await variantApi.getVariantsByProductId(id);
+-  //       setVariants(fetchedVariants);
+-  //     } catch (err) {
+-  //       console.error("Refresh variants error:", err);
+-  //     }
+-  //   }
+-  // };
+-
+-  useEffect(() => {
+-    fetchProductDetails();
++    };
++    load();
+   }, [id]);
+ 
+-  // Refresh variants data when location changes (e.g., returning from variant edit page)
+   useEffect(() => {
+-    const refreshVariantsLoc = async () => {
++    const refresh = async () => {
+       if (id && location.state?.refreshVariants) {
+         try {
+           const fetchedVariants = await variantApi.getVariantsByProductId(id);
+-          setVariants(fetchedVariants);
+-          // Clear the refresh flag to prevent unnecessary refreshes
++          setVariants(sortVariantsByWeight(fetchedVariants));
+           navigate(location.pathname, { replace: true, state: {} });
+         } catch (err) {
+           console.error("Refresh variants error:", err);
+         }
+       }
+     };
+-
+-    refreshVariantsLoc();
++    refresh();
+   }, [location, id, navigate]);
+ 
+-  // const handleDelete = async () => {
+-  //   if (!id) return;
++  const categoryNames = useMemo(() => {
++    if (!product) return [];
++    if (product.categoryIds?.length) {
++      return product.categoryIds
++        .map((cid) => categories.find((c) => c.id === cid)?.name || cid)
++        .filter(Boolean);
++    }
++    if (product.categories?.length) return product.categories;
++    if (product.category) return [product.category];
++    return [];
++  }, [product, categories]);
+ 
+-  //   try {
+-  //     setIsDeleting(true);
+-  //     await productApi.deleteProduct(id);
+-  //     navigate("/admin/products");
+-  //   } catch (err) {
+-  //     setError("Failed to delete product. Please try again.");
+-  //     console.error("Delete error:", err);
+-  //   } finally {
+-  //     setIsDeleting(false);
+-  //   }
+-  // };
++  const thumbs = useMemo(() => {
++    if (!product?.images) return [];
++    return Array.from(
++      new Set(
++        [
++          product.images.main,
++          ...(product.images.gallery || []),
++          product.images.banner,
++        ].filter(Boolean)
++      )
++    );
++  }, [product]);
+ 
+   if (loading) {
+     return <Loader fullscreen text="Loading product details..." />;
+   }
+ 
+-  if (error) {
++  if (error || !product) {
+     return (
+-      <div className="flex justify-center items-center min-h-screen">
+-        <div className="max-w-md p-6 bg-red-50 rounded-lg shadow">
+-          <p className="text-red-600 font-medium text-center">{error}</p>
++      <div className="flex min-h-[70vh] items-center justify-center px-4">
++        <div className="max-w-sm text-center">
++          <ExclamationTriangleIcon className="mx-auto mb-3 h-8 w-8 text-red-500" />
++          <p className="text-gray-800">{error || "Product not found."}</p>
++          <button
++            onClick={() => navigate("/admin/products")}
++            className="mt-4 text-sm font-medium text-blue-600 hover:underline"
++          >
++            Back to products
++          </button>
+         </div>
+       </div>
+     );
+   }
+ 
+-  if (!product) {
+-    return (
+-      <div className="flex justify-center items-center min-h-screen">
+-        <div className="max-w-md p-6 bg-yellow-50 rounded-lg shadow">
+-          <p className="text-yellow-700 font-medium text-center">
+-            Product not found.
+-          </p>
+-        </div>
+-      </div>
+-    );
+-  }
++  const status = product.status || "active";
++  const lowest = variants.length
++    ? Math.min(...variants.map((v) => v.price || 0))
++    : null;
+ 
+   return (
+-    <div className="container mx-auto space-y-6 px-4 py-8 max-w-6xl">
+-      <PageHeader
+-        title="Product Details"
+-        description={product.isBestseller ? "≡ƒÅå Bestseller Product" : undefined}
+-        onBack={() => navigate('/admin/products')}
+-        backText="Back to Products"
+-        actions={
+-          <div className="flex space-x-3">
+-            {/* 
+-            <button
+-              onClick={refreshVariants}
+-              className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium text-sm cursor-pointer"
+-            >
+-              <ArrowPathIcon className="w-4 h-4 mr-2" />
+-              Refresh Variants
+-            </button>
+-            */}
+-            {/* <button
+-              onClick={handleDelete}
+-              disabled={isDeleting}
+-              className={`button flex items-center px-4 py-2 rounded-md transition font-medium text-sm cursor-pointer ${isDeleting
+-                ? "bg-gray-400 cursor-not-allowed"
+-                : "bg-red-600 hover:bg-red-700 text-white"
+-                }`}
+-            >
+-              <TrashIcon className="w-5 h-5 mr-2" />
+-              {isDeleting ? "Deleting..." : "Delete Product"}
+-            </button> */}
+-            {/* 
+-            <button className="button flex items-center px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition font-medium text-sm cursor-pointer">
+-              <ArrowTopRightOnSquareIcon className="w-5 h-5 mr-2" />
+-              View on Site
+-            </button>
+-            */}
+-          </div>
+-        }
+-      />
++    <div className="min-h-screen bg-slate-50">
++      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
++        {/* Nav */}
++        <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
++          <button
++            type="button"
++            onClick={() => navigate("/admin/products")}
++            className="inline-flex items-center text-sm text-slate-600 transition hover:text-slate-900"
++          >
++            <ArrowLeftIcon className="mr-2 h-4 w-4" />
++            Products
++          </button>
++          <button
++            type="button"
++            onClick={() => navigate(`/admin/products/${id}/variants`)}
++            className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
++          >
++            <QueueListIcon className="h-4 w-4" />
++            Manage variants
++          </button>
++        </div>
+ 
+-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
+-          {/* Image Gallery */}
++        {/* Hero composition */}
++        <section className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-14">
+           <div>
+-            <div className="mb-4 bg-gray-50 rounded-lg overflow-hidden">
+-              <img
+-                src={selectedImage || product.images.main}
+-                alt={product.name}
+-                className="w-full h-96 object-contain mx-auto"
+-              />
+-            </div>
+-            <div className="flex space-x-2 overflow-x-auto py-2">
+-              {product.images.gallery?.map((img, index) => (
+-                <button
+-                  key={index}
+-                  onClick={() => setSelectedImage(img)}
+-                  className={`w-20 h-20 border rounded-md overflow-hidden ${selectedImage === img ? "ring-2 ring-blue-500" : ""
+-                    }`}
+-                >
+-                  <img
+-                    src={img}
+-                    alt={`${product.name} view ${index + 1}`}
+-                    className="w-full h-full object-cover"
+-                  />
+-                </button>
+-              ))}
++            <div className="relative aspect-square overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/80">
++              {selectedImage || product.images?.main ? (
++                <img
++                  src={selectedImage || product.images.main}
++                  alt={product.name}
++                  className="h-full w-full object-contain p-6"
++                />
++              ) : (
++                <div className="flex h-full items-center justify-center text-sm text-slate-400">
++                  No image uploaded
++                </div>
++              )}
+             </div>
++            {thumbs.length > 1 && (
++              <div className="mt-4 flex gap-2.5 overflow-x-auto">
++                {thumbs.map((img, i) => {
++                  const active = (selectedImage || product.images.main) === img;
++                  return (
++                    <button
++                      key={`${img}-${i}`}
++                      type="button"
++                      onClick={() => setSelectedImage(img)}
++                      className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-white p-1.5 transition ${
++                        active
++                          ? "ring-2 ring-slate-900"
++                          : "ring-1 ring-slate-200 hover:ring-slate-300"
++                      }`}
++                    >
++                      <img
++                        src={img}
++                        alt=""
++                        className="h-full w-full object-contain"
++                      />
++                    </button>
++                  );
++                })}
++              </div>
++            )}
+           </div>
+ 
+-          {/* Product Info */}
+-          <div>
+-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+-              <h2 className="text-lg font-semibold text-gray-700 mb-2">
+-                Basic Information
+-              </h2>
+-              <div className="space-y-3">
+-                <div>
+-                  <span className="text-sm font-medium text-gray-500">
+-                    Product ID:
+-                  </span>
+-                  <span className="ml-2 text-gray-900">{id}</span>
+-                </div>
+-                <div>
+-                  <span className="text-sm font-medium text-gray-500">
+-                    Name:
+-                  </span>
+-                  <span className="ml-2 text-gray-900">{product.name}</span>
+-                </div>
+-                <div>
+-                  <span className="text-sm font-medium text-gray-500">
+-                    Categories:
+-                  </span>
+-                  <div className="flex flex-wrap gap-1 mt-1">
+-                    {product.categories && product.categories.length > 0 ? (
+-                      product.categories.map((cat, index) => (
+-                        <span key={index} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+-                          {cat}
+-                        </span>
+-                      ))
+-                    ) : (
+-                      <span className="text-gray-400 text-xs italic">No categories</span>
+-                    )}
+-                  </div>
+-                </div>
+-                <div>
+-                  <span className="text-sm font-medium text-gray-500">
+-                    Origin:
+-                  </span>
+-                  <span className="ml-2 text-gray-900">{product.origin}</span>
+-                </div>
+-              </div>
++          <div className="flex flex-col justify-center lg:py-4">
++            <div className="mb-3 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
++              <span
++                className={
++                  status === "active"
++                    ? "text-emerald-700"
++                    : status === "hidden"
++                      ? "text-amber-700"
++                      : "text-slate-500"
++                }
++              >
++                {status}
++              </span>
++              {product.isBestseller && (
++                <>
++                  <span className="text-slate-300">┬╖</span>
++                  <span className="text-amber-700">Bestseller</span>
++                </>
++              )}
++              {product.rank != null && (
++                <>
++                  <span className="text-slate-300">┬╖</span>
++                  <span>Rank {product.rank}</span>
++                </>
++              )}
+             </div>
+ 
++            <h1 className="text-3xl font-bold leading-tight tracking-tight text-slate-900 sm:text-4xl">
++              {product.name}
++            </h1>
+ 
++            {categoryNames.length > 0 && (
++              <p className="mt-3 text-sm text-slate-500">
++                {categoryNames.join(" ┬╖ ")}
++              </p>
++            )}
+ 
+-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+-              <h2 className="text-lg font-semibold text-gray-700 mb-2">
+-                Inventory
+-              </h2>
+-              {variants && variants.length > 0 ? (
+-                <table className="min-w-full divide-y divide-gray-200">
+-                  <thead>
+-                    <tr>
+-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Variant</th>
+-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Units in Stock</th>
+-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+-                    </tr>
+-                  </thead>
+-                  <tbody>
+-                    {variants.map((variant) => (
+-                      <tr key={variant.id || variant.weight}>
+-                        <td className="px-4 py-2 whitespace-nowrap">{variant.weight}</td>
+-                        <td className="px-4 py-2 whitespace-nowrap">{variant.units_in_stock}</td>
+-                        <td className="px-4 py-2 whitespace-nowrap">
+-                          <span className={
+-                            variant.units_in_stock > 0
+-                              ? "text-green-600 font-medium"
+-                              : "text-red-600 font-medium"
+-                          }>
+-                            {variant.units_in_stock > 0 ? "In Stock" : "Out of Stock"}
+-                          </span>
+-                        </td>
+-                      </tr>
+-                    ))}
+-                  </tbody>
+-                </table>
+-              ) : (
+-                <div className="text-gray-500">No variants found.</div>
+-              )}
++            {product.shortDescription && (
++              <p className="mt-5 text-base leading-relaxed text-slate-600">
++                {product.shortDescription}
++              </p>
++            )}
++
++            <div className="mt-8 space-y-3 border-t border-slate-200 pt-6 text-sm">
++              <div className="flex justify-between gap-4">
++                <span className="text-slate-500">Origin</span>
++                <span className="text-right font-medium text-slate-800">
++                  {product.origin || "ΓÇö"}
++                </span>
++              </div>
++              <div className="flex justify-between gap-4">
++                <span className="text-slate-500">SKU</span>
++                <span className="text-right font-medium text-slate-800">
++                  {product.sku || "ΓÇö"}
++                </span>
++              </div>
++              <div className="flex justify-between gap-4">
++                <span className="text-slate-500">Warehouse</span>
++                <span className="text-right font-medium text-slate-800">
++                  {product.warehouseName || "ΓÇö"}
++                </span>
++              </div>
++              <div className="flex justify-between gap-4">
++                <span className="text-slate-500">Variants</span>
++                <span className="text-right font-medium text-slate-800">
++                  {variants.length}
++                  {lowest != null ? ` ┬╖ from ${formatPrice(lowest)}` : ""}
++                </span>
++              </div>
+             </div>
++          </div>
++        </section>
+ 
++        {product.description && (
++          <section className="mt-16 max-w-3xl">
++            <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
++              Description
++            </h2>
++            <p className="mt-4 whitespace-pre-wrap text-base leading-[1.75] text-slate-700">
++              {product.description}
++            </p>
++          </section>
++        )}
+ 
+-          </div>
+-        </div>
++        {product.images?.banner && (
++          <section className="mt-14 overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200/80">
++            <img
++              src={product.images.banner}
++              alt={`${product.name} banner`}
++              className="max-h-56 w-full object-contain object-center sm:max-h-72"
++            />
++          </section>
++        )}
+ 
+-        {/* Description Section*/}
+-        <div className="p-6 border-t border-gray-200">
+-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+-            Product Description
+-          </h2>
+-          <div className="prose max-w-none">
+-            <p className="text-gray-700">{product.description}</p>
+-          </div>
+-        </div>
++        {((product.badges && product.badges.length > 0) ||
++          (product.healthBadges && product.healthBadges.length > 0)) && (
++          <section className="mt-16 space-y-10">
++            {product.badges && product.badges.length > 0 && (
++              <div>
++                <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
++                  Badges
++                </h2>
++                <div className="mt-5 flex flex-wrap gap-6">
++                  {product.badges.map((b, i) => (
++                    <div
++                      key={i}
++                      className="flex max-w-[140px] flex-col items-center text-center"
++                    >
++                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white ring-1 ring-slate-200">
++                        {b.image ? (
++                          <img
++                            src={b.image}
++                            alt=""
++                            className="h-10 w-10 object-contain"
++                          />
++                        ) : null}
++                      </div>
++                      <p className="mt-2 text-sm font-medium text-slate-800">
++                        {b.text || "ΓÇö"}
++                      </p>
++                    </div>
++                  ))}
++                </div>
++              </div>
++            )}
++
++            {product.healthBadges && product.healthBadges.length > 0 && (
++              <div>
++                <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
++                  Health badges
++                </h2>
++                <div className="mt-5 grid gap-6 sm:grid-cols-2">
++                  {product.healthBadges.map((b, i) => (
++                    <div key={i} className="flex gap-4">
++                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white ring-1 ring-slate-200">
++                        {b.image ? (
++                          <img
++                            src={b.image}
++                            alt=""
++                            className="h-9 w-9 object-contain"
++                          />
++                        ) : null}
++                      </div>
++                      <div>
++                        <p className="font-medium text-slate-900">
++                          {b.title || "ΓÇö"}
++                        </p>
++                        {b.description && (
++                          <p className="mt-1 text-sm leading-relaxed text-slate-600">
++                            {b.description}
++                          </p>
++                        )}
++                      </div>
++                    </div>
++                  ))}
++                </div>
++              </div>
++            )}
++          </section>
++        )}
+ 
++        <section className="mt-16">
++          <div className="mb-5 flex items-end justify-between gap-3">
++            <div>
++              <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
++                Variants
++              </h2>
++              <p className="mt-1 text-sm text-slate-500">
++                What customers can choose at checkout
++              </p>
++            </div>
++            <button
++              type="button"
++              onClick={() => navigate(`/admin/products/${id}/variants`)}
++              className="text-sm font-medium text-slate-700 underline-offset-4 hover:underline"
++            >
++              Edit
++            </button>
++          </div>
+ 
++          {variants.length === 0 ? (
++            <div className="rounded-2xl bg-white px-6 py-12 text-center ring-1 ring-slate-200/80">
++              <p className="text-slate-500">No variants yet.</p>
++              <button
++                type="button"
++                onClick={() => navigate(`/admin/products/${id}/variants`)}
++                className="mt-4 text-sm font-medium text-slate-900 underline underline-offset-4"
++              >
++                Add a variant
++              </button>
++            </div>
++          ) : (
++            <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200/80">
++              <table className="min-w-full text-sm">
++                <thead>
++                  <tr className="border-b border-slate-100 text-left text-[11px] uppercase tracking-[0.12em] text-slate-500">
++                    <th className="px-5 py-3.5 font-semibold">Size</th>
++                    <th className="px-5 py-3.5 font-semibold">Price</th>
++                    <th className="hidden px-5 py-3.5 font-semibold sm:table-cell">
++                      MRP
++                    </th>
++                    <th className="hidden px-5 py-3.5 font-semibold md:table-cell">
++                      Off
++                    </th>
++                    <th className="px-5 py-3.5 font-semibold">Incl. GST</th>
++                    <th className="px-5 py-3.5 font-semibold">Stock</th>
++                  </tr>
++                </thead>
++                <tbody>
++                  {variants.map((v, idx) => {
++                    const price = v.price ?? 0;
++                    const gst = v.gstPercentage ?? 0;
++                    const incl = calculatePriceIncludingGST(price, gst);
++                    const ok = v.inStock && (v.units_in_stock ?? 0) > 0;
++                    return (
++                      <tr
++                        key={v.id || v.weight}
++                        className={
++                          idx !== variants.length - 1
++                            ? "border-b border-slate-100"
++                            : ""
++                        }
++                      >
++                        <td className="px-5 py-4 font-medium text-slate-900">
++                          {v.weight}
++                        </td>
++                        <td className="px-5 py-4 text-slate-700">
++                          {formatPrice(price)}
++                          <span className="mt-0.5 block text-[11px] text-slate-400">
++                            +{gst}% GST
++                          </span>
++                        </td>
++                        <td className="hidden px-5 py-4 text-slate-500 sm:table-cell">
++                          {v.originalPrice
++                            ? formatPrice(v.originalPrice)
++                            : "ΓÇö"}
++                        </td>
++                        <td className="hidden px-5 py-4 text-slate-500 md:table-cell">
++                          {v.discount != null && v.discount > 0
++                            ? `${v.discount}%`
++                            : "ΓÇö"}
++                        </td>
++                        <td className="px-5 py-4 font-semibold text-slate-900">
++                          {formatPrice(incl)}
++                        </td>
++                        <td className="px-5 py-4">
++                          <span
++                            className={
++                              ok
++                                ? "font-medium text-emerald-700"
++                                : "font-medium text-red-600"
++                            }
++                          >
++                            {ok ? `${v.units_in_stock} units` : "Out"}
++                          </span>
++                        </td>
++                      </tr>
++                    );
++                  })}
++                </tbody>
++              </table>
++            </div>
++          )}
++        </section>
+       </div>
+     </div>
+   );
+diff --git a/client/src/pages/admin/VariantDetailsPage.tsx b/client/src/pages/admin/VariantDetailsPage.tsx
+index 838ea77..24a98ca 100644
+--- a/client/src/pages/admin/VariantDetailsPage.tsx
++++ b/client/src/pages/admin/VariantDetailsPage.tsx
+@@ -1,4 +1,4 @@
+-import React, { useEffect, useState } from "react";
++import  { useEffect, useState } from "react";
+ import { useParams, useNavigate, useLocation } from "react-router-dom";
+ import type { Product } from "../../types/index";
+ import type { Variant } from "../../types/variant";
+@@ -13,10 +13,8 @@ import {
+ import Loader from "../../components/common/Loader";
+ import PageHeader from "../../components/common/PageHeader";
+ import VariantListTable from "../../components/admin/variants/VariantListTable";
+-import AddVariantForm from "../../components/admin/variants/AddVariantForm";
+-import EditVariantModal from "../../components/admin/variants/EditVariantModal";
++import VariantFormModal from "../../components/admin/variants/VariantFormModal";
+ 
+-// Helper to sort variants by numeric weight (ascending)
+ function sortVariantsByWeight(variants: Variant[]): Variant[] {
+   return [...variants].sort((a, b) => {
+     const parseWeight = (w: string) => {
+@@ -30,7 +28,7 @@ function sortVariantsByWeight(variants: Variant[]): Variant[] {
+   });
+ }
+ 
+-const VariantDetailsPage: React.FC = () => {
++export default function VariantDetailsPage() {
+   const { productId } = useParams<{ productId: string }>();
+   const navigate = useNavigate();
+   const location = useLocation();
+@@ -46,32 +44,29 @@ const VariantDetailsPage: React.FC = () => {
+   });
+   const [editingVariant, setEditingVariant] = useState<Variant | null>(null);
+   const [variantToDelete, setVariantToDelete] = useState<string | null>(null);
+-  const [showAddForm, setShowAddForm] = useState(false);
++  const [isVariantModalOpen, setIsVariantModalOpen] = useState(false);
++  const [variantModalMode, setVariantModalMode] = useState<"create" | "edit">(
++    "create"
++  );
+ 
+-  // Helper function to check if a weight already exists
+   const isWeightDuplicate = (weight: string, excludeId?: string) => {
+     if (!weight || weight.trim() === "") return false;
+-    
+-    // Parse the input weight to get number only
++
+     const [inputNumber] = weight.trim().split(/\s+/);
+     const inputNum = parseFloat(inputNumber);
+-    
++
+     if (isNaN(inputNum)) return false;
+-    
+-    const isDuplicate = variants.some((v) => {
++
++    return variants.some((v) => {
+       if (v.id === excludeId || !v.weight) return false;
+-      
+-      // Parse existing variant weight to get number only
++
+       const [existingNumber] = v.weight.trim().split(/\s+/);
+       const existingNum = parseFloat(existingNumber);
+-      
++
+       if (isNaN(existingNum)) return false;
+-      
+-      // Check if the numeric values match (ignore units)
++
+       return inputNum === existingNum;
+     });
+-    
+-    return isDuplicate;
+   };
+ 
+   const fetchData = async () => {
+@@ -79,12 +74,10 @@ const VariantDetailsPage: React.FC = () => {
+       setLoading({ product: true, variants: true });
+       setError({ product: "", variants: "" });
+ 
+-      // Fetch product data
+       const productData = await productApi.getProductById(productId!);
+       setProduct(productData);
+       setLoading((prev) => ({ ...prev, product: false }));
+ 
+-      // Fetch variants data
+       const variantsData = await variantApi.getVariantsByProductId(productId!);
+       setVariants(sortVariantsByWeight(variantsData));
+       setLoading((prev) => ({ ...prev, variants: false }));
+@@ -102,13 +95,13 @@ const VariantDetailsPage: React.FC = () => {
+     fetchData();
+   }, [productId]);
+ 
+-  // Refresh variants data when location changes (e.g., returning from edit page)
+   useEffect(() => {
+     const refreshVariants = async () => {
+       if (productId) {
+         try {
+           setLoading((prev) => ({ ...prev, variants: true }));
+-          const variantsData = await variantApi.getVariantsByProductId(productId!);
++          const variantsData =
++            await variantApi.getVariantsByProductId(productId!);
+           setVariants(sortVariantsByWeight(variantsData));
+           setLoading((prev) => ({ ...prev, variants: false }));
+         } catch (err) {
+@@ -118,20 +111,18 @@ const VariantDetailsPage: React.FC = () => {
+       }
+     };
+ 
+-    // Refresh when location changes (but not on initial load)
+     if (location.state?.refreshVariants) {
+       refreshVariants();
+-      // Clear the refresh flag to prevent unnecessary refreshes
+       navigate(location.pathname, { replace: true, state: {} });
+     }
+   }, [location, productId, navigate]);
+ 
+-  // Add a manual refresh function that can be called when needed
+   const refreshVariantsData = async () => {
+     if (productId) {
+       try {
+         setLoading((prev) => ({ ...prev, variants: true }));
+-        const variantsData = await variantApi.getVariantsByProductId(productId!);
++        const variantsData =
++          await variantApi.getVariantsByProductId(productId!);
+         setVariants(sortVariantsByWeight(variantsData));
+         setLoading((prev) => ({ ...prev, variants: false }));
+       } catch (err) {
+@@ -141,12 +132,9 @@ const VariantDetailsPage: React.FC = () => {
+     }
+   };
+ 
+-  // Also refresh data when the page becomes visible (fallback mechanism)
+   useEffect(() => {
+     const handleVisibilityChange = () => {
+       if (!document.hidden && productId) {
+-        // Only refresh if the page has been hidden for more than 1 second
+-        // This prevents unnecessary refreshes when just switching tabs quickly
+         setTimeout(() => {
+           if (!document.hidden) {
+             refreshVariantsData();
+@@ -156,8 +144,7 @@ const VariantDetailsPage: React.FC = () => {
+     };
+ 
+     document.addEventListener("visibilitychange", handleVisibilityChange);
+-    
+-    // Also refresh when the window regains focus (for cases where visibilitychange doesn't fire)
++
+     const handleFocus = () => {
+       if (productId) {
+         setTimeout(() => {
+@@ -186,7 +173,9 @@ const VariantDetailsPage: React.FC = () => {
+       }
+ 
+       await variantApi.deleteVariant(productId, variantId);
+-      setVariants((prev) => sortVariantsByWeight(prev.filter((v) => v.id !== variantId)));
++      setVariants((prev) =>
++        sortVariantsByWeight(prev.filter((v) => v.id !== variantId))
++      );
+     } catch (err) {
+       console.error("Delete error:", err);
+       setError((prev) => ({
+@@ -203,8 +192,9 @@ const VariantDetailsPage: React.FC = () => {
+       )
+     );
+     setEditingVariant(null);
++    setIsVariantModalOpen(false);
+     setError((prev) => ({ ...prev, variants: "" }));
+-    
++
+     setTimeout(() => {
+       refreshVariantsData();
+     }, 500);
+@@ -212,14 +202,31 @@ const VariantDetailsPage: React.FC = () => {
+ 
+   const handleAddSuccess = (newVariant: Variant) => {
+     setVariants((prev) => sortVariantsByWeight([...prev, newVariant]));
+-    setShowAddForm(false);
++    setIsVariantModalOpen(false);
+     setError((prev) => ({ ...prev, variants: "" }));
+-    
++
+     setTimeout(() => {
+       refreshVariantsData();
+     }, 500);
+   };
+ 
++  const openCreateModal = () => {
++    setEditingVariant(null);
++    setVariantModalMode("create");
++    setIsVariantModalOpen(true);
++  };
++
++  const openEditModal = (v: Variant) => {
++    setEditingVariant(v);
++    setVariantModalMode("edit");
++    setIsVariantModalOpen(true);
++  };
++
++  const closeVariantModal = () => {
++    setIsVariantModalOpen(false);
++    setEditingVariant(null);
++  };
++
+   const handleRetryVariants = async () => {
+     try {
+       setLoading((prev) => ({ ...prev, variants: true }));
+@@ -258,7 +265,6 @@ const VariantDetailsPage: React.FC = () => {
+ 
+   return (
+     <div className="container mx-auto space-y-6 px-4 py-8">
+-      {/* Header */}
+       <PageHeader
+         title={product.name}
+         description={`Manage variants for this ${product.category || "product"}`}
+@@ -267,24 +273,15 @@ const VariantDetailsPage: React.FC = () => {
+         actions={
+           <button
+             type="button"
+-            onClick={() => setShowAddForm((prev) => !prev)}
++            onClick={openCreateModal}
+             className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors cursor-pointer text-sm font-medium shadow-sm"
+           >
+             <PlusIcon className="w-5 h-5 mr-2" />
+-            {showAddForm ? "Close" : "Add New Variant"}
++            Add New Variant
+           </button>
+         }
+       />
+ 
+-      {showAddForm && (
+-        <AddVariantForm
+-          productId={productId!}
+-          onSuccess={handleAddSuccess}
+-          isWeightDuplicate={isWeightDuplicate}
+-        />
+-      )}
+-
+-      {/* Product Info */}
+       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8 border border-gray-200">
+         <div className="p-6">
+           <div className="flex items-center">
+@@ -297,13 +294,14 @@ const VariantDetailsPage: React.FC = () => {
+             )}
+             <div>
+               <h2 className="text-xl font-bold text-gray-800">{product.name}</h2>
+-              <p className="text-gray-500 text-sm capitalize mt-1">{product.category}</p>
++              <p className="text-gray-500 text-sm capitalize mt-1">
++                {product.category}
++              </p>
+             </div>
+           </div>
+         </div>
+       </div>
+ 
+-      {/* Errors */}
+       {error.variants && (
+         <div className="mb-6 p-4 bg-yellow-50 text-yellow-700 rounded-lg border border-yellow-200 flex items-center justify-between shadow-sm">
+           <div className="flex items-center">
+@@ -320,25 +318,26 @@ const VariantDetailsPage: React.FC = () => {
+         </div>
+       )}
+ 
+-      {/* Variants Table */}
+       <VariantListTable
+         variants={variants}
+         loadingVariants={loading.variants}
+-        onEdit={(v) => setEditingVariant(v)}
++        onEdit={openEditModal}
+         onDelete={(id) => setVariantToDelete(id)}
+       />
+ 
+-      {/* Delete Confirmation Modal */}
+       {variantToDelete && (
+         <div className="fixed inset-0 bg-gray-900/60 bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fadeIn animate-duration-200">
+           <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden border border-gray-200">
+             <div className="p-6">
+               <div className="flex items-center space-x-3 text-red-600 mb-4">
+                 <ExclamationTriangleIcon className="w-8 h-8" />
+-                <h3 className="text-xl font-bold text-gray-950">Confirm Deletion</h3>
++                <h3 className="text-xl font-bold text-gray-950">
++                  Confirm Deletion
++                </h3>
+               </div>
+               <p className="text-gray-600 mb-6">
+-                Are you sure you want to delete this variant? This action cannot be undone.
++                Are you sure you want to delete this variant? This action cannot
++                be undone.
+               </p>
+               <div className="flex justify-end space-x-3">
+                 <button
+@@ -365,18 +364,17 @@ const VariantDetailsPage: React.FC = () => {
+         </div>
+       )}
+ 
+-      {/* Edit Modal */}
+-      {editingVariant && (
+-        <EditVariantModal
+-          variant={editingVariant}
+-          productId={productId!}
+-          onClose={() => setEditingVariant(null)}
+-          onSuccess={handleEditSuccess}
+-          isWeightDuplicate={isWeightDuplicate}
+-        />
+-      )}
++      <VariantFormModal
++        isOpen={isVariantModalOpen}
++        onClose={closeVariantModal}
++        mode={variantModalMode}
++        productId={productId!}
++        variant={editingVariant}
++        isWeightDuplicate={isWeightDuplicate}
++        onSuccess={
++          variantModalMode === "edit" ? handleEditSuccess : handleAddSuccess
++        }
++      />
+     </div>
+   );
+-};
+-
+-export default VariantDetailsPage;
++}
+\ No newline at end of file
+diff --git a/client/src/pages/admin/VariantEditPage.tsx b/client/src/pages/admin/VariantEditPage.tsx
+index 08a0709..6fc93fc 100644
+--- a/client/src/pages/admin/VariantEditPage.tsx
++++ b/client/src/pages/admin/VariantEditPage.tsx
+@@ -1,6 +1,6 @@
+ import React, { useEffect, useState } from "react";
+ import { useParams, useNavigate } from "react-router-dom";
+-import type {Variant} from "../../types/variant";
++import type { Variant } from "../../types/variant";
+ import variantApi from "../../services/api/variantApi";
+ import {
+   ArrowLeftIcon,
+@@ -9,17 +9,7 @@ import {
+ } from "@heroicons/react/24/outline";
+ import PageHeader from "../../components/common/PageHeader";
+ import Loader from "../../components/common/Loader";
+-// interface Variant {
+-//   id: string;
+-//   productId: string;
+-//   weight: string;
+-//   price: number;
+-//   originalPrice?: number;
+-//   discount?: number;
+-//   inStock: boolean;
+-//   createdAt?: Date;
+-//   updatedAt?: Date;
+-// }
++
+ const VariantEditPage: React.FC = () => {
+   const { productId, variantId } = useParams<{
+     productId: string;
+@@ -79,20 +69,18 @@ const VariantEditPage: React.FC = () => {
+     const { name, value, type, checked } = e.target;
+ 
+     if (name === "units_in_stock") {
+-      // Remove all non-digit characters
+       let sanitized = value.replace(/\D/g, "");
+-      // Remove leading zeros (but allow a single zero)
+       if (sanitized.length > 1) {
+         sanitized = sanitized.replace(/^0+/, "");
+       }
+-      setFormData(prev => ({
++      setFormData((prev) => ({
+         ...prev,
+-        [name]: sanitized
++        [name]: sanitized,
+       }));
+     } else {
+-      setFormData(prev => ({
++      setFormData((prev) => ({
+         ...prev,
+-        [name]: type === "checkbox" ? checked : value
++        [name]: type === "checkbox" ? checked : value,
+       }));
+     }
+   };
+@@ -111,8 +99,8 @@ const VariantEditPage: React.FC = () => {
+         units_in_stock: Number(formData.units_in_stock) || 0,
+       };
+       await variantApi.updateVariant(productId!, variantId!, variantData);
+-      navigate(`/admin/products/${productId}/variants`, { 
+-        state: { refreshVariants: true } 
++      navigate(`/admin/products/${productId}/variants`, {
++        state: { refreshVariants: true },
+       });
+     } catch (err) {
+       console.error("Update error:", err);
+@@ -136,9 +124,11 @@ const VariantEditPage: React.FC = () => {
+           {error || "Variant not found"}
+         </div>
+         <button
+-          onClick={() => navigate(`/admin/products/${productId}/variants`, { 
+-            state: { refreshVariants: true } 
+-          })}
++          onClick={() =>
++            navigate(`/admin/products/${productId}/variants`, {
++              state: { refreshVariants: true },
++            })
++          }
+           className="mt-4 flex items-center text-blue-600 hover:text-blue-800"
+         >
+           <ArrowLeftIcon className="w-5 h-5 mr-2" />
+@@ -152,9 +142,11 @@ const VariantEditPage: React.FC = () => {
+     <div className="container mx-auto space-y-6 px-4 py-8">
+       <PageHeader
+         title="Edit Variant"
+-        onBack={() => navigate(`/admin/products/${productId}/variants`, { 
+-          state: { refreshVariants: true } 
+-        })}
++        onBack={() =>
++          navigate(`/admin/products/${productId}/variants`, {
++            state: { refreshVariants: true },
++          })
++        }
+         backText="Back to Variants"
+       />
+ 
+@@ -231,20 +223,22 @@ const VariantEditPage: React.FC = () => {
+               <input
+                 type="text"
+                 name="units_in_stock"
+-                value={formData.units_in_stock === "" ? "0" : formData.units_in_stock}
++                value={
++                  formData.units_in_stock === "" ? "0" : formData.units_in_stock
++                }
+                 onChange={handleInputChange}
+                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                 required
+               />
+             </div>
+-          <div className="flex items-center">
+-            <input
++            <div className="flex items-center">
++              <input
+                 name="inStock"
+-              type="checkbox"
++                type="checkbox"
+                 checked={formData.inStock}
+-              onChange={handleInputChange}
+-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+-            />
++                onChange={handleInputChange}
++                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
++              />
+               <label className="ml-2 block text-sm text-gray-700">
+                 In Stock
+               </label>
+@@ -260,7 +254,7 @@ const VariantEditPage: React.FC = () => {
+             </button>
+             <button
+               type="submit"
+-              className="button px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
++              className="button px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition flex items-center"
+             >
+               <CheckIcon className="w-4 h-4 mr-2" />
+               Update Variant
+diff --git a/client/vite.config.ts b/client/vite.config.ts
+index e22ddcf..fa3dafe 100644
+--- a/client/vite.config.ts
++++ b/client/vite.config.ts
+@@ -8,7 +8,7 @@ export default defineConfig({
+   server: {
+     proxy: {
+       '/api': {
+-        target: 'http://localhost:5567',
++        target: 'http://localhost:5568',
+         changeOrigin: true,
+       },
+     },
+diff --git a/server/controllers/ProductController.js b/server/controllers/ProductController.js
+index d521a41..4331161 100644
+--- a/server/controllers/ProductController.js
++++ b/server/controllers/ProductController.js
+@@ -60,6 +60,32 @@ function stripServerOwnedFields(body) {
+   return cleaned;
+ }
+ 
++function normalizeRank(value) {
++  if (value === undefined || value === null || value === '') return null;
++  const n = Number(value);
++  return Number.isFinite(n) ? n : null;
++}
++
++/**
++ * Ensures no other product already uses this rank.
++ * @param {number|null} rank
++ * @param {string|null} excludeProductId - current product id when updating
++ */
++async function assertUniqueProductRank(rank, excludeProductId = null) {
++  if (rank === null || rank === undefined) return;
++
++  const snapshot = await db.collection(PRODUCTS).where('rank', '==', rank).get();
++  const conflict = snapshot.docs.find((doc) => doc.id !== excludeProductId);
++  if (conflict) {
++    const name = conflict.data()?.name || 'another product';
++    const err = new Error(
++      `Rank ${rank} is already assigned to "${name}". Please choose a different rank.`
++    );
++    err.status = 409;
++    throw err;
++  }
++}
++
+ // Create Product
+ exports.createProduct = async (req, res) => {
+   try {
+@@ -75,7 +101,8 @@ exports.createProduct = async (req, res) => {
+     const deprecated = await resolveDeprecatedCategoryFields(categoryIds);
+     const now = new Date();
+ 
+-    const rank = req.body.rank !== undefined && req.body.rank !== null && req.body.rank !== "" ? Number(req.body.rank) : null;
++    const rank = normalizeRank(req.body.rank);
++    await assertUniqueProductRank(rank);
+     const productData = {
+       ...rest,
+       categoryIds,
+@@ -112,6 +139,9 @@ exports.createProduct = async (req, res) => {
+     const formatted = await attachStockStatus(formatProduct(created));
+     res.status(201).json(formatted);
+   } catch (error) {
++    if (error.status === 409) {
++      return res.status(409).json({ error: error.message });
++    }
+     console.error('createProduct error:', error);
+     res.status(500).json({ error: error.message });
+   }
+@@ -153,7 +183,9 @@ exports.updateProduct = async (req, res) => {
+     const updates = { ...rest };
+ 
+     if (req.body.rank !== undefined) {
+-      updates.rank = req.body.rank !== null && req.body.rank !== "" ? Number(req.body.rank) : null;
++      const rank = normalizeRank(req.body.rank);
++      await assertUniqueProductRank(rank, id);
++      updates.rank = rank;
+     }
+ 
+     if (inputStatus !== undefined) {
+@@ -197,6 +229,9 @@ exports.updateProduct = async (req, res) => {
+     if (error.status === 404) {
+       return res.status(404).json({ error: error.message });
+     }
++    if (error.status === 409) {
++      return res.status(409).json({ error: error.message });
++    }
+     console.error('updateProduct error:', error);
+     res.status(500).json({ error: error.message });
+   }
+diff --git a/server/controllers/imageUploadController.js b/server/controllers/imageUploadController.js
+index 30ae558..b22e3eb 100644
+--- a/server/controllers/imageUploadController.js
++++ b/server/controllers/imageUploadController.js
+@@ -1,6 +1,6 @@
+ const multer = require('multer');
++const { randomUUID } = require('crypto');
+ const { bucket } = require('../firebase/firebase-config');
+-const path = require('path');
+ 
+ // Multer setup for memory storage
+ const upload = multer({ storage: multer.memoryStorage() });
+@@ -20,26 +20,44 @@ const uploadMultipleBadgeImages = upload.array('badgeImages', 10); // up to 10 b
+ // Middleware to handle multiple health badge image uploads
+ const uploadMultipleHealthBadgeImages = upload.array('healthBadgeImages', 10); // up to 10 health badge images
+ 
++/**
++ * Upload a buffer to Firebase Storage and return a tokenized download URL.
++ * Uses download tokens instead of makePublic() because Univillage buckets
++ * enable uniform bucket-level access (ACLs / makePublic are blocked).
++ */
++async function uploadBufferToStorage(buffer, objectPath, contentType) {
++  const file = bucket.file(objectPath);
++  const downloadToken = randomUUID();
++
++  await file.save(buffer, {
++    metadata: {
++      contentType,
++      metadata: {
++        firebaseStorageDownloadTokens: downloadToken,
++      },
++    },
++  });
++
++  const encoded = encodeURIComponent(objectPath);
++  return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encoded}?alt=media&token=${downloadToken}`;
++}
++
+ // Controller to upload images to Firebase Storage
+ const uploadGalleryImages = async (req, res) => {
+   try {
+     if (!req.files || req.files.length === 0) {
+       return res.status(400).json({ error: 'No files uploaded' });
+     }
+-    const uploadPromises = req.files.map(async (file) => {
+-      const fileName = `product-gallery/${Date.now()}-${file.originalname}`;
+-      const fileUpload = bucket.file(fileName);
+-      await fileUpload.save(file.buffer, {
+-        metadata: { contentType: file.mimetype },
+-      });
+-      // Make the file public and get the public URL
+-      await fileUpload.makePublic();
+-      const url = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+-      return url;
+-    });
+-    const urls = await Promise.all(uploadPromises);
++    const baseTimestamp = Date.now();
++    const urls = await Promise.all(
++      req.files.map((file, index) => {
++        const fileName = `product-gallery/${baseTimestamp + index}-${file.originalname}`;
++        return uploadBufferToStorage(file.buffer, fileName, file.mimetype);
++      })
++    );
+     res.status(200).json({ urls });
+   } catch (error) {
++    console.error('Gallery upload failed:', error.message || error);
+     res.status(500).json({ error: error.message });
+   }
+ };
+@@ -51,15 +69,10 @@ const uploadMainImageHandler = async (req, res) => {
+       return res.status(400).json({ error: 'No file uploaded' });
+     }
+     const fileName = `product-main/${Date.now()}-${req.file.originalname}`;
+-    const fileUpload = bucket.file(fileName);
+-    await fileUpload.save(req.file.buffer, {
+-      metadata: { contentType: req.file.mimetype },
+-    });
+-    // Make the file public and get the public URL
+-    await fileUpload.makePublic();
+-    const url = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
++    const url = await uploadBufferToStorage(req.file.buffer, fileName, req.file.mimetype);
+     res.status(200).json({ url });
+   } catch (error) {
++    console.error('Main image upload failed:', error.message || error);
+     res.status(500).json({ error: error.message });
+   }
+ };
+@@ -71,15 +84,10 @@ const uploadBadgeImageHandler = async (req, res) => {
+       return res.status(400).json({ error: 'No file uploaded' });
+     }
+     const fileName = `badge-images/${Date.now()}-${req.file.originalname}`;
+-    const fileUpload = bucket.file(fileName);
+-    await fileUpload.save(req.file.buffer, {
+-      metadata: { contentType: req.file.mimetype },
+-    });
+-    // Make the file public and get the public URL
+-    await fileUpload.makePublic();
+-    const url = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
++    const url = await uploadBufferToStorage(req.file.buffer, fileName, req.file.mimetype);
+     res.status(200).json({ url });
+   } catch (error) {
++    console.error('Badge image upload failed:', error.message || error);
+     res.status(500).json({ error: error.message });
+   }
+ };
+@@ -90,19 +98,16 @@ const uploadMultipleBadgeImagesHandler = async (req, res) => {
+     if (!req.files || req.files.length === 0) {
+       return res.status(400).json({ error: 'No files uploaded' });
+     }
+-    const uploadPromises = req.files.map(async (file) => {
+-      const fileName = `badge-images/${Date.now()}-${file.originalname}`;
+-      const fileUpload = bucket.file(fileName);
+-      await fileUpload.save(file.buffer, {
+-        metadata: { contentType: file.mimetype },
+-      });
+-      await fileUpload.makePublic();
+-      const url = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+-      return url;
+-    });
+-    const urls = await Promise.all(uploadPromises);
++    const baseTimestamp = Date.now();
++    const urls = await Promise.all(
++      req.files.map((file, index) => {
++        const fileName = `badge-images/${baseTimestamp + index}-${file.originalname}`;
++        return uploadBufferToStorage(file.buffer, fileName, file.mimetype);
++      })
++    );
+     res.status(200).json({ urls });
+   } catch (error) {
++    console.error('Multiple badge upload failed:', error.message || error);
+     res.status(500).json({ error: error.message });
+   }
+ };
+@@ -114,21 +119,28 @@ const uploadMultipleHealthBadgeImagesHandler = async (req, res) => {
+       return res.status(400).json({ error: 'No files uploaded' });
+     }
+     const baseTimestamp = Date.now();
+-    const uploadPromises = req.files.map(async (file, index) => {
+-      const fileName = `health-badges/${baseTimestamp + index}-${file.originalname}`;
+-      const fileUpload = bucket.file(fileName);
+-      await fileUpload.save(file.buffer, {
+-        metadata: { contentType: file.mimetype },
+-      });
+-      await fileUpload.makePublic();
+-      const url = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+-      return url;
+-    });
+-    const urls = await Promise.all(uploadPromises);
++    const urls = await Promise.all(
++      req.files.map((file, index) => {
++        const fileName = `health-badges/${baseTimestamp + index}-${file.originalname}`;
++        return uploadBufferToStorage(file.buffer, fileName, file.mimetype);
++      })
++    );
+     res.status(200).json({ urls });
+   } catch (error) {
++    console.error('Health badge upload failed:', error.message || error);
+     res.status(500).json({ error: error.message });
+   }
+ };
+ 
+-module.exports = { uploadGallery, uploadGalleryImages, uploadMainImage, uploadMainImageHandler, uploadBadgeImage, uploadBadgeImageHandler, uploadMultipleBadgeImages, uploadMultipleBadgeImagesHandler, uploadMultipleHealthBadgeImages, uploadMultipleHealthBadgeImagesHandler };
++module.exports = {
++  uploadGallery,
++  uploadGalleryImages,
++  uploadMainImage,
++  uploadMainImageHandler,
++  uploadBadgeImage,
++  uploadBadgeImageHandler,
++  uploadMultipleBadgeImages,
++  uploadMultipleBadgeImagesHandler,
++  uploadMultipleHealthBadgeImages,
++  uploadMultipleHealthBadgeImagesHandler,
++};
+diff --git a/server/firebase/firebase-config.js b/server/firebase/firebase-config.js
+index 1314766..74edb18 100644
+--- a/server/firebase/firebase-config.js
++++ b/server/firebase/firebase-config.js
+@@ -1,52 +1,72 @@
+-// firebase-config.js
++// firebase-config.js ΓÇö Univillage (univillage-503009)
+ const admin = require("firebase-admin");
+ const dotenv = require("dotenv");
+ const path = require("path");
+-const { getStorage } = require('firebase-admin/storage');
+-
+-
+-// Load environment variables
+-dotenv.config({ path: path.join(__dirname, '../config.env') });
+-
+-// Build the service account object from env variables
+-const serviceAccount = {
+-  type: process.env.FIREBASE_TYPE,
+-  project_id: process.env.FIREBASE_PROJECT_ID,
+-  private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+-  private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+-  client_email: process.env.FIREBASE_CLIENT_EMAIL,
+-  client_id: process.env.FIREBASE_CLIENT_ID,
+-  auth_uri: process.env.FIREBASE_AUTH_URI,
+-  token_uri: process.env.FIREBASE_TOKEN_URI,
+-  auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_CERT_URL,
+-  client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL,
+-  universe_domain: process.env.FIREBASE_UNIVERSE_DOMAIN,
+-};
+ 
++dotenv.config({ path: path.join(__dirname, "../config.env") });
++
++function serviceAccountProjectId(clientEmail) {
++  if (!clientEmail) return null;
++  const match = String(clientEmail).match(/@([^.]+)\.iam\.gserviceaccount\.com$/);
++  return match?.[1] ?? null;
++}
++
++const projectId = process.env.FIREBASE_PROJECT_ID;
++const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
++const privateKey = process.env.FIREBASE_PRIVATE_KEY;
++const storageBucket =
++  process.env.FIREBASE_STORAGE_BUCKET ||
++  (projectId ? `${projectId}.appspot.com` : undefined);
++
++const saProjectId = serviceAccountProjectId(clientEmail);
++const certMatchesProject = Boolean(
++  projectId && clientEmail && privateKey && saProjectId === projectId
++);
++
++if (!projectId) {
++  throw new Error("Firebase Admin SDK: Missing FIREBASE_PROJECT_ID in config.env");
++}
+ 
+-// Initialize Firebase Admin
+ if (!admin.apps.length) {
+-  admin.initializeApp({
+-    credential: admin.credential.cert(serviceAccount),
+-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET, // <-- ensure bucket is set
+-  });
++  if (certMatchesProject) {
++    admin.initializeApp({
++      credential: admin.credential.cert({
++        projectId,
++        clientEmail,
++        privateKey: privateKey.replace(/\\n/g, "\n"),
++      }),
++      projectId,
++      storageBucket,
++    });
++    console.log(`Firebase Admin initialized with service account for ${projectId}`);
++  } else {
++    if (clientEmail || privateKey) {
++      console.warn(
++        `Firebase Admin: ignoring mismatched/incomplete service account ` +
++          `(email project=${saProjectId ?? "unknown"}, FIREBASE_PROJECT_ID=${projectId}). ` +
++          `Using Application Default Credentials.`
++      );
++    }
++    admin.initializeApp({
++      credential: admin.credential.applicationDefault(),
++      projectId,
++      storageBucket,
++    });
++    console.log(`Firebase Admin initialized with ADC for ${projectId}`);
++  }
+ }
+ 
+-// Export Firestore and Auth
+ const db = admin.firestore();
+ const auth = admin.auth();
+ const storage = admin.storage();
+ const FieldValue = admin.firestore.FieldValue;
+ const bucket = storage.bucket();
+ 
+-// Optional: enable these later if needed
+-// const storage = admin.storage();
+-
+ module.exports = {
+   admin,
+   db,
+   auth,
+   storage,
+   bucket,
+-  FieldValue
++  FieldValue,
+ };

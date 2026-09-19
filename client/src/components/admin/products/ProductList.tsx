@@ -3,16 +3,17 @@ import type { Product } from "../../../types";
 import type { Category } from "../../../services/api/categoryApi";
 import {
   PencilIcon,
-  TrashIcon,
   EyeIcon,
   QueueListIcon,
+  EyeSlashIcon,
+  CheckIcon,
 } from "@heroicons/react/24/outline";
 
 interface ProductListProps {
   products: Product[];
   categories: Category[];
   onEdit: (product: Product) => void;
-  onDelete: (id: string) => void;
+  onToggleStatus: (product: Product) => void;
   onViewVariants: (id: string) => void;
   onViewDetails: (id: string) => void;
 }
@@ -21,7 +22,7 @@ const ProductList: React.FC<ProductListProps> = ({
   products,
   categories,
   onEdit,
-  onDelete,
+  onToggleStatus,
   onViewVariants,
   onViewDetails,
 }) => {
@@ -203,11 +204,23 @@ const ProductList: React.FC<ProductListProps> = ({
                           <QueueListIcon className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => onDelete(product.id)}
-                          className="p-2 text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-700 rounded-full transition-all duration-200 cursor-pointer"
-                          title="Delete Product"
+                          onClick={() => onToggleStatus(product)}
+                          className={`p-2 rounded-full transition-all duration-200 cursor-pointer ${
+                            product.status === "active" || !product.status
+                              ? "text-amber-600 bg-amber-50 hover:bg-amber-100 hover:text-amber-700"
+                              : "text-green-600 bg-green-50 hover:bg-green-100 hover:text-green-700"
+                          }`}
+                          title={
+                            product.status === "active" || !product.status
+                              ? "Disable Product"
+                              : "Enable Product"
+                          }
                         >
-                          <TrashIcon className="w-4 h-4" />
+                          {product.status === "active" || !product.status ? (
+                            <EyeSlashIcon className="w-4 h-4" />
+                          ) : (
+                            <CheckIcon className="w-4 h-4" />
+                          )}
                         </button>
                       </div>
                     </td>

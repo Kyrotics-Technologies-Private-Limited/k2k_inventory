@@ -1,6 +1,6 @@
 // import { Variant } from "./variant";
 
-export type ProductStatus = "active" | "hidden" | "draft";
+export type ProductStatus = "active" | "hidden" | "draft" | "disabled";
 
 export interface Product {
   id: string;
