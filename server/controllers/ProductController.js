@@ -17,7 +17,7 @@ const {
 
 const PRODUCTS = 'products';
 const CATEGORIES = 'categories';
-const VALID_STATUSES = ['active', 'hidden', 'draft'];
+const VALID_STATUSES = ['active', 'hidden', 'draft', 'disabled'];
 
 const SERVER_OWNED_FIELDS = new Set([
   'id',

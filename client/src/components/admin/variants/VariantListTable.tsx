@@ -1,7 +1,7 @@
 import React from "react";
 import type { Variant } from "../../../types/variant";
 import { ArrowPathIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
-import { formatPrice, calculatePriceIncludingGST } from "../../../utils/gstCalculations";
+import { formatPrice } from "../../../utils/gstCalculations";
 
 interface VariantListTableProps {
   variants: Variant[];
@@ -40,31 +40,34 @@ const VariantListTable: React.FC<VariantListTableProps> = ({
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Weight
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Base Price
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  GST
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Price Including GST
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Original Price
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Discount Price
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Discount
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Member Price
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Membership Discount
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  GST
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Stock Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Units in Stock
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -72,49 +75,50 @@ const VariantListTable: React.FC<VariantListTableProps> = ({
             <tbody className="bg-white divide-y divide-gray-200">
               {variants.map((variant) => (
                 <tr key={variant.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                  <td className="px-4 py-3.5 whitespace-nowrap text-sm font-semibold text-gray-900">
                     {variant.weight}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatPrice(variant.price)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {variant.gstPercentage ? `${variant.gstPercentage}%` : "0%"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-600">
-                    {formatPrice(calculatePriceIncludingGST(variant.price, variant.gstPercentage || 0))}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-4 py-3.5 whitespace-nowrap text-sm text-gray-700 font-medium">
                     {variant.originalPrice ? formatPrice(variant.originalPrice) : "—"}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-4 py-3.5 whitespace-nowrap text-sm text-gray-900 font-bold">
+                    {formatPrice(variant.price)}
+                  </td>
+                  <td className="px-4 py-3.5 whitespace-nowrap text-sm text-gray-700">
                     {variant.discount ? `${variant.discount}%` : "—"}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    {variant.inStock ? (
-                      <span className="text-green-600 font-semibold">In Stock</span>
-                    ) : (
-                      <span className="text-red-600 font-semibold">Out of Stock</span>
-                    )}
+                  <td className="px-4 py-3.5 whitespace-nowrap text-sm text-green-700 font-bold">
+                    {variant.memberPrice ? formatPrice(variant.memberPrice) : "—"}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">
+                  <td className="px-4 py-3.5 whitespace-nowrap text-sm text-gray-700">
+                    {variant.memberDiscount ? `${variant.memberDiscount}%` : "—"}
+                  </td>
+                  <td className="px-4 py-3.5 whitespace-nowrap text-sm text-gray-700">
+                    {variant.gstPercentage ? `${variant.gstPercentage}%` : "0%"}
+                  </td>
+                  <td className="px-4 py-3.5 whitespace-nowrap text-sm font-medium">
+                    <span className={variant.inStock ? "text-green-600" : "text-red-600"}>
+                      {variant.inStock ? "In Stock" : "Out of Stock"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3.5 whitespace-nowrap text-sm text-gray-900 font-semibold">
                     {variant.units_in_stock}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex justify-end gap-2">
+                  <td className="px-4 py-3.5 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex items-center justify-end gap-1">
                       <button
                         onClick={() => onEdit(variant)}
-                        className="button inline-flex items-center px-2.5 py-1.5 text-xs text-white bg-green-500 hover:bg-green-600 rounded"
+                        title="Edit Variant"
+                        className="p-1.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
                       >
-                        <PencilIcon className="w-3.5 h-3.5 mr-1" />
-                        Edit
+                        <PencilIcon className="w-5 h-5" />
                       </button>
                       <button
                         onClick={() => onDelete(variant.id)}
-                        className="button inline-flex items-center px-2.5 py-1.5 text-xs text-white bg-red-500 hover:bg-red-600 rounded"
+                        title="Delete Variant"
+                        className="p-1.5 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                       >
-                        <TrashIcon className="w-3.5 h-3.5 mr-1" />
-                        Delete
+                        <TrashIcon className="w-5 h-5" />
                       </button>
                     </div>
                   </td>

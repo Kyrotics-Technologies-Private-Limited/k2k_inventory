@@ -6,14 +6,19 @@ const path = require("path");
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '../config.env') });
 
+const projectId = process.env.FIREBASE_PROJECT_ID || 'univillage-503009';
+const storageBucket =
+  process.env.FIREBASE_STORAGE_BUCKET ||
+  (projectId ? `${projectId}.firebasestorage.app` : 'univillage-503009.firebasestorage.app');
+
 // Initialize Firebase Admin
 if (!admin.apps.length) {
-  const hasPrivateKey = process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL;
-  
+  const hasPrivateKey = Boolean(process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL);
+
   const credential = hasPrivateKey
     ? admin.credential.cert({
         type: process.env.FIREBASE_TYPE,
-        project_id: process.env.FIREBASE_PROJECT_ID,
+        project_id: projectId,
         private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
         private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
         client_email: process.env.FIREBASE_CLIENT_EMAIL,
@@ -28,12 +33,14 @@ if (!admin.apps.length) {
 
   admin.initializeApp({
     credential,
-    projectId: process.env.FIREBASE_PROJECT_ID || 'univillage-503009',
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'univillage-503009.firebasestorage.app',
+    projectId,
+    storageBucket,
   });
+
+  console.log(`Firebase Admin initialized with ${hasPrivateKey ? 'service account' : 'ADC'} for ${projectId}`);
 }
 
-// Export Firestore and Auth
+// Export Firestore, Auth, and Storage
 const db = admin.firestore();
 const auth = admin.auth();
 const storage = admin.storage();
@@ -48,4 +55,5 @@ module.exports = {
   bucket,
   FieldValue
 };
+
 

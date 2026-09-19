@@ -1,6 +1,6 @@
 // import { Variant } from "./variant";
 
-export type ProductStatus = "active" | "hidden" | "draft";
+export type ProductStatus = "active" | "hidden" | "draft" | "disabled";
 
 export interface Product {
   id: string;
@@ -31,6 +31,8 @@ export interface Product {
     banner: string;
   };
   isBestseller?: boolean;
+  /** Show in the storefront "Try Our Sample" section */
+  isSample?: boolean;
   stockStatus: "in_stock" | "low_stock" | "out_of_stock";
   ratings: number;
   reviews: number;

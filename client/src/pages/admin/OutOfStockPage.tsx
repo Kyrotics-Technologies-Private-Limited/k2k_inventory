@@ -3,18 +3,12 @@ import { saveAs } from "file-saver";
 import React, { useEffect, useState } from "react";
 import { productApi } from "../../services/api/productApi";
 import variantApi from "../../services/api/variantApi";
+import type { Product } from "../../types";
 import type { Variant } from "../../types/variant";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import Loader from "../../components/common/Loader";
 import PageHeader from "../../components/common/PageHeader";
-
-interface Product {
-  id: string;
-  name: string;
-  category?: string;
-  images?: { main?: string };
-}
 
 const OutOfStockPage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -70,8 +64,9 @@ const OutOfStockPage: React.FC = () => {
     }
   }, [location, navigate]);
 
-  // Filter products with out of stock or low stock variants
+  // Filter products with out of stock or low stock variants (excluding sample products)
   const filtered = products
+    .filter((product) => !product.isSample)
     .map((product) => {
       const variants = variantsMap[product.id] || [];
       const outOfStock = variants.filter((v) => v.units_in_stock <= 0);

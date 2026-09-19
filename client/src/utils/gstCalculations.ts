@@ -49,6 +49,32 @@ export const calculateBasePrice = (priceIncludingGST: number, gstPercentage: num
 };
 
 /**
+ * Calculate tax breakdown for a GST-inclusive price
+ * @param priceIncludingGST - The final price that already includes GST
+ * @param gstPercentage - GST rate (e.g. 18%)
+ */
+export const calculateInclusiveGSTBreakdown = (
+  priceIncludingGST: number,
+  gstPercentage: number
+) => {
+  if (priceIncludingGST <= 0 || gstPercentage <= 0) {
+    return {
+      basePrice: priceIncludingGST,
+      gstAmount: 0,
+      totalPrice: priceIncludingGST,
+    };
+  }
+  const basePrice = priceIncludingGST / (1 + gstPercentage / 100);
+  const gstAmount = priceIncludingGST - basePrice;
+  return {
+    basePrice,
+    gstAmount,
+    totalPrice: priceIncludingGST,
+  };
+};
+
+
+/**
  * Format price with proper currency symbol and decimal places
  * @param price - The price to format
  * @returns Formatted price string
@@ -130,9 +156,45 @@ export const calculatePriceWithMembershipDiscount = (
  */
 export const isKishanParivarMember = (membershipType: string): boolean => {
   if (!membershipType) return false;
-  return membershipType.toLowerCase().includes('kishan') || 
-         membershipType.toLowerCase().includes('parivar') ||
-         membershipType.toLowerCase().includes('kishan parivar');
+  const lower = membershipType.toLowerCase();
+  return lower.includes('kishan') || 
+         lower.includes('parivar') ||
+         lower.includes('k2k');
+};
+
+export const isK2KMember = (membershipType: string): boolean => {
+  return isKishanParivarMember(membershipType);
+};
+
+/**
+ * Calculate pricing for non-members and K2K members strictly off Original MRP
+ * @param originalMRP - Base Original MRP of item (e.g. ₹100)
+ * @param nonMemberPrice - Selling price for regular non-members (e.g. ₹96 = 4% off MRP)
+ * @param memberDiscountPercent - Discount % for K2K members calculated off Original MRP (e.g. 20% off MRP = ₹80)
+ */
+export const calculateItemPricing = (
+  originalMRP: number,
+  nonMemberPrice: number,
+  memberDiscountPercent: number = 0
+) => {
+  const safeMRP = Math.max(originalMRP, nonMemberPrice, 0);
+  const nonMemberSavings = safeMRP > 0 ? safeMRP - nonMemberPrice : 0;
+  const nonMemberDiscountPercent = safeMRP > 0 ? Math.round((nonMemberSavings / safeMRP) * 100) : 0;
+
+  const k2kMemberPrice = safeMRP > 0 && memberDiscountPercent > 0
+    ? Math.round(safeMRP * (1 - memberDiscountPercent / 100))
+    : nonMemberPrice;
+
+  const k2kMemberSavings = safeMRP > 0 ? safeMRP - k2kMemberPrice : 0;
+
+  return {
+    originalMRP: safeMRP,
+    nonMemberPrice,
+    nonMemberDiscountPercent,
+    k2kMemberPrice,
+    k2kMemberSavings,
+    k2kMemberDiscountPercent: memberDiscountPercent,
+  };
 };
 
 /**
@@ -166,7 +228,7 @@ export const getKishanParivarDiscount = (
   membershipType: string, 
   discountPercentage: number
 ): number => {
-  if (isKishanParivarMember(membershipType)) {
+  if (isK2KMember(membershipType)) {
     return discountPercentage;
   }
   return 0;
