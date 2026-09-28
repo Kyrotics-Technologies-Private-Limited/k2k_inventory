@@ -17,7 +17,7 @@ export interface ComboItemInput {
   productName: string;
   variantName: string;
   quantity: number;
-  unitPriceSnapshot: number;
+  unitPriceSnapshot?: number;
 }
 
 export interface ComboPricingInput {

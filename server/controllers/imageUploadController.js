@@ -20,6 +20,22 @@ const uploadMultipleBadgeImages = upload.array('badgeImages', 10); // up to 10 b
 // Middleware to handle multiple health badge image uploads
 const uploadMultipleHealthBadgeImages = upload.array('healthBadgeImages', 10); // up to 10 health badge images
 
+/**
+ * Upload buffer to Firebase Storage bucket and return accessible Firebase Storage media URL.
+ * Catches makePublic error if uniform bucket-level access is enabled.
+ */
+async function saveAndGetUrl(fileUpload, buffer, mimetype, fileName) {
+  await fileUpload.save(buffer, {
+    metadata: { contentType: mimetype },
+  });
+  try {
+    await fileUpload.makePublic();
+  } catch (err) {
+    // Ignore error if uniform bucket-level access is enabled
+  }
+  return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media`;
+}
+
 // Controller to upload images to Firebase Storage
 const uploadGalleryImages = async (req, res) => {
   try {
@@ -29,17 +45,12 @@ const uploadGalleryImages = async (req, res) => {
     const uploadPromises = req.files.map(async (file) => {
       const fileName = `product-gallery/${Date.now()}-${file.originalname}`;
       const fileUpload = bucket.file(fileName);
-      await fileUpload.save(file.buffer, {
-        metadata: { contentType: file.mimetype },
-      });
-      // Make the file public and get the public URL
-      await fileUpload.makePublic();
-      const url = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-      return url;
+      return saveAndGetUrl(fileUpload, file.buffer, file.mimetype, fileName);
     });
     const urls = await Promise.all(uploadPromises);
     res.status(200).json({ urls });
   } catch (error) {
+    console.error('uploadGalleryImages error:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -52,14 +63,10 @@ const uploadMainImageHandler = async (req, res) => {
     }
     const fileName = `product-main/${Date.now()}-${req.file.originalname}`;
     const fileUpload = bucket.file(fileName);
-    await fileUpload.save(req.file.buffer, {
-      metadata: { contentType: req.file.mimetype },
-    });
-    // Make the file public and get the public URL
-    await fileUpload.makePublic();
-    const url = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    const url = await saveAndGetUrl(fileUpload, req.file.buffer, req.file.mimetype, fileName);
     res.status(200).json({ url });
   } catch (error) {
+    console.error('uploadMainImageHandler error:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -72,14 +79,10 @@ const uploadBadgeImageHandler = async (req, res) => {
     }
     const fileName = `badge-images/${Date.now()}-${req.file.originalname}`;
     const fileUpload = bucket.file(fileName);
-    await fileUpload.save(req.file.buffer, {
-      metadata: { contentType: req.file.mimetype },
-    });
-    // Make the file public and get the public URL
-    await fileUpload.makePublic();
-    const url = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    const url = await saveAndGetUrl(fileUpload, req.file.buffer, req.file.mimetype, fileName);
     res.status(200).json({ url });
   } catch (error) {
+    console.error('uploadBadgeImageHandler error:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -93,16 +96,12 @@ const uploadMultipleBadgeImagesHandler = async (req, res) => {
     const uploadPromises = req.files.map(async (file) => {
       const fileName = `badge-images/${Date.now()}-${file.originalname}`;
       const fileUpload = bucket.file(fileName);
-      await fileUpload.save(file.buffer, {
-        metadata: { contentType: file.mimetype },
-      });
-      await fileUpload.makePublic();
-      const url = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-      return url;
+      return saveAndGetUrl(fileUpload, file.buffer, file.mimetype, fileName);
     });
     const urls = await Promise.all(uploadPromises);
     res.status(200).json({ urls });
   } catch (error) {
+    console.error('uploadMultipleBadgeImagesHandler error:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -117,18 +116,25 @@ const uploadMultipleHealthBadgeImagesHandler = async (req, res) => {
     const uploadPromises = req.files.map(async (file, index) => {
       const fileName = `health-badges/${baseTimestamp + index}-${file.originalname}`;
       const fileUpload = bucket.file(fileName);
-      await fileUpload.save(file.buffer, {
-        metadata: { contentType: file.mimetype },
-      });
-      await fileUpload.makePublic();
-      const url = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-      return url;
+      return saveAndGetUrl(fileUpload, file.buffer, file.mimetype, fileName);
     });
     const urls = await Promise.all(uploadPromises);
     res.status(200).json({ urls });
   } catch (error) {
+    console.error('uploadMultipleHealthBadgeImagesHandler error:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
-module.exports = { uploadGallery, uploadGalleryImages, uploadMainImage, uploadMainImageHandler, uploadBadgeImage, uploadBadgeImageHandler, uploadMultipleBadgeImages, uploadMultipleBadgeImagesHandler, uploadMultipleHealthBadgeImages, uploadMultipleHealthBadgeImagesHandler };
+module.exports = {
+  uploadGallery,
+  uploadGalleryImages,
+  uploadMainImage,
+  uploadMainImageHandler,
+  uploadBadgeImage,
+  uploadBadgeImageHandler,
+  uploadMultipleBadgeImages,
+  uploadMultipleBadgeImagesHandler,
+  uploadMultipleHealthBadgeImages,
+  uploadMultipleHealthBadgeImagesHandler,
+};

@@ -189,14 +189,6 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
       ? Math.round(((basePriceForMember - kpMemberPrice) / basePriceForMember) * 100)
       : 0;
 
-  const calculateAutoMRP = (itemList: ComboItemInput[]) => {
-    const totalMRP = itemList.reduce(
-      (sum, item) => sum + (item.unitPriceSnapshot || 0) * (item.quantity || 1),
-      0
-    );
-    setOriginalTotalPrice(totalMRP);
-  };
-
   // Category Toggle
   const handleCategoryToggle = (catId: string) => {
     if (categoryIds.includes(catId)) {
@@ -220,10 +212,8 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
       productName: prod ? prod.name : "",
       variantId: "",
       variantName: "",
-      unitPriceSnapshot: 0,
     };
     setItems(updated);
-    calculateAutoMRP(updated);
   };
 
   const handleRowVariantChange = (index: number, variantId: string) => {
@@ -236,31 +226,20 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
       ...updated[index],
       variantId,
       variantName: varItem ? varItem.weight : "Standard",
-      unitPriceSnapshot: varItem ? varItem.price : 0,
     };
     setItems(updated);
-    calculateAutoMRP(updated);
   };
 
   const handleRowQuantityChange = (index: number, qty: number) => {
     const updated = [...items];
     updated[index] = { ...updated[index], quantity: Math.max(1, qty) };
     setItems(updated);
-    calculateAutoMRP(updated);
-  };
-
-  const handleRowPriceChange = (index: number, price: number) => {
-    const updated = [...items];
-    updated[index] = { ...updated[index], unitPriceSnapshot: Math.max(0, price) };
-    setItems(updated);
-    calculateAutoMRP(updated);
   };
 
   const handleRemoveRow = (index: number) => {
     const updated = items.filter((_, i) => i !== index);
     const finalItems = updated.length === 0 ? [createEmptyRow()] : updated;
     setItems(finalItems);
-    calculateAutoMRP(finalItems);
   };
 
   // Image Upload Handlers
@@ -808,7 +787,7 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
                               >
                                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
                                   {/* Product Select */}
-                                  <div className="sm:col-span-4">
+                                  <div className="sm:col-span-5">
                                     <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-0.5">
                                       Product #{idx + 1}
                                     </label>
@@ -840,7 +819,7 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
                                   </div>
 
                                   {/* Variant Select */}
-                                  <div className="sm:col-span-3">
+                                  <div className="sm:col-span-4">
                                     <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-0.5">
                                       Variant
                                     </label>
@@ -853,9 +832,9 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
                                       <option value="">
                                         {row.productId ? "Select Variant..." : "Select Product First"}
                                       </option>
-                                       {availableVariants.map((v: { id: string; weight: string; price: number }) => (
+                                      {availableVariants.map((v: { id: string; weight: string; price: number }) => (
                                         <option key={v.id} value={v.id}>
-                                          {v.weight} (₹{v.price})
+                                          {v.weight}
                                         </option>
                                       ))}
                                     </select>
@@ -877,22 +856,6 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
                                     />
                                   </div>
 
-                                  {/* Unit Price */}
-                                  <div className="sm:col-span-2">
-                                    <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-0.5">
-                                      Price (₹)
-                                    </label>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      value={row.unitPriceSnapshot}
-                                      onChange={(e) =>
-                                        handleRowPriceChange(idx, Number(e.target.value))
-                                      }
-                                      className="w-full bg-white border border-gray-300 rounded-md p-1.5 text-xs text-gray-900 font-semibold"
-                                    />
-                                  </div>
-
                                   {/* Remove Button */}
                                   <div className="sm:col-span-1 flex items-end justify-end pt-3 sm:pt-0">
                                     <button
@@ -906,28 +869,19 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
                                   </div>
                                 </div>
 
-                                {row.productName && row.variantName && (
+                                {row.productName && (
                                   <div className="text-[11px] text-gray-500 flex items-center justify-between border-t border-gray-200/60 pt-1.5 px-0.5">
                                     <span>
-                                      Selected: <strong className="text-gray-800">{row.productName}</strong> ({row.variantName})
+                                      Selected: <strong className="text-gray-800">{row.productName}</strong> {row.variantName ? `(${row.variantName})` : ""}
                                     </span>
-                                    <span className="font-semibold text-gray-700">
-                                      Subtotal: ₹{(row.quantity * row.unitPriceSnapshot).toLocaleString("en-IN")}
+                                    <span className="font-medium text-gray-600">
+                                      Qty: {row.quantity}
                                     </span>
                                   </div>
                                 )}
                               </div>
                             );
                           })}
-                        </div>
-
-                        <div className="pt-2 flex justify-between items-center text-xs border-t border-gray-200">
-                          <span className="text-gray-500">
-                            Auto-calculated total MRP from items:
-                          </span>
-                          <strong className="text-gray-900 text-sm">
-                            ₹{originalTotalPrice.toLocaleString("en-IN")}
-                          </strong>
                         </div>
                       </div>
                     )}
