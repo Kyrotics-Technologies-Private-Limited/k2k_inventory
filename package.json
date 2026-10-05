@@ -1,4 +1,12 @@
 {
+  "name": "k2k-inventory",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "powershell -ExecutionPolicy Bypass -File ./deploy.ps1 -Target all",
+    "deploy:backend": "powershell -ExecutionPolicy Bypass -File ./deploy.ps1 -Target backend",
+    "deploy:frontend": "powershell -ExecutionPolicy Bypass -File ./deploy.ps1 -Target frontend"
+  },
   "dependencies": {
     "file-saver": "^2.0.5",
     "xlsx": "^0.18.5"

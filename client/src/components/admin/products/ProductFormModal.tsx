@@ -676,8 +676,8 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           />
                         </div>
 
-                        {/* Origin & Short Description */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Origin, SKU & Warehouse */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <div>
                             <label className={labelClass}>Origin</label>
                             <input
@@ -688,33 +688,6 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
                               className={inputClass}
                             />
                           </div>
-                          <div>
-                            <label className={labelClass}>Short Description</label>
-                            <input
-                              name="shortDescription"
-                              value={formData.shortDescription || ""}
-                              onChange={handleChange}
-                              placeholder="Short highlight text"
-                              className={inputClass}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Full Description */}
-                        <div>
-                          <label className={labelClass}>Full Description</label>
-                          <textarea
-                            name="description"
-                            value={formData.description || ""}
-                            onChange={handleChange}
-                            placeholder="Detailed product story & benefits..."
-                            rows={3}
-                            className={inputClass}
-                          />
-                        </div>
-
-                        {/* SKU & Warehouse */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <label className={labelClass}>SKU</label>
                             <input
@@ -741,6 +714,32 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
                               <option value="Honey Warehouse" />
                             </datalist>
                           </div>
+                        </div>
+
+                        {/* Short Description */}
+                        <div>
+                          <label className={labelClass}>Short Description</label>
+                          <textarea
+                            name="shortDescription"
+                            value={formData.shortDescription || ""}
+                            onChange={handleChange}
+                            placeholder="Short highlight text..."
+                            rows={2}
+                            className={inputClass}
+                          />
+                        </div>
+
+                        {/* Full Description */}
+                        <div>
+                          <label className={labelClass}>Full Description</label>
+                          <textarea
+                            name="description"
+                            value={formData.description || ""}
+                            onChange={handleChange}
+                            placeholder="Detailed product story & benefits..."
+                            rows={4}
+                            className={inputClass}
+                          />
                         </div>
                       </div>
                     )}
