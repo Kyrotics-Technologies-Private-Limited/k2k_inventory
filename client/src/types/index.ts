@@ -53,7 +53,13 @@ export interface Product {
   }[];
   /** Firestore `productCategory` root doc id (server-owned linking) */
   traceabilityDocId?: string;
-  /** Sequentially generated ID for traceability (e.g. "001") */
+  /**
+   * Permanent 3-digit traceability product code (e.g. "001"), printed on the
+   * jar and embedded in the 13-digit trace code. Server-managed; change only
+   * via the guarded change-code endpoint.
+   */
+  productCode?: string;
+  /** @deprecated Use productCode. Legacy alias kept for compatibility. */
   productCategoryId?: string;
   /** Inventory product schema version for migrations */
   schemaVersion?: number;

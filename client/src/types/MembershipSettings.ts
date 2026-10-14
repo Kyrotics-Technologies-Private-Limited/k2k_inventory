@@ -3,6 +3,7 @@ export interface Membership {
   id: string;
   type: string;
   description: string;
+  originalPrice?: number;
   price: number;
   duration: number; // in months
   discountPercentage: number;
@@ -13,6 +14,7 @@ export interface Membership {
 export interface CreateMembershipInput {
   type: string;
   description: string;
+  originalPrice: number;
   price: number;
   duration: number;
   discountPercentage: number;
@@ -21,6 +23,7 @@ export interface CreateMembershipInput {
 export interface UpdateMembershipInput {
   type?: string;
   description?: string;
+  originalPrice?: number;
   price?: number;
   duration?: number;
   discountPercentage?: number;

@@ -6,6 +6,7 @@ exports.createMembership = async (req, res) => {
     const { 
       type, 
       description, 
+      originalPrice,
       price, 
       duration, 
       discountPercentage 
@@ -14,6 +15,7 @@ exports.createMembership = async (req, res) => {
     const newMembership = {
       type,
       description,
+      originalPrice: Number(originalPrice ?? price),
       price: Number(price),
       duration: Number(duration), // in months
       discountPercentage: Number(discountPercentage),
@@ -77,9 +79,10 @@ exports.updateMembership = async (req, res) => {
     };
     
     // Convert numeric fields
-    if (updates.price) updates.price = Number(updates.price);
-    if (updates.duration) updates.duration = Number(updates.duration);
-    if (updates.discountPercentage) updates.discountPercentage = Number(updates.discountPercentage);
+    if (updates.originalPrice !== undefined) updates.originalPrice = Number(updates.originalPrice);
+    if (updates.price !== undefined) updates.price = Number(updates.price);
+    if (updates.duration !== undefined) updates.duration = Number(updates.duration);
+    if (updates.discountPercentage !== undefined) updates.discountPercentage = Number(updates.discountPercentage);
     
     await db.collection('membership').doc(membershipId).update(updates);
     res.status(200).json({ id: membershipId, ...updates });

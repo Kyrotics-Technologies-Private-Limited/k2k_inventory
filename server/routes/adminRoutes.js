@@ -34,4 +34,26 @@ router.post(
   traceabilityAdminController.repairTraceabilityStalePointer
 );
 
+// Traceability product code management (permanent code registry + reconcile)
+router.get(
+  '/traceability/codes',
+  firebaseAuth,
+  traceabilityAdminController.getProductCodeRegistry
+);
+router.post(
+  '/traceability/change-code',
+  firebaseAuth,
+  traceabilityAdminController.changeTraceabilityCode
+);
+router.post(
+  '/traceability/rebuild-code-registry',
+  firebaseAuth,
+  traceabilityAdminController.rebuildTraceabilityCodeRegistry
+);
+router.post(
+  '/traceability/reconcile',
+  firebaseAuth,
+  traceabilityAdminController.reconcileTraceabilityRoots
+);
+
 module.exports = router;

@@ -95,7 +95,7 @@ const ProductList: React.FC<ProductListProps> = ({
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Rank
+                  Order
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Actions
@@ -138,6 +138,14 @@ const ProductList: React.FC<ProductListProps> = ({
                             {product.isSample && (
                               <span className="px-1.5 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 rounded">
                                 SAMPLE
+                              </span>
+                            )}
+                            {(product.productCode || product.productCategoryId) && (
+                              <span
+                                className="px-1.5 py-0.5 text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-100 rounded"
+                                title="Traceability product code"
+                              >
+                                #{product.productCode || product.productCategoryId}
                               </span>
                             )}
                           </div>

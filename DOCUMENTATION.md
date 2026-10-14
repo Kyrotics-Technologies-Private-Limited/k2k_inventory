@@ -143,6 +143,12 @@ products ───────────────────────�
                                                     │
 productCategory (traceability roots) ◄──────────────┘
   traceabilityDocId ↔ product (1:1)
+  productCode ↔ product (permanent, unique)
+
+productCodes (code registry, doc id = "001")
+  └── productId → products (allocated / retired codes)
+
+counters/productCode (allocator sequence)
 
 users
   └── memberships (subcollection) ──► membership (plan definitions, top-level)
@@ -190,8 +196,10 @@ admin (doc ID = Firebase uid)
 | `healthBadges` | `{ image?, title, description }[]` | Health certification badges |
 | `benefits` | `{ title, description, icon }[]` | Product benefits |
 | `traceabilityDocId` | string? | Linked `productCategory` root doc ID |
-| `productCategoryId` | string? | Sequential ID e.g. `"001"`, `"002"` |
-| `schemaVersion` | number | Currently `2` |
+| `productCode` | string? | **Permanent** 3-digit traceability code e.g. `"001"`. Printed on the jar and embedded in the 13-digit trace code. Server-managed via `productCodes` registry; change only through the guarded change-code endpoint. |
+| `productCategoryId` | string? | @deprecated Alias of `productCode` (kept for compatibility). |
+| `rank` | number? | Storefront display order (UI only). Never used to link to traceability. |
+| `schemaVersion` | number | Currently `3` |
 
 **Subcollection:** `products/{productId}/variants` — see below.
 
@@ -236,18 +244,48 @@ admin (doc ID = Firebase uid)
 | Field | Type | Description |
 |-------|------|-------------|
 | `productId` | string | FK to `products` document |
-| `productCategoryId` | string | Sequential `"001"`, `"002"`, … |
+| `productCode` | string | **Canonical** permanent code `"001"`, `"002"`, … (printed on jars) |
+| `productCategoryId` | string | Alias of `productCode` for the separate traceability app |
 | `productName` | string | Snapshot from product |
 | `productImage` | string | Snapshot of `images.main` |
 | `productDetails` | string | Snapshot of `shortDescription` or `description` |
 | `description` | string | Full description snapshot |
 | `categoryIds` | string[] | Category IDs from product |
+| `status` | `"active" \| "hidden" \| "draft" \| "disabled"` | Mirrored from product (visibility) |
 | `entityType` | `"traceability_root"` | Entity discriminator |
-| `schemaVersion` | number | Currently `2` |
+| `schemaVersion` | number | Currently `3` |
 | `deletedAt` | Timestamp? | Soft-delete tombstone |
 | `createdAt`, `updatedAt` | Timestamp | Audit fields |
 
 **Purpose:** Links each inventory product to a traceability root used by a separate traceability UI. Created atomically with the product in a Firestore transaction.
+
+**Sync rule:** `productName`, `productImage`, `productDetails`, `description`, `categoryIds`, and `status` are overwritten from the inventory product on every create/update/status change. The root's `productCode` is the canonical printed code; reconciliation pushes it back onto the product. **`rank` is never synced** — it is UI ordering only and must not be used to link inventory to traceability.
+
+> Historical note: the earlier bug ("WOOD PRESSED MUSTARD OIL" showing Sesame's disabled status) was caused by pairing roots to products by list position/`rank` instead of by `traceabilityDocId`/`productCode`.
+
+---
+
+### Collection: `productCodes` (Product Code Registry)
+
+**Service:** `traceabilityRootService.js`  
+**Constants:** `constants/traceabilityConstants.js`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `productId` | string? | Owner product while the code is in use (`null` after retirement) |
+| `assignedAt` | Timestamp? | When the code was allocated |
+| `retiredAt` | Timestamp? | When the code was retired (never reassigned) |
+| `retiredProductId` | string? | Product that last held the code |
+
+Doc ID = the 3-digit code (e.g. `productCodes/001`). Guarantees a code is owned by exactly one product and can never be silently reassigned. Enforced atomically during creation and code changes.
+
+### Collection: `counters`
+
+| Doc ID | Field | Description |
+|--------|-------|-------------|
+| `productCode` | `last: number` | Monotonic allocator seed for the next `productCode` |
+
+> **On-jar code structure:** `productCode(3)` + `batch(5)` + `packet(5)` = 13 digits. Batch and packet segments are owned by the traceability app; inventory owns only the 3-digit `productCode`.
 
 ---
 
@@ -439,11 +477,12 @@ All controllers live in `server/controllers/`.
 
 | Export | Description |
 |--------|-------------|
-| `createProduct` | Creates product + traceability root in a Firestore transaction. Resolves `categoryIds` → category names. |
-| `getAllProducts` | Returns all products. |
+| `createProduct` | Creates product + traceability root in a Firestore transaction (allocates a unique `productCode`). Resolves `categoryIds` → category names. Strips server-owned `productCode`/`productCategoryId` from input. |
+| `getAllProducts` | Returns all products, sorted by UI `rank`. |
 | `getProductById` | Returns single product by ID. |
-| `updateProduct` | Updates product and syncs traceability root snapshot. |
-| `deleteProduct` | Soft-deletes traceability root (`deletedAt`), then deletes product doc. |
+| `updateProduct` | Updates product and syncs traceability root snapshot + `status` (never `rank`). `productCode` is server-owned. |
+| `patchProductStatus` | Updates visibility and syncs `status` to the linked traceability root. |
+| `deleteProduct` | Soft-deletes traceability root (`deletedAt`) and retires the `productCode`, then deletes product doc. |
 
 ### `VariantController.js`
 
@@ -535,10 +574,14 @@ All controllers live in `server/controllers/`.
 | Export | Description |
 |--------|-------------|
 | `traceabilityIssueTypes` | Returns enum of traceability issue types. |
-| `validateIntegrity` | Validates product ↔ traceability root linkage. |
-| `findOrphanRoots` | Scans for orphan traceability roots. |
-| `repairMissingRoot` | Creates missing traceability root for a product. |
-| `repairStalePointer` | Fixes stale `traceabilityDocId` on product. |
+| `getTraceabilityIntegrityForProduct` | Validates product ↔ traceability root linkage. |
+| `scanTraceabilityOrphanRoots` | Scans for orphan traceability roots. |
+| `repairTraceabilityMissingRoot` | Creates missing traceability root for a product. |
+| `repairTraceabilityStalePointer` | Fixes stale `traceabilityDocId` on product. |
+| `changeTraceabilityCode` | Guarded change of a product's permanent `productCode` (registry + audit). |
+| `getProductCodeRegistry` | Lists allocated/retired `productCodes`. |
+| `rebuildTraceabilityCodeRegistry` | Rebuilds `productCodes` + allocator counter from products. |
+| `reconcileTraceabilityRoots` | Reconciles all roots vs products (supports `dryRun`). |
 
 ### `membershipController.js`
 
@@ -581,15 +624,21 @@ All controllers live in `server/controllers/`.
 
 | Function | Purpose |
 |----------|---------|
-| `createProductWithTraceabilityRootTransaction` | Atomic product + root create |
-| `syncTraceabilityRootFromProduct` | Sync snapshot fields on product update |
+| `createProductWithTraceabilityRootTransaction` | Atomic product + root create; allocates/validates `productCode` |
+| `syncTraceabilityRootFromProduct` | Sync snapshot + `status` fields on product update (never `rank`) |
 | `markTraceabilityRootDeletedForProduct` | Soft-delete root on product delete |
-| `ensureTraceabilityRoot` | Idempotent link/repair |
+| `ensureTraceabilityRoot` | Idempotent link/repair; allocates a code if missing |
 | `validateProductTraceability` | Integrity check |
 | `findOrphanRoots` | Scan broken links |
 | `repairMissingRootForProduct` | Admin repair |
 | `repairStaleProductPointer` | Repair stale `traceabilityDocId` |
-| `getNextProductCategoryId` | Sequential `"001"` ID generation |
+| `normalizeProductCode` / `productCodeOf` | Normalize/read the 3-digit code |
+| `getNextProductCode` | Atomic allocator (`counters/productCode`) |
+| `changeProductCode` | Guarded change; registry + `codeHistory` audit + root sync |
+| `retireProductCodeForProduct` | Retire a code so it is never reassigned |
+| `rebuildProductCodeRegistry` | Rebuild `productCodes` + counter from products |
+| `reconcileTraceabilityRoots` | Full roots↔products reconcile (`dryRun`) |
+| `getNextProductCategoryId` | @deprecated alias of `getNextProductCode` |
 
 ---
 
@@ -722,6 +771,10 @@ All controllers live in `server/controllers/`.
 | GET | `/traceability/orphan-roots` | Auth | Scan orphan roots |
 | POST | `/traceability/repair/missing-root` | Auth | Repair missing root |
 | POST | `/traceability/repair/stale-pointer` | Auth | Repair stale pointer |
+| GET | `/traceability/codes` | Auth | List allocated/retired product codes |
+| POST | `/traceability/change-code` | Auth | Guarded change of a product's permanent code |
+| POST | `/traceability/rebuild-code-registry` | Auth | Rebuild `productCodes` + counter (`dryRun` body/query) |
+| POST | `/traceability/reconcile` | Auth | Reconcile roots↔products (`dryRun` body/query) |
 
 ### Dashboard (`/api/dashboard`)
 
@@ -1005,14 +1058,25 @@ cd client && npm run build   # → client/dist/
 | `server/create_product_test.js` | HTTP POST test product to local API |
 | `server/verify_demo_product.js` | Verify product ↔ traceability root linkage |
 | `server/verify_categories.js` | HTTP GET categories, print first ID |
+| `server/scripts/backfillCategoryMemberships.js` | Backfill category membership records (`--dry-run`) |
+| `server/scripts/backfillTraceabilityCodes.js` | Rebuild code registry + reconcile roots↔products (`--dry-run` default, `--apply`) |
 
 ### Schema Versioning
 
 No formal migration system. Schema evolution uses:
 
-- `PRODUCT_SCHEMA_VERSION = 2` (products)
-- `TRACEABILITY_ROOT_SCHEMA_VERSION = 2` (productCategory roots)
-- Admin traceability repair endpoints for retroactive data fixes
+- `PRODUCT_SCHEMA_VERSION = 3` (products)
+- `TRACEABILITY_ROOT_SCHEMA_VERSION = 3` (productCategory roots)
+- Admin traceability repair/reconcile endpoints for retroactive data fixes
+- `npm run backfill:traceability-codes[:dry-run]` to seed `productCodes`, the counter, and reconcile roots
+
+### Inventory ↔ Traceability Invariants
+
+- Link is always by `traceabilityDocId` (root doc ID) and `productCode` — **never** by list position or `rank`.
+- `rank` is UI display order only; it is not synced to traceability.
+- `productCode` is unique per product, enforced by the `productCodes` registry; retired codes are never reassigned.
+- `status` is mirrored to the root so the traceability app reflects inventory visibility.
+- `productCode`/`productCategoryId` are server-owned on create/update; change only via `POST /api/admin/traceability/change-code`.
 
 ---
 

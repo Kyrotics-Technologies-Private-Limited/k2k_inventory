@@ -598,10 +598,11 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
                               <option value="active">Active — Visible</option>
                               <option value="hidden">Hidden — Hidden</option>
                               <option value="draft">Draft — Work in Progress</option>
+                              <option value="disabled">Disabled — Not available</option>
                             </select>
                           </div>
                           <div>
-                            <label className={labelClass}>Display Rank</label>
+                            <label className={labelClass}>Display Order</label>
                             <input
                               type="number"
                               name="rank"
@@ -613,7 +614,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
                                   rank: val !== "" ? Number(val) : undefined,
                                 }));
                               }}
-                              placeholder="e.g. 1 (Priority position)"
+                              placeholder="e.g. 1 (Storefront position)"
                               className={inputClass}
                             />
                           </div>
@@ -663,6 +664,26 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({
                             </button>
                           </div>
                         </div>
+
+                        {/* Traceability product code (read-only; change via guarded endpoint) */}
+                        {(formData.productCode || formData.productCategoryId) && (
+                          <div className="rounded-md border border-blue-100 bg-blue-50/60 px-3.5 py-2.5">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-semibold text-blue-900">
+                                  Traceability Product Code
+                                </p>
+                                <p className="text-[11px] text-blue-700/80">
+                                  Permanent 3-digit code printed on the jar. Used as the first
+                                  segment of the 13-digit trace code.
+                                </p>
+                              </div>
+                              <span className="shrink-0 rounded bg-white px-3 py-1 font-mono text-sm font-bold text-blue-800 border border-blue-200">
+                                {formData.productCode || formData.productCategoryId}
+                              </span>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Product Title */}
                         <div>

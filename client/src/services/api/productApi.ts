@@ -43,6 +43,43 @@ export const productApi = {
     return response.data;
   },
 
+  // TRACEABILITY: guarded permanent product code management
+  changeTraceabilityCode: async (productId: string, code: string, reason?: string) => {
+    const response = await api.post(`/admin/traceability/change-code`, {
+      productId,
+      code,
+      reason,
+    });
+    return response.data as {
+      ok: boolean;
+      productId: string;
+      oldCode: string | null;
+      newCode: string;
+      unchanged?: boolean;
+    };
+  },
+
+  // TRACEABILITY: integrity issues for a product's root link
+  getTraceabilityIntegrity: async (productId: string) => {
+    const response = await api.get(`/admin/traceability/integrity/${productId}`);
+    return response.data as { productId: string; ok: boolean; issues: unknown[] };
+  },
+
+  // TRACEABILITY: list allocated/retired product codes
+  getTraceabilityCodes: async () => {
+    const response = await api.get(`/admin/traceability/codes`);
+    return response.data as {
+      count: number;
+      codes: { code: string; productId?: string | null; retiredProductId?: string | null }[];
+    };
+  },
+
+  // TRACEABILITY: reconcile roots vs products (dryRun defaults to true)
+  reconcileTraceability: async (dryRun = true) => {
+    const response = await api.post(`/admin/traceability/reconcile`, { dryRun });
+    return response.data;
+  },
+
   fetchProducts: async () => {
     const response = await api.get(`/products`);
     return response.data; // Assuming the products are in response.data

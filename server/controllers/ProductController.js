@@ -3,6 +3,7 @@ const {
   createProductWithTraceabilityRootTransaction,
   syncTraceabilityRootFromProduct,
   markTraceabilityRootDeletedForProduct,
+  retireProductCodeForProduct,
 } = require('../services/traceabilityRootService');
 const {
   syncProductCategories,
@@ -22,6 +23,8 @@ const VALID_STATUSES = ['active', 'hidden', 'draft', 'disabled'];
 const SERVER_OWNED_FIELDS = new Set([
   'id',
   'traceabilityDocId',
+  'productCode',
+  'productCategoryId',
   'schemaVersion',
 ]);
 
@@ -220,6 +223,13 @@ exports.patchProductStatus = async (req, res) => {
     }
 
     await docRef.update({ status, updatedAt: new Date() });
+
+    try {
+      await syncTraceabilityRootFromProduct(id);
+    } catch (syncErr) {
+      console.error('Traceability snapshot sync failed:', syncErr.message);
+    }
+
     scheduleManifestRebuild();
 
     const refreshed = await docRef.get();
@@ -239,6 +249,11 @@ exports.deleteProduct = async (req, res) => {
       await markTraceabilityRootDeletedForProduct(id);
     } catch (markErr) {
       console.error('Traceability root tombstone failed:', markErr.message);
+    }
+    try {
+      await retireProductCodeForProduct(id);
+    } catch (retireErr) {
+      console.error('Traceability product code retire failed:', retireErr.message);
     }
     try {
       await removeProductFromAllCategories(id);

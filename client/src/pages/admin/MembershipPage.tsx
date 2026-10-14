@@ -12,6 +12,7 @@ const MembershipPage: React.FC = () => {
   const [formData, setFormData] = useState<CreateMembershipInput>({
     type: "",
     description: "",
+    originalPrice: 0,
     price: 0,
     duration: 1,
     discountPercentage: 0
@@ -37,7 +38,7 @@ const MembershipPage: React.FC = () => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'price' || name === 'duration' || name === 'discountPercentage' 
+      [name]: name === 'originalPrice' || name === 'price' || name === 'duration' || name === 'discountPercentage'
         ? Number(value) 
         : value
     }));
@@ -47,6 +48,7 @@ const MembershipPage: React.FC = () => {
     setFormData({
       type: "",
       description: "",
+      originalPrice: 0,
       price: 0,
       duration: 1,
       discountPercentage: 0
@@ -58,7 +60,13 @@ const MembershipPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.type.trim() || formData.price <= 0 || formData.duration <= 0) {
+    if (
+      !formData.type.trim() ||
+      formData.originalPrice <= 0 ||
+      formData.price <= 0 ||
+      formData.price > formData.originalPrice ||
+      formData.duration <= 0
+    ) {
       alert("Please fill all required fields correctly.");
       return;
     }
@@ -85,6 +93,7 @@ const MembershipPage: React.FC = () => {
     setFormData({
       type: membership.type,
       description: membership.description,
+      originalPrice: membership.originalPrice ?? membership.price,
       price: membership.price,
       duration: membership.duration,
       discountPercentage: membership.discountPercentage
@@ -111,6 +120,17 @@ const MembershipPage: React.FC = () => {
     const years = duration / 12;
     return years === 1 ? "1 year" : `${years} years`;
   };
+
+  const getPlanDiscountPercentage = (membership: Membership) => {
+    const originalPrice = membership.originalPrice ?? membership.price;
+    if (originalPrice <= 0 || membership.price >= originalPrice) return 0;
+    return Math.round(((originalPrice - membership.price) / originalPrice) * 100);
+  };
+
+  const originalPrice = formData.originalPrice;
+  const planDiscountPercentage = originalPrice > 0 && formData.price <= originalPrice
+    ? Math.round(((originalPrice - formData.price) / originalPrice) * 100)
+    : null;
 
   return (
     <div className="container mx-auto space-y-6 px-4 py-8 max-w-6xl">
@@ -150,7 +170,24 @@ const MembershipPage: React.FC = () => {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Price (₹) *
+                  Original Plan Price (₹) *
+                </label>
+                <input
+                  type="number"
+                  name="originalPrice"
+                  value={formData.originalPrice}
+                  onChange={handleInputChange}
+                  min="0.01"
+                  step="0.01"
+                  placeholder="499"
+                  className="w-full border px-3 py-2 rounded focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Discounted Plan Price (₹) *
                 </label>
                 <input
                   type="number"
@@ -163,6 +200,16 @@ const MembershipPage: React.FC = () => {
                   className="w-full border px-3 py-2 rounded focus:ring-blue-500 focus:border-blue-500"
                   required
                 />
+                {planDiscountPercentage !== null && (
+                  <p className="mt-1 text-sm text-gray-600">
+                    Plan price discount: {planDiscountPercentage}% (calculated from the two prices)
+                  </p>
+                )}
+                {originalPrice > 0 && formData.price > originalPrice && (
+                  <p className="mt-1 text-sm text-red-600">
+                    Discounted price must not exceed the original plan price.
+                  </p>
+                )}
               </div>
               
               <div>
@@ -183,7 +230,7 @@ const MembershipPage: React.FC = () => {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Discount Percentage (%) *
+                  Member Product Discount (%) *
                 </label>
                 <input
                   type="number"
@@ -261,7 +308,7 @@ const MembershipPage: React.FC = () => {
                     Duration
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Discount
+                    Product Discount
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -283,7 +330,17 @@ const MembershipPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
+                        {(membership.originalPrice ?? membership.price) > membership.price && (
+                          <span className="mr-2 text-gray-500 line-through">
+                            ₹{membership.originalPrice ?? membership.price}
+                          </span>
+                        )}
                         ₹{membership.price}
+                        {getPlanDiscountPercentage(membership) > 0 && (
+                          <span className="ml-2 text-green-700">
+                            ({getPlanDiscountPercentage(membership)}% off)
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

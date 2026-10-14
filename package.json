@@ -5,7 +5,8 @@
   "scripts": {
     "deploy": "powershell -ExecutionPolicy Bypass -File ./deploy.ps1 -Target all",
     "deploy:backend": "powershell -ExecutionPolicy Bypass -File ./deploy.ps1 -Target backend",
-    "deploy:frontend": "powershell -ExecutionPolicy Bypass -File ./deploy.ps1 -Target frontend"
+    "deploy:frontend": "powershell -ExecutionPolicy Bypass -File ./deploy.ps1 -Target frontend",
+    "setup:admin": "node server/registerAdmin.js"
   },
   "dependencies": {
     "file-saver": "^2.0.5",

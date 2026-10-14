@@ -40,6 +40,7 @@ if [ "$TARGET" = "all" ] || [ "$TARGET" = "backend" ]; then
         --source . \
         --region "$REGION" \
         --project "$PROJECT_ID" \
+        --clear-base-image \
         --allow-unauthenticated \
         --set-env-vars "NODE_ENV=production,FIREBASE_PROJECT_ID=$PROJECT_ID,FIREBASE_STORAGE_BUCKET=$PROJECT_ID.firebasestorage.app" \
         --quiet
@@ -60,6 +61,7 @@ if [ "$TARGET" = "all" ] || [ "$TARGET" = "frontend" ]; then
         --source . \
         --region "$REGION" \
         --project "$PROJECT_ID" \
+        --clear-base-image \
         --allow-unauthenticated \
         --quiet
 

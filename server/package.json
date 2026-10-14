@@ -7,8 +7,11 @@
     "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon index.js",
+    "setup:admin": "node registerAdmin.js",
     "backfill:category-memberships": "node scripts/backfillCategoryMemberships.js",
-    "backfill:category-memberships:dry-run": "node scripts/backfillCategoryMemberships.js --dry-run"
+    "backfill:category-memberships:dry-run": "node scripts/backfillCategoryMemberships.js --dry-run",
+    "backfill:traceability-codes": "node scripts/backfillTraceabilityCodes.js --apply",
+    "backfill:traceability-codes:dry-run": "node scripts/backfillTraceabilityCodes.js --dry-run"
   },
   "keywords": [],
   "author": "",
