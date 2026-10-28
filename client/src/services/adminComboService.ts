@@ -34,9 +34,14 @@ export interface ComboDocument {
   slug: string;
   description?: string;
   shortDescription?: string;
+  origin?: string;
+  sku?: string;
+  warehouseName?: string;
+  rank?: number;
   images: {
     main: string;
     gallery?: string[];
+    banner?: string;
   };
   pricing: ComboPricingInput;
   units_in_stock: number;
@@ -46,6 +51,8 @@ export interface ComboDocument {
   categoryIds?: string[];
   isBestseller?: boolean;
   isSample?: boolean;
+  badges?: { image: string; text: string }[];
+  healthBadges?: { image: string; title: string; description: string }[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -101,6 +108,12 @@ export async function getAllCombos(): Promise<ComboDocument[]> {
       categoryIds: Array.isArray(data.categoryIds) ? data.categoryIds : ["combo-packs"],
       isBestseller: Boolean(data.isBestseller),
       isSample: Boolean(data.isSample),
+      origin: data.origin || "",
+      sku: data.sku || "",
+      warehouseName: data.warehouseName || "",
+      rank: typeof data.rank === "number" ? data.rank : undefined,
+      badges: Array.isArray(data.badges) ? data.badges : [],
+      healthBadges: Array.isArray(data.healthBadges) ? data.healthBadges : [],
       createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : "",
       updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : "",
     };
@@ -159,7 +172,7 @@ export async function createCombo(input: Omit<ComboDocument, "id">): Promise<str
 
   const units = typeof input.units_in_stock === "number" ? input.units_in_stock : 0;
 
-  const comboData = {
+  const comboData: Record<string, any> = {
     title: input.name,
     name: input.name,
     slug: input.slug,
@@ -187,6 +200,13 @@ export async function createCombo(input: Omit<ComboDocument, "id">): Promise<str
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
+
+  if ((input as any).origin) comboData.origin = (input as any).origin;
+  if ((input as any).sku) comboData.sku = (input as any).sku;
+  if ((input as any).warehouseName) comboData.warehouseName = (input as any).warehouseName;
+  if ((input as any).rank !== undefined && (input as any).rank !== null) comboData.rank = (input as any).rank;
+  if ((input as any).badges && (input as any).badges.length > 0) comboData.badges = (input as any).badges;
+  if ((input as any).healthBadges && (input as any).healthBadges.length > 0) comboData.healthBadges = (input as any).healthBadges;
 
   await setDoc(newComboRef, comboData);
 
