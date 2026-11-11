@@ -217,6 +217,12 @@ function App() {
           />
         </Route>
 
+        {/* Aliases for Orders / My Orders */}
+        <Route path="/orders" element={<Navigate to="/admin/orders" replace />} />
+        <Route path="/orders/:orderId" element={<Navigate to="/admin/orders/:orderId" replace />} />
+        <Route path="/my-orders" element={<Navigate to="/admin/orders" replace />} />
+        <Route path="/my-orders/:orderId" element={<Navigate to="/admin/orders/:orderId" replace />} />
+
         {/* Root redirect */}
         <Route path="/" element={<Navigate to="/admin" replace />} />
 

@@ -7,6 +7,7 @@ export interface Membership {
   price: number;
   duration: number; // in months
   discountPercentage: number;
+  isActive?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -18,6 +19,7 @@ export interface CreateMembershipInput {
   price: number;
   duration: number;
   discountPercentage: number;
+  isActive?: boolean;
 }
 
 export interface UpdateMembershipInput {
@@ -27,6 +29,7 @@ export interface UpdateMembershipInput {
   price?: number;
   duration?: number;
   discountPercentage?: number;
+  isActive?: boolean;
 }
 
 export interface UserMembership {
@@ -38,5 +41,6 @@ export interface UserMembership {
   expiresAt: Date;
   membershipType: string;
   discountPercentage: number;
+  isActive?: boolean;
   cancelledAt?: Date;
 }

@@ -1,11 +1,10 @@
 import React, { useState } from "react";
 import type { Variant } from "../../../types/variant";
 import variantApi from "../../../services/api/variantApi";
-import { ExclamationTriangleIcon, UserGroupIcon } from "@heroicons/react/24/outline";
-import { GST_RATE_OPTIONS } from "../../../utils/gstCalculations";
+import { ExclamationTriangleIcon, UserGroupIcon, ReceiptPercentIcon } from "@heroicons/react/24/outline";
+import { GST_RATE_OPTIONS, extractGSTFromInclusivePrice, formatPrice } from "../../../utils/gstCalculations";
 
 const WEIGHT_UNITS = ["g", "kg", "ml", "l"];
-
 
 interface AddVariantFormProps {
   productId: string;
@@ -28,8 +27,6 @@ const AddVariantForm: React.FC<AddVariantFormProps> = ({
     memberPrice: "",
     memberDiscount: "",
     gstPercentage: "18",
-    customGstPercentage: "",
-    useCustomGst: false,
     inStock: true,
     units_in_stock: "",
   });
@@ -124,9 +121,7 @@ const AddVariantForm: React.FC<AddVariantFormProps> = ({
         discount: Number(formData.discount),
         memberPrice: Number(formData.memberPrice) || 0,
         memberDiscount: Number(formData.memberDiscount) || 0,
-        gstPercentage: Number(
-          formData.useCustomGst ? formData.customGstPercentage : formData.gstPercentage
-        ),
+        gstPercentage: Number(formData.gstPercentage) ?? 0,
         inStock: formData.inStock,
         units_in_stock: Number(formData.units_in_stock),
       });
@@ -142,8 +137,6 @@ const AddVariantForm: React.FC<AddVariantFormProps> = ({
         memberPrice: "",
         memberDiscount: "",
         gstPercentage: "18",
-        customGstPercentage: "",
-        useCustomGst: false,
         inStock: true,
         units_in_stock: "",
       });
@@ -153,6 +146,21 @@ const AddVariantForm: React.FC<AddVariantFormProps> = ({
       setLoading(false);
     }
   };
+
+  // Live GST & Taxable Calculations
+  const gstRate = Number(formData.gstPercentage) || 0;
+  const nonMemberPrice = Number(formData.price) || 0;
+  const memberPrice = Number(formData.memberPrice) || 0;
+  const mrp = Number(formData.originalPrice) || 0;
+
+  const nonMemberTax = extractGSTFromInclusivePrice(nonMemberPrice, gstRate);
+  const memberTax = extractGSTFromInclusivePrice(memberPrice, gstRate);
+  const mrpTax = extractGSTFromInclusivePrice(mrp, gstRate);
+
+  const standardRates = [0, 5, 12, 18, 28];
+  const selectOptions = standardRates.includes(gstRate)
+    ? GST_RATE_OPTIONS
+    : [...GST_RATE_OPTIONS, { value: gstRate, label: `${gstRate}%` }].sort((a, b) => a.value - b.value);
 
   return (
     <form onSubmit={handleSubmit} className="mb-6 bg-white p-6 rounded-xl shadow-md border border-gray-200">
@@ -183,12 +191,13 @@ const AddVariantForm: React.FC<AddVariantFormProps> = ({
                 min="0"
                 step="0.01"
                 placeholder="Enter weight"
-                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${formData.weightNumber &&
-                    formData.weightUnit &&
-                    isWeightDuplicate(`${formData.weightNumber} ${formData.weightUnit}`.trim())
+                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                  formData.weightNumber &&
+                  formData.weightUnit &&
+                  isWeightDuplicate(`${formData.weightNumber} ${formData.weightUnit}`.trim())
                     ? "border-red-300 bg-red-50"
                     : "border-gray-300"
-                  }`}
+                }`}
                 required
               />
             </div>
@@ -269,11 +278,26 @@ const AddVariantForm: React.FC<AddVariantFormProps> = ({
             </div>
           </div>
 
-          {/* KP Member Price & Discount */}
+          {/* KP Member Price & Discount (First Price, then Discount like Non-Member) */}
           <div className="grid grid-cols-2 gap-3 bg-green-50/70 p-3 rounded-lg border border-green-200">
             <div className="col-span-2 flex items-center text-xs font-bold text-green-800">
               <UserGroupIcon className="w-4 h-4 mr-1 text-green-600" />
               Kishan Parivar (KP) Member Pricing
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-green-800 mb-1">
+                KP Member Price (₹)
+              </label>
+              <input
+                name="memberPrice"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="e.g. 90 or 80"
+                value={formData.memberPrice}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-green-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 text-sm bg-white font-semibold text-green-900"
+              />
             </div>
             <div>
               <label className="block text-xs font-semibold text-green-800 mb-1">
@@ -291,120 +315,129 @@ const AddVariantForm: React.FC<AddVariantFormProps> = ({
                 className="w-full px-3 py-2 border border-green-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 text-sm bg-white"
               />
             </div>
+          </div>
+
+          {/* Units in Stock & Stock Status */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-green-800 mb-1">
-                KP Member Price (₹)
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Units in Stock</label>
               <input
-                name="memberPrice"
                 type="number"
-                min="0"
-                step="0.01"
-                placeholder="e.g. 90 or 80"
-                value={formData.memberPrice}
+                name="units_in_stock"
+                value={formData.units_in_stock}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-green-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 text-sm bg-white font-semibold text-green-900"
+                min="0"
+                placeholder="e.g. 50"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+                required
               />
+            </div>
+            <div className="flex items-center pt-6">
+              <input
+                name="inStock"
+                id="inStockAdd"
+                type="checkbox"
+                checked={formData.inStock}
+                onChange={handleInputChange}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+              />
+              <label htmlFor="inStockAdd" className="ml-2 block text-sm text-gray-700 cursor-pointer font-medium">
+                In Stock
+              </label>
             </div>
           </div>
         </div>
 
-        {/* Right Column: GST & Inventory Stock */}
+        {/* Right Column: GST Selection & Live Tax Breakdown */}
         <div className="space-y-4">
           <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            GST & Inventory Stock
+            GST & Tax Breakdown
           </h4>
 
-          {/* GST Selection */}
+          {/* GST Rate Selector */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">GST Rate</label>
-            <div className="space-y-3 bg-gray-50 p-3.5 rounded-lg border border-gray-200">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  id="addGstStandard"
-                  name="gstInputType"
-                  checked={!formData.useCustomGst}
-                  onChange={() => setFormData((prev) => ({ ...prev, useCustomGst: false }))}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 cursor-pointer"
-                />
-                <label htmlFor="addGstStandard" className="text-sm text-gray-700 cursor-pointer font-medium">
-                  Select standard rate
-                </label>
-              </div>
-              <select
-                name="gstPercentage"
-                value={formData.gstPercentage}
-                onChange={handleInputChange}
-                disabled={formData.useCustomGst}
-                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm ${formData.useCustomGst ? "bg-gray-100 text-gray-400" : "bg-white"
-                  }`}
-                required={!formData.useCustomGst}
-              >
-                {GST_RATE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-
-              <div className="flex items-center space-x-2 pt-1">
-                <input
-                  type="radio"
-                  id="addGstCustom"
-                  name="gstInputType"
-                  checked={formData.useCustomGst}
-                  onChange={() => setFormData((prev) => ({ ...prev, useCustomGst: true }))}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 cursor-pointer"
-                />
-                <label htmlFor="addGstCustom" className="text-sm text-gray-700 cursor-pointer font-medium">
-                  Enter custom GST %
-                </label>
-              </div>
-              <input
-                name="customGstPercentage"
-                type="number"
-                value={formData.customGstPercentage}
-                onChange={handleInputChange}
-                disabled={!formData.useCustomGst}
-                min="0"
-                max="100"
-                step="0.01"
-                placeholder="Enter GST percentage"
-                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm ${!formData.useCustomGst ? "bg-gray-100 text-gray-400" : "bg-white"
-                  }`}
-                required={formData.useCustomGst}
-              />
-            </div>
-          </div>
-
-
-          {/* Units in stock */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Units in Stock</label>
-            <input
-              type="number"
-              name="units_in_stock"
-              value={formData.units_in_stock}
-              onChange={handleInputChange}
-              min="0"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              required
-            />
-          </div>
-
-          <div className="flex items-center pt-1">
-            <input
-              name="inStock"
-              id="inStockAdd"
-              type="checkbox"
-              checked={formData.inStock}
-              onChange={handleInputChange}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
-            />
-            <label htmlFor="inStockAdd" className="ml-2 block text-sm text-gray-700 cursor-pointer font-medium">
-              In Stock
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              GST Rate
             </label>
+            <select
+              name="gstPercentage"
+              value={formData.gstPercentage}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+              required
+            >
+              {selectOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Tax & Price Breakdown Card */}
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <ReceiptPercentIcon className="w-4 h-4 text-blue-600" />
+                Tax & Price Breakdown
+              </span>
+              <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                {gstRate}% GST (Inclusive)
+              </span>
+            </div>
+
+            {/* Non-Member Breakdown */}
+            <div className="bg-white rounded-md p-2.5 border border-gray-200 shadow-xs space-y-1.5">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-semibold text-gray-800">Non-Member Selling Price</span>
+                <span className="text-sm font-bold text-gray-900">{formatPrice(nonMemberPrice)}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 pt-1 border-t border-dashed border-gray-200">
+                <div>
+                  <span className="text-gray-500">Taxable Price:</span>{" "}
+                  <span className="font-semibold text-gray-800">{formatPrice(nonMemberTax.taxableValue)}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-gray-500">GST Amount:</span>{" "}
+                  <span className="font-semibold text-blue-700">{formatPrice(nonMemberTax.gstAmount)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* KP Member Breakdown */}
+            <div className="bg-emerald-50/50 rounded-md p-2.5 border border-emerald-200 shadow-xs space-y-1.5">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-semibold text-emerald-900 flex items-center gap-1">
+                  <UserGroupIcon className="w-3.5 h-3.5 text-emerald-600" />
+                  KP Member Price
+                </span>
+                <span className="text-sm font-bold text-emerald-800">
+                  {memberPrice > 0 ? formatPrice(memberPrice) : "—"}
+                </span>
+              </div>
+              {memberPrice > 0 ? (
+                <div className="grid grid-cols-2 gap-2 text-xs text-emerald-800 pt-1 border-t border-dashed border-emerald-200">
+                  <div>
+                    <span className="text-emerald-700">Taxable Price:</span>{" "}
+                    <span className="font-semibold text-emerald-950">{formatPrice(memberTax.taxableValue)}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-emerald-700">GST Amount:</span>{" "}
+                    <span className="font-semibold text-emerald-800">{formatPrice(memberTax.gstAmount)}</span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-[11px] text-gray-500 italic">No KP member price set</p>
+              )}
+            </div>
+
+            {/* MRP Reference if MRP > 0 */}
+            {mrp > 0 && (
+              <div className="text-[11px] text-gray-500 flex justify-between px-1 pt-0.5 border-t border-slate-200">
+                <span>MRP ({formatPrice(mrp)}) Taxable: {formatPrice(mrpTax.taxableValue)}</span>
+                <span>GST ({gstRate}%): {formatPrice(mrpTax.gstAmount)}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -423,4 +456,3 @@ const AddVariantForm: React.FC<AddVariantFormProps> = ({
 };
 
 export default AddVariantForm;
-

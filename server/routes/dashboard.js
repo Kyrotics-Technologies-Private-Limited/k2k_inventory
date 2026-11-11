@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const admin = require("firebase-admin");
+const firebaseAuth = require("../middleware/firebaseAuth");
+const requireAdmin = require("../middleware/requireAdmin");
 
 const db = admin.firestore();
 
@@ -31,7 +33,8 @@ function formatDate(date) {
   return date.toISOString().split("T")[0];
 }
 
-router.get("/stats", async (req, res) => {
+router.get("/stats", [firebaseAuth, requireAdmin], async (req, res) => {
+
   try {
     // Get date range parameters from query string
     const { startDate, endDate } = req.query;
@@ -86,6 +89,19 @@ router.get("/stats", async (req, res) => {
     const productsSnapshot = await db.collection("products").get();
     const allVariants = new Map(); // variantId -> variant data
 
+    // Map genuine active catalog products (excluding disabled/draft)
+    const activeProductDocMap = new Map();
+    productsSnapshot.docs.forEach((doc) => {
+      const pData = doc.data();
+      const status = (pData.status || 'active').toLowerCase();
+      if (status !== 'disabled' && status !== 'draft') {
+        activeProductDocMap.set(doc.id, { id: doc.id, ...pData });
+      }
+    });
+
+    const productSalesInPeriod = {}; // { [productId]: totalSold }
+    const productRevenueInPeriod = {}; // { [productId]: totalRevenue }
+
     // Fetch all variants from all products
     const variantFetches = productsSnapshot.docs.map(async (productDoc) => {
       const variantsSnapshot = await db.collection("products").doc(productDoc.id).collection("variants").get();
@@ -99,32 +115,70 @@ router.get("/stats", async (req, res) => {
     });
     await Promise.all(variantFetches);
 
-    // Now calculate revenue using the same method as Finance Analysis
+    // Now calculate revenue using real customer orders (ignore dev seed orders)
     ordersSnapshot.forEach((doc) => {
       const data = doc.data();
+      if (data._devSeed === true) return; // Skip simulated dev seeds (e.g. prod_ghee test order)
+
       const orderDate = data.createdAt || data.timestamp || null;
       const status = (data.status || "placed").toLowerCase();
       const items = Array.isArray(data.items) ? data.items : [];
 
-      // Calculate revenue from line items (same as Finance Analysis)
+      // Calculate revenue from line items
       let orderRevenue = 0;
       items.forEach((item) => {
         const variantId = item.variantId || item.variant_id;
         const variant = allVariants.get(variantId);
+        let productId = variant ? variant.productId : (item.productId || item.product_id);
 
-        if (variant && typeof item.quantity === 'number' && typeof variant.price === 'number') {
-          const itemRevenue = item.quantity * variant.price;
-          orderRevenue += itemRevenue;
+        // Only process products that belong to the active catalog
+        if (!productId || !activeProductDocMap.has(productId)) {
+          return;
+        }
 
-          // Track revenue and units sold by category for revenue-generating orders
-          if (orderDate && isWithinDateRange(orderDate) && status !== 'cancelled' && status !== 'returned') {
-            const productId = variant.productId;
-            const product = productsSnapshot.docs.find(doc => doc.id === productId);
-            if (product) {
-              const category = product.data().category || 'Unknown';
-              revenueByCategory[category] = (revenueByCategory[category] || 0) + itemRevenue;
-              salesByCategory[category] = (salesByCategory[category] || 0) + item.quantity;
-            }
+        const quantity =
+          typeof item.quantity === 'number'
+            ? item.quantity
+            : typeof item.qty === 'number'
+              ? item.qty
+              : 1;
+
+        const price = variant && typeof variant.price === 'number'
+          ? variant.price
+          : typeof item.unit_price === 'number'
+            ? item.unit_price
+            : 0;
+
+        const itemRevenue = quantity * price;
+        orderRevenue += itemRevenue;
+
+        // Track revenue and units sold by category & product for revenue-generating orders
+        if (orderDate && isWithinDateRange(orderDate) && status !== 'cancelled' && status !== 'returned') {
+          const product = activeProductDocMap.get(productId);
+          const category = product.category || 'General';
+          revenueByCategory[category] = (revenueByCategory[category] || 0) + itemRevenue;
+          salesByCategory[category] = (salesByCategory[category] || 0) + quantity;
+
+          productSalesInPeriod[productId] = (productSalesInPeriod[productId] || 0) + quantity;
+          productRevenueInPeriod[productId] = (productRevenueInPeriod[productId] || 0) + itemRevenue;
+        }
+
+        // Bestseller windows (excluding cancelled/returned)
+        const orderTs = orderDate;
+        let orderJSDate = null;
+        if (orderTs && typeof orderTs.toDate === "function") {
+          orderJSDate = orderTs.toDate();
+        } else if (orderTs && typeof orderTs === "string") {
+          const parsed = new Date(orderTs);
+          if (!isNaN(parsed.getTime())) orderJSDate = parsed;
+        }
+
+        if (orderJSDate && status !== 'cancelled' && status !== 'returned') {
+          if (orderJSDate >= threeMonthsAgo) {
+            productSalesLast3Months[productId] = (productSalesLast3Months[productId] || 0) + quantity;
+          }
+          if (orderJSDate >= oneWeekAgo) {
+            productSalesLastWeek[productId] = (productSalesLastWeek[productId] || 0) + quantity;
           }
         }
       });
@@ -152,38 +206,6 @@ router.get("/stats", async (req, res) => {
       if (status in orderStatusCounts) {
         orderStatusCounts[status] += 1;
       }
-
-      // Aggregate product sales for bestseller/quick seller windows
-      const orderTs = orderDate;
-      let orderJSDate = null;
-      if (orderTs && typeof orderTs.toDate === "function") {
-        orderJSDate = orderTs.toDate();
-      } else if (orderTs && typeof orderTs === "string") {
-        const parsed = new Date(orderTs);
-        if (!isNaN(parsed.getTime())) orderJSDate = parsed;
-      }
-
-      if (orderJSDate) {
-        items.forEach((item) => {
-          const productId =
-            item.productId || item.product_id || item.productID || (item.product && item.product.id);
-          const quantity =
-            typeof item.quantity === "number"
-              ? item.quantity
-              : typeof item.qty === "number"
-                ? item.qty
-                : typeof item.count === "number"
-                  ? item.count
-                  : 1;
-          if (!productId) return;
-          if (orderJSDate >= threeMonthsAgo) {
-            productSalesLast3Months[productId] = (productSalesLast3Months[productId] || 0) + quantity;
-          }
-          if (orderJSDate >= oneWeekAgo) {
-            productSalesLastWeek[productId] = (productSalesLastWeek[productId] || 0) + quantity;
-          }
-        });
-      }
     });
 
     // Now process the variants for stock analysis (using the already fetched variants)
@@ -206,6 +228,12 @@ router.get("/stats", async (req, res) => {
           (productData.images && (productData.images.main || productData.images.banner)) || null;
       } catch (e) {
         productIdToMainImage[productDoc.id] = null;
+      }
+
+      // Skip disabled or draft products from active inventory alerts (out of stock, low stock, overstock)
+      const productStatus = (productData.status || 'active').toLowerCase();
+      if (productStatus === 'disabled' || productStatus === 'draft') {
+        return;
       }
 
       // Get variants for this product from our allVariants map
@@ -339,6 +367,38 @@ router.get("/stats", async (req, res) => {
     console.log('- Chart Data Points:', chartArray.length);
     console.log('- Revenue calculation method: Line items × Variant prices (excluding cancelled/returned orders)');
 
+    // Build activeProducts summary for the 2-product catalog overview
+    const activeProducts = [];
+    activeProductDocMap.forEach((product, productId) => {
+      const variants = [];
+      let totalStock = 0;
+      allVariants.forEach((variant, vId) => {
+        if (variant.productId === productId) {
+          const stock = typeof variant.units_in_stock === 'number' ? variant.units_in_stock : 0;
+          totalStock += stock;
+          variants.push({
+            id: vId,
+            name: variant.name || variant.weight || "Standard",
+            weight: variant.weight || "",
+            price: variant.price || 0,
+            unitsInStock: stock,
+          });
+        }
+      });
+
+      activeProducts.push({
+        id: productId,
+        name: product.name,
+        category: product.category || 'General',
+        image: productIdToMainImage[productId] || null,
+        totalStock,
+        variants,
+        unitsSoldPeriod: productSalesInPeriod[productId] || 0,
+        unitsSold3M: productSalesLast3Months[productId] || 0,
+        revenuePeriod: productRevenueInPeriod[productId] || 0,
+      });
+    });
+
     const response = {
       totalRevenue,
       monthlyRevenue,
@@ -349,6 +409,7 @@ router.get("/stats", async (req, res) => {
       orderStatusCounts,
       revenueByCategory, // Revenue breakdown by category
       salesByCategory, // Units sold breakdown by category
+      activeProducts, // Structured active products overview
       revenueChart: chartArray, // for charts
       outOfStockVariants, // new field for dashboard warning
       bestsellersLast3Months,

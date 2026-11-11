@@ -41,8 +41,19 @@ async function enrichOrderLineItem(item, variantData) {
     item.original_price ??
     unitPrice;
 
+  const productImage =
+    item.image ||
+    item.imageUrl ||
+    variantData.image ||
+    variantData.imageUrl ||
+    productData.images?.main ||
+    (Array.isArray(productData.images?.gallery) ? productData.images.gallery[0] : null) ||
+    (Array.isArray(productData.images) ? productData.images[0] : null) ||
+    productData.image ||
+    '';
   return {
     ...item,
+    image: productImage,
     productId,
     product_id: productId,
     variantId,

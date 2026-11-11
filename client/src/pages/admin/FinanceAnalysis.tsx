@@ -71,19 +71,29 @@ const FinanceAnalysis: React.FC = () => {
 
   // ── Fetch active categories once ──────────────────────────────────────────
   useEffect(() => {
-    categoryApi.getAllCategories().then(setAllCategories).catch(console.error);
+    categoryApi
+      .getAll({ active: true })
+      .then((cats) => {
+        setAllCategories(cats.filter((c) => c.isActive !== false));
+      })
+      .catch(console.error);
   }, []);
 
   // ── Fetch KPI + category chart from dashboard API ─────────────────────────
-  const loadDashboardStats = useCallback(async () => {
+  const loadDashboardStats = useCallback(async (start?: Date | null, end?: Date | null) => {
     try {
-      const stats = await fetchDashboardStats();
+      const startParam = start ? start.toISOString().split("T")[0] : undefined;
+      const endParam = end ? end.toISOString().split("T")[0] : undefined;
+      const stats = await fetchDashboardStats(startParam, endParam);
 
       setTotalRevenue(stats.totalRevenue);
       setTotalOrders(stats.totalOrders);
       setAverageOrderValue(stats.totalOrders > 0 ? stats.totalRevenue / stats.totalOrders : 0);
-      setTotalCancelledOrders(stats.orderStatusCounts.cancelled);
-      setTotalReturnedOrders(stats.orderStatusCounts.returned);
+      if (stats.orderStatusCounts) {
+        setTotalCancelledOrders(stats.orderStatusCounts.cancelled ?? 0);
+        setTotalReturnedOrders(stats.orderStatusCounts.returned ?? 0);
+      }
+
 
       // revenueByCategory from the API is the source of truth
       const revMap: Record<string, number> = stats.revenueByCategory || {};
@@ -138,37 +148,64 @@ const FinanceAnalysis: React.FC = () => {
   // ── Build category chart data once categories + dashboard stats are ready ─
   useEffect(() => {
     if (loading) return;
-    loadDashboardStats().then((revMap) => {
-      const categoryNames =
-        allCategories.length > 0
-          ? allCategories.map((c) => c.name)
-          : Object.keys(revMap);
+    loadDashboardStats(startDate, endDate).then((revMap) => {
+      // Active categories lookup (case-insensitive)
+      const activeCatMap = new Map<string, string>();
+      allCategories
+        .filter((c) => c.isActive !== false)
+        .forEach((c) => {
+          const trimmed = c.name?.trim();
+          if (trimmed) activeCatMap.set(trimmed.toLowerCase(), trimmed);
+        });
 
-      const merged = categoryNames.map((name) => {
-        const rev =
-          revMap[name] ??
-          revMap[name.toLowerCase()] ??
-          revMap[name.toUpperCase()] ??
-          0;
-        return { category: name.charAt(0).toUpperCase() + name.slice(1).toLowerCase(), revenue: rev };
-      });
+      const activeCategoryRevenue = new Map<string, number>();
+      let archivedRevenue = 0;
 
-      // Also add any revMap keys not already covered
-      Object.entries(revMap).forEach(([cat, rev]) => {
-        const norm = cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase();
-        if (!merged.find((m) => m.category.toLowerCase() === norm.toLowerCase())) {
-          merged.push({ category: norm, revenue: rev });
+      // Group revenue:
+      // - Active categories with sales > 0 are mapped to canonical name.
+      // - Stale / disabled categories with past sales > 0 are grouped into "Archived / Inactive".
+      // - Categories with 0 revenue are hidden (Option A).
+      Object.entries(revMap).forEach(([catName, rawRev]) => {
+        const rev = Number(rawRev) || 0;
+        if (rev <= 0) return; // Hide unused categories (₹0 revenue)
+
+        const trimmed = catName?.trim();
+        if (!trimmed) return;
+
+        const lower = trimmed.toLowerCase();
+        if (activeCatMap.has(lower)) {
+          const canonical = activeCatMap.get(lower)!;
+          activeCategoryRevenue.set(canonical, (activeCategoryRevenue.get(canonical) || 0) + rev);
+        } else {
+          archivedRevenue += rev;
         }
       });
 
+      const merged: { category: string; revenue: number }[] = [];
+
+      // Add active categories with revenue > 0
+      activeCategoryRevenue.forEach((revenue, category) => {
+        if (revenue > 0) {
+          const formatted = category.charAt(0).toUpperCase() + category.slice(1);
+          merged.push({ category: formatted, revenue });
+        }
+      });
+
+      // Sort active categories by revenue descending
       merged.sort((a, b) => b.revenue - a.revenue);
+
+      // Append archived/inactive revenue if past sales exist
+      if (archivedRevenue > 0) {
+        merged.push({ category: "Archived / Inactive", revenue: archivedRevenue });
+      }
+
       setCategoryChartData(merged);
 
       // Also set total revenue from revMap if we got it from API
       const apiTotal = merged.reduce((s, c) => s + c.revenue, 0);
       if (apiTotal > 0) setTotalRevenue(apiTotal);
     });
-  }, [loading, allCategories]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loading, allCategories, startDate, endDate, loadDashboardStats]);
 
   // ── Revenue trend helpers (unchanged) ────────────────────────────────────
   const calculateRevenueTrends = (orders: Order[], variants: any[]): RevenueDataPoint[] => {
@@ -352,7 +389,7 @@ const FinanceAnalysis: React.FC = () => {
         <h2 className="text-lg font-semibold mb-1">
           Revenue by Category — {categoryChartData.length} categor{categoryChartData.length === 1 ? "y" : "ies"}
         </h2>
-        <p className="text-sm text-gray-400 mb-4">Based on all non-cancelled, non-returned orders</p>
+        <p className="text-sm text-gray-400 mb-4">Showing active revenue-generating categories (excluding unused ₹0 categories)</p>
 
         {loading ? (
           <div className="h-[300px] flex items-center justify-center text-gray-400">Loading charts...</div>
@@ -371,7 +408,7 @@ const FinanceAnalysis: React.FC = () => {
                     label={{ value: "Category", position: "insideBottom", offset: -20 }}
                   />
                   <YAxis tickFormatter={(v: number) => `₹${v}`} />
-                  <Tooltip formatter={(value: number) => [formatCurrency(value), "Revenue"]} />
+                  <Tooltip formatter={(value: any) => [formatCurrency(Number(value) || 0), "Revenue"]} />
                   <Bar dataKey="revenue" name="Revenue" radius={[4, 4, 0, 0]}>
                     {categoryChartData.map((_entry, idx) => (
                       <Cell key={`bar-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
@@ -403,7 +440,7 @@ const FinanceAnalysis: React.FC = () => {
                       <Cell key={`pie-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value: number) => [formatCurrency(value), "Revenue"]} />
+                  <Tooltip formatter={(value: any) => [formatCurrency(Number(value) || 0), "Revenue"]} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -414,7 +451,7 @@ const FinanceAnalysis: React.FC = () => {
         {!loading && categoryChartData.length > 0 && (() => {
           const totalRev = categoryChartData.reduce((s, c) => s + c.revenue, 0);
           return (
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {categoryChartData.map(({ category, revenue }, idx) => (
                 <div key={category} className="bg-gray-50 p-4 rounded-lg border">
                   <div className="flex items-center gap-3 mb-2">
@@ -648,7 +685,7 @@ const FinanceAnalysis: React.FC = () => {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="period" label={{ value: "Time", position: "insideBottom", offset: -5 }} angle={-45} textAnchor="end" height={80} />
                       <YAxis tickFormatter={(v: number) => `₹${v}`} label={{ value: "Revenue", angle: -90, position: "insideLeft" }} />
-                      <Tooltip formatter={(value: number) => [formatCurrency(value), "Revenue"]} />
+                      <Tooltip formatter={(value: any) => [formatCurrency(Number(value) || 0), "Revenue"]} />
                       <Bar dataKey="revenue" fill="#3b82f6" />
                     </BarChart>
                   );
@@ -658,7 +695,7 @@ const FinanceAnalysis: React.FC = () => {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="period" label={{ value: "Time", position: "insideBottom", offset: -5 }} angle={-45} textAnchor="end" height={80} />
                     <YAxis tickFormatter={(v: number) => `₹${v}`} label={{ value: "Revenue", angle: -90, position: "insideLeft" }} />
-                    <Tooltip formatter={(value: number) => [formatCurrency(value), "Revenue"]} />
+                    <Tooltip formatter={(value: any) => [formatCurrency(Number(value) || 0), "Revenue"]} />
                     <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2}
                       dot={{ r: filteredChartData.length === 1 ? 6 : 4, fill: "#3b82f6" }}
                       activeDot={{ r: filteredChartData.length === 1 ? 8 : 6 }}

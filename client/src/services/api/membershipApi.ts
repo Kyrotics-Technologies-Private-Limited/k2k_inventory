@@ -14,9 +14,9 @@ export const membershipApi = {
   },
 
   // Get all memberships
-  getMemberships: async (): Promise<Membership[]> => {
+  getMemberships: async (params?: { all?: boolean; admin?: boolean; active?: boolean }): Promise<Membership[]> => {
     try {
-      const response = await api.get('/membership');
+      const response = await api.get('/membership', { params: params || { all: true } });
       return response.data;
     } catch (error) {
       console.error('Error getting memberships:', error);

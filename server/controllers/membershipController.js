@@ -9,7 +9,8 @@ exports.createMembership = async (req, res) => {
       originalPrice,
       price, 
       duration, 
-      discountPercentage 
+      discountPercentage,
+      isActive
     } = req.body;
     
     const newMembership = {
@@ -19,6 +20,7 @@ exports.createMembership = async (req, res) => {
       price: Number(price),
       duration: Number(duration), // in months
       discountPercentage: Number(discountPercentage),
+      isActive: isActive !== false,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -34,9 +36,23 @@ exports.createMembership = async (req, res) => {
 // Get all memberships
 exports.getMemberships = async (req, res) => {
   try {
+    const { all, admin, active } = req.query;
     const snapshot = await db.collection('membership').orderBy('duration', 'asc').get();
-    const memberships = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    res.status(200).json(memberships);
+    let memberships = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    // Admin panel requesting all memberships
+    if (all === 'true' || admin === 'true') {
+      return res.status(200).json(memberships);
+    }
+
+    // Explicit active=false filter
+    if (active === 'false') {
+      return res.status(200).json(memberships.filter(m => m.isActive === false));
+    }
+
+    // Default (Storefront): only return active memberships (excluding disabled)
+    const activeMemberships = memberships.filter(m => m.isActive !== false);
+    res.status(200).json(activeMemberships);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -83,6 +99,7 @@ exports.updateMembership = async (req, res) => {
     if (updates.price !== undefined) updates.price = Number(updates.price);
     if (updates.duration !== undefined) updates.duration = Number(updates.duration);
     if (updates.discountPercentage !== undefined) updates.discountPercentage = Number(updates.discountPercentage);
+    if (updates.isActive !== undefined) updates.isActive = Boolean(updates.isActive);
     
     await db.collection('membership').doc(membershipId).update(updates);
     res.status(200).json({ id: membershipId, ...updates });
@@ -94,7 +111,17 @@ exports.updateMembership = async (req, res) => {
 // Buy membership (for a user)
 exports.buyMembership = async (req, res) => {
   try {
-    const { userId, membershipId } = req.body;
+    const targetUserId = req.body.userId || req.user?.uid;
+    const { membershipId } = req.body;
+
+    // Cross-user authorization check
+    if (req.user && !req.user.isAdmin && targetUserId !== req.user.uid) {
+      return res.status(403).json({ error: 'Forbidden - Cannot buy membership for another user' });
+    }
+
+    if (!targetUserId || !membershipId) {
+      return res.status(400).json({ error: 'userId and membershipId are required' });
+    }
     
     // Get membership details
     const membershipDoc = await db.collection('membership').doc(membershipId).get();
@@ -103,10 +130,13 @@ exports.buyMembership = async (req, res) => {
     }
     
     const membershipData = membershipDoc.data();
+    if (membershipData.isActive === false) {
+      return res.status(400).json({ error: 'This membership plan is currently disabled and unavailable for purchase.' });
+    }
     const expiryDate = new Date();
-    expiryDate.setMonth(expiryDate.getMonth() + membershipData.duration);
+    expiryDate.setMonth(expiryDate.getMonth() + (membershipData.duration || 1));
     
-    await db.collection('users').doc(userId).collection('memberships').doc(membershipId).set({
+    await db.collection('users').doc(targetUserId).collection('memberships').doc(membershipId).set({
       active: true,
       purchasedAt: new Date(),
       expiresAt: expiryDate,
@@ -126,8 +156,19 @@ exports.buyMembership = async (req, res) => {
 // Cancel membership (for a user)
 exports.cancelMembership = async (req, res) => {
   try {
-    const { userId, membershipId } = req.body;
-    await db.collection('users').doc(userId).collection('memberships').doc(membershipId).update({
+    const targetUserId = req.body.userId || req.user?.uid;
+    const { membershipId } = req.body;
+
+    // Cross-user authorization check
+    if (req.user && !req.user.isAdmin && targetUserId !== req.user.uid) {
+      return res.status(403).json({ error: 'Forbidden - Cannot cancel membership for another user' });
+    }
+
+    if (!targetUserId || !membershipId) {
+      return res.status(400).json({ error: 'userId and membershipId are required' });
+    }
+
+    await db.collection('users').doc(targetUserId).collection('memberships').doc(membershipId).update({
       active: false,
       cancelledAt: new Date()
     });
@@ -141,6 +182,11 @@ exports.cancelMembership = async (req, res) => {
 exports.getUserMemberships = async (req, res) => {
   try {
     const { userId } = req.params;
+
+    // Cross-user authorization check
+    if (req.user && !req.user.isAdmin && userId !== req.user.uid) {
+      return res.status(403).json({ error: 'Forbidden - Cannot access another user memberships' });
+    }
     
     // Get the user document first
     const userDoc = await db.collection('users').doc(userId).get();

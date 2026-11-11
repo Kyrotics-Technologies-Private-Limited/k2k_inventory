@@ -48,7 +48,14 @@ const ProductAnalysis: React.FC = () => {
 
   // ── Fetch active categories list once ──────────────────────────────────────
   useEffect(() => {
-    categoryApi.getAllCategories().then(setAllCategories).catch(console.error);
+    categoryApi
+      .getAll({ active: true })
+      .then((cats) => {
+        setAllCategories(cats.filter((c) => c.isActive !== false));
+      })
+      .catch((err) => {
+        console.error("Error fetching active categories:", err);
+      });
   }, []);
 
   // ── Fetch dashboard stats whenever the date range changes ─────────────────
@@ -90,28 +97,56 @@ const ProductAnalysis: React.FC = () => {
 
     const salesMap: Record<string, number> = stats.salesByCategory || {};
 
-    // Merge with all active categories so every category appears (even with 0)
-    const categoryNames = allCategories.length > 0
-      ? allCategories.map((c) => c.name)
-      : Object.keys(salesMap);
+    // 1. Build lookup of active category names (case-insensitive)
+    const activeCatMap = new Map<string, string>();
+    allCategories
+      .filter((c) => c.isActive !== false)
+      .forEach((c) => {
+        const trimmed = c.name?.trim();
+        if (trimmed) activeCatMap.set(trimmed.toLowerCase(), trimmed);
+      });
 
-    const merged: CategoryEntry[] = categoryNames.map((name) => ({
-      category: name.charAt(0).toUpperCase() + name.slice(1).toLowerCase(),
-      value: salesMap[name] ?? salesMap[name.toLowerCase()] ?? salesMap[name.toUpperCase()] ?? 0,
-    }));
+    const activeCategorySales = new Map<string, number>();
+    let archivedUnits = 0;
 
-    // Also add any salesByCategory keys not covered by allCategories
-    Object.entries(salesMap).forEach(([catName, qty]) => {
-      const normalised = catName.charAt(0).toUpperCase() + catName.slice(1).toLowerCase();
-      if (!merged.find((m) => m.category.toLowerCase() === normalised.toLowerCase())) {
-        merged.push({ category: normalised, value: qty });
+    // 2. Aggregate sales:
+    // - Active categories with sales > 0 keep canonical name.
+    // - Stale / disabled categories with past sales > 0 are grouped into "Archived / Inactive".
+    // - Categories with 0 units sold are hidden (Option A).
+    Object.entries(salesMap).forEach(([catName, rawQty]) => {
+      const qty = Number(rawQty) || 0;
+      if (qty <= 0) return; // Hide unused categories (0 units sold)
+
+      const trimmed = catName?.trim();
+      if (!trimmed) return;
+
+      const lower = trimmed.toLowerCase();
+      if (activeCatMap.has(lower)) {
+        const canonical = activeCatMap.get(lower)!;
+        activeCategorySales.set(canonical, (activeCategorySales.get(canonical) || 0) + qty);
+      } else {
+        archivedUnits += qty;
       }
     });
 
-    // Sort by value descending
+    const merged: CategoryEntry[] = [];
+
+    // Add active categories with units > 0
+    activeCategorySales.forEach((value, category) => {
+      if (value > 0) {
+        const formatted = category.charAt(0).toUpperCase() + category.slice(1);
+        merged.push({ category: formatted, value });
+      }
+    });
+
+    // Sort active categories by units sold descending
     merged.sort((a, b) => b.value - a.value);
 
-    console.log("Category chart data:", merged);
+    // Append archived/inactive units if past sales exist
+    if (archivedUnits > 0) {
+      merged.push({ category: "Archived / Inactive", value: archivedUnits });
+    }
+
     setCategoryPieData(merged);
   }, [stats, allCategories]);
 
@@ -206,9 +241,9 @@ const ProductAnalysis: React.FC = () => {
       ) : (
         <>
 
-      {/* Top 4 product lists */}
+      {/* Top product list cards */}
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
-        <Card title="Top 5 Bestseller products (3 months)">
+        <Card title="Bestseller products (3 months)">
           {loading ? (
             <p className="text-gray-500">Loading...</p>
           ) : stats?.top5BestsellersLast3Months?.length ? (
@@ -409,7 +444,9 @@ const ProductAnalysis: React.FC = () => {
               {loading ? (
                 <p className="text-gray-500">Loading...</p>
               ) : (
-                <p className="text-3xl font-bold text-blue-600">{categoryPieData.length}</p>
+                <p className="text-3xl font-bold text-blue-600">
+                  {allCategories.filter((c) => c.isActive !== false).length}
+                </p>
               )}
             </div>
 
@@ -427,7 +464,9 @@ const ProductAnalysis: React.FC = () => {
               {loading ? (
                 <p className="text-gray-500">Loading...</p>
               ) : (
-                <p className="text-2xl font-bold text-purple-600 capitalize">{categoryPieData[0]?.category || "N/A"}</p>
+                <p className="text-2xl font-bold text-purple-600 capitalize">
+                  {totalUnits > 0 ? (categoryPieData[0]?.category || "N/A") : "No sales in period"}
+                </p>
               )}
             </div>
 
@@ -478,7 +517,7 @@ const ProductAnalysis: React.FC = () => {
               endDate={categoryEndDate}
               minDate={categoryStartDate ?? undefined}
               placeholderText="Select end date"
-              className="border border-gray-500 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               maxDate={new Date()}
             />
           </div>
@@ -530,7 +569,7 @@ const ProductAnalysis: React.FC = () => {
                 <div className="flex items-center justify-center h-full text-gray-400">
                   <div className="text-center">
                     <p className="text-gray-500 text-lg mb-2">No data available</p>
-                    <p className="text-gray-400 text-sm">Category sales data will appear here once orders are placed</p>
+                    <p className="text-gray-400 text-sm">No category sales data for the selected period</p>
                   </div>
                 </div>
               ) : (
@@ -553,7 +592,7 @@ const ProductAnalysis: React.FC = () => {
                         <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value: number, name: string) => [`${value} units sold`, name]} />
+                    <Tooltip formatter={(value: any, name: any) => [`${value} units sold`, name]} />
                   </PieChart>
                 </ResponsiveContainer>
               )}
@@ -579,7 +618,7 @@ const ProductAnalysis: React.FC = () => {
                 <div className="flex items-center justify-center h-full text-gray-400">
                   <div className="text-center">
                     <p className="text-gray-500 text-lg mb-2">No data available</p>
-                    <p className="text-gray-400 text-sm">Category distribution data will appear here once orders are placed</p>
+                    <p className="text-gray-400 text-sm">No category sales data for the selected period</p>
                   </div>
                 </div>
               ) : (
@@ -595,7 +634,7 @@ const ProductAnalysis: React.FC = () => {
                       label={{ value: "Units Sold", angle: -90, position: "insideLeft" }}
                       tickFormatter={(v: number) => `${v}`}
                     />
-                    <Tooltip formatter={(value: number) => [`${value} units`, "Units Sold"]} />
+                    <Tooltip formatter={(value: any) => [`${value} units`, "Units Sold"]} />
                     <Bar dataKey="value" name="Units Sold" radius={[4, 4, 0, 0]}>
                       {categoryPieData.map((_entry, idx) => (
                         <Cell key={`bar-cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
@@ -610,7 +649,7 @@ const ProductAnalysis: React.FC = () => {
 
         {/* Category Performance Summary Cards */}
         {!loading && categoryPieData.length > 0 && (
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {categoryPieData.map((item, idx) => (
               <div key={item.category} className="bg-gray-50 p-4 rounded-lg border">
                 <div className="flex items-center gap-3 mb-2">

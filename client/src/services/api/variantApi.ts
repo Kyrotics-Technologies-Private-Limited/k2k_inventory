@@ -15,10 +15,11 @@ export const getVariants = async (): Promise<Variant[]> => {
   }
 };
 
-// Fetch a single variant by ID
-export const getVariantById = async (id: string): Promise<Variant> => {
+// Fetch a single variant by ID (supports optional productId for direct subcollection routing)
+export const getVariantById = async (id: string, productId?: string): Promise<Variant> => {
   try {
-    const response = await api.get(`/variants/${id}`);
+    const url = productId ? `/variants/${productId}/getVariant/${id}` : `/variants/${id}`;
+    const response = await api.get(url);
     return response.data;
   } catch (error) {
     console.error(error); // Log the error for easier debugging

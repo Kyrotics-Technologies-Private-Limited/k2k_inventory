@@ -4,25 +4,27 @@ const jwt = require('jsonwebtoken');
 
 const ADMIN_COLLECTION = 'admin'; // Firestore collection name
 
-// Sign up new admin
+// Sign up new admin (restricted to existing administrators only)
 exports.adminSignup = async (req, res) => {
-  console.log('Received signup request:', { ...req.body, password: '***' });
-  
-  const { email, password, name, uid } = req.body;
+  // Reject self-promotion attempts
+  if (!req.user || !req.user.isAdmin) {
+    return res.status(403).json({ error: "Forbidden - Administrator privileges required to register admins" });
+  }
+
+  const { email, name, uid } = req.body;
 
   // Validate input
-  if (!email || !name) {
-    return res.status(400).json({ error: "Email and name are required" });
+  if (!email || !name || !uid) {
+    return res.status(400).json({ error: "Email, name, and uid are required" });
   }
 
   try {
-    // Get user from Firebase
+    // Get user from Firebase Auth
     let userRecord;
     try {
       userRecord = await auth.getUser(uid);
-      console.log('Found Firebase user:', { uid: userRecord.uid });
     } catch (err) {
-      console.error('Error getting Firebase user:', err);
+      console.error('Error getting Firebase user:', err.message);
       return res.status(400).json({ error: "Invalid user ID" });
     }
 
@@ -37,38 +39,50 @@ exports.adminSignup = async (req, res) => {
       return res.status(400).json({ error: "User is already an admin" });
     }
 
-    console.log('User created in Firebase:', userRecord.uid);
+    const now = new Date().toISOString();
 
-    // Save in Firestore 'admin' collection
+    // 1. Set custom claims for authoritative token verification
+    await auth.setCustomUserClaims(userRecord.uid, {
+      role: 'admin',
+      isAdmin: true,
+    });
+
+    // 2. Save in Firestore 'admin' collection
     await db.collection(ADMIN_COLLECTION).doc(userRecord.uid).set({
       uid: userRecord.uid,
       email: userRecord.email,
-      name: userRecord.displayName,
-      createdAt: new Date().toISOString(),
-      role: 'admin'
+      name: userRecord.displayName || name,
+      createdAt: now,
+      role: 'admin',
+      isAdmin: true,
     });
 
-    console.log('Admin record created in Firestore');
+    // 3. Keep Firestore 'users' collection synchronized
+    await db.collection('users').doc(userRecord.uid).set(
+      {
+        uid: userRecord.uid,
+        email: userRecord.email,
+        name: userRecord.displayName || name,
+        role: 'admin',
+        isAdmin: true,
+        updatedAt: now,
+      },
+      { merge: true }
+    );
+
     return res.status(201).json({ 
       message: "Admin registered successfully", 
       uid: userRecord.uid 
     });
   } catch (error) {
-    console.error("Signup error:", error);
-    // Send a more specific error message based on the error type
-    if (error.code === 'auth/email-already-exists') {
-      return res.status(400).json({ error: "Email already exists" });
-    } else if (error.code === 'auth/invalid-email') {
-      return res.status(400).json({ error: "Invalid email format" });
-    } else if (error.code === 'auth/weak-password') {
-      return res.status(400).json({ error: "Password should be at least 6 characters" });
-    }
+    console.error("Signup error:", error.message);
     return res.status(500).json({ 
       error: "Failed to create admin account",
       details: error.message
     });
   }
 };
+
 
 // Admin login using Firebase token (from frontend)
 exports.adminLogin = async (req, res) => {

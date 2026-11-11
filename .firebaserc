@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "univillage-testing-a640c"
+  },
+  "targets": {
+    "univillage-testing-a640c": {
+      "hosting": {
+        "inventory": [
+          "univillage-inventory-testing"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

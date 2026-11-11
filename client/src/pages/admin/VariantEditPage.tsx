@@ -50,7 +50,7 @@ const VariantEditPage: React.FC = () => {
     const fetchVariant = async () => {
       try {
         setLoading(true);
-        const data = await variantApi.getVariantById(variantId!);
+        const data = await variantApi.getVariantById(variantId!, productId);
         setVariant(data);
         const loadedForm = {
           weight: data.weight,

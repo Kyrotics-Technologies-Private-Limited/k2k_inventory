@@ -10,23 +10,24 @@ const {
   getAllOrdersForAdmin,
   adminUpdateOrderStatus,
   adminGetOrderById,
+  getOrGenerateInvoice,
 } = require('../controllers/orderController');
 
-// Middleware to protect routes
-const auth = require('../middleware/firebaseAuth');
+const firebaseAuth = require('../middleware/firebaseAuth');
+const requireAdmin = require('../middleware/requireAdmin');
 
-// All routes are protected
-router.use(auth);
+// All order routes require authentication
+router.use(firebaseAuth);
 
-// Admin routes
-router.get('/', getAllOrdersForAdmin);
-router.get('/:orderId', adminGetOrderById);
-router.patch('/:orderId/status', adminUpdateOrderStatus);
+// Admin routes - strictly restricted to administrators
+router.get('/', requireAdmin, getAllOrdersForAdmin);
+router.get('/:orderId/invoice', requireAdmin, getOrGenerateInvoice);
+router.get('/:orderId', requireAdmin, adminGetOrderById);
+router.patch('/:orderId/status', requireAdmin, adminUpdateOrderStatus);
 
-// User routes
+// User routes - authenticated customer operations
 router.post('/create', createOrder);
-router.get('/', getAllOrders);// Get all orders for one user
-//router.get('/:orderId', getOrderById);
+router.get('/my-orders', getAllOrders);
 router.put('/:orderId/cancel', cancelOrder);
 router.put('/:orderId', updateOrder);
 router.get('/:orderId/track', trackOrder);

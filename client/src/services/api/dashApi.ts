@@ -13,6 +13,24 @@ export interface StockVariant {
   image?: string | null;
 }
 
+export interface ActiveProductSummary {
+  id: string;
+  name: string;
+  category: string;
+  image?: string | null;
+  totalStock: number;
+  variants: {
+    id: string;
+    name: string;
+    weight: string;
+    price: number;
+    unitsInStock: number;
+  }[];
+  unitsSoldPeriod: number;
+  unitsSold3M: number;
+  revenuePeriod: number;
+}
+
 export interface OverstockVariant extends StockVariant {
   category?: string;
 }
@@ -47,6 +65,7 @@ export interface DashboardStatsResponse {
   lowStockVariants: StockVariant[];
   overstockVariants: OverstockVariant[];
   demandingProducts: { productId: string; productName: string; image?: string | null; lastWeekSales: number; percentile: number }[];
+  activeProducts?: ActiveProductSummary[];
 }
 
 // API call function

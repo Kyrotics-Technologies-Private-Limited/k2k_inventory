@@ -3,7 +3,7 @@ const { auth, db } = require('./firebase/firebase-config');
 const ADMIN_COLLECTION = 'admin';
 const USERS_COLLECTION = 'users';
 
-const API_KEY = process.env.VITE_FIREBASE_API_KEY || 'AIzaSyDjkP-tGq35uKry6PtQ3nVQmq3Yg_DgyM0';
+const API_KEY = process.env.VITE_FIREBASE_API_KEY || 'AIzaSyC_9gHBbr2y7x4nQKZyIjqaFuSbQno0l3M';
 
 async function registerAdmin() {
   const adminData = {

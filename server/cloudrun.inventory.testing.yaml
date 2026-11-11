@@ -1,0 +1,30 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: k2k-inventory-api
+  labels:
+    cloud.googleapis.com/location: us-central1
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: '1'
+        run.googleapis.com/cpu-throttling: 'true'
+        run.googleapis.com/startup-cpu-boost: 'true'
+    spec:
+      serviceAccountName: k2k-inventory-backend@univillage-testing-a640c.iam.gserviceaccount.com
+      containers:
+      - env:
+        - name: NODE_ENV
+          value: production
+        - name: APP_ENV
+          value: testing
+        - name: FIREBASE_PROJECT_ID
+          value: univillage-testing-a640c
+        - name: FRONTEND_URL
+          value: https://univillage-inventory-testing.web.app
+        resources:
+          limits:
+            cpu: '1'
+            memory: 512Mi
+

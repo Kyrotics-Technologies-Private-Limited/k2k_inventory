@@ -69,7 +69,36 @@ export const orderApi = {
   //   return response.data;
   // },
 
-  updateOrderStatus: async (orderId: string, payload: UpdateOrderStatusPayload): Promise<void> => {
+    getInvoice: async (orderId: string): Promise<{ invoiceUrl?: string; invoiceNumber?: string }> => {
+    const response = await api.get(`/orders/${orderId}/invoice`);
+    return response.data;
+  },
+
+  downloadInvoiceFile: async (orderId: string, invoiceUrl?: string): Promise<void> => {
+    if (invoiceUrl) {
+      window.open(invoiceUrl, '_blank');
+      return;
+    }
+    const res = await api.get(`/orders/${orderId}/invoice`);
+    if (res.data?.invoiceUrl) {
+      window.open(res.data.invoiceUrl, '_blank');
+    } else {
+      const blobRes = await api.get(`/orders/${orderId}/invoice?download=true`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([blobRes.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Invoice-${orderId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(link);
+    }
+  },
+
+updateOrderStatus: async (orderId: string, payload: UpdateOrderStatusPayload): Promise<void> => {
     //const token = await getAuthToken();
     await api.patch(`/orders/${orderId}/status`, payload);
   },

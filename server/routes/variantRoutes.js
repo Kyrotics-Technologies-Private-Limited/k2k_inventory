@@ -1,23 +1,22 @@
 const express = require('express');
 const router = express.Router();
 const variantController = require('../controllers/VariantController');
+const firebaseAuth = require('../middleware/firebaseAuth');
+const requireAdmin = require('../middleware/requireAdmin');
 
-// Get all variants (across all products)
+const adminOnly = [firebaseAuth, requireAdmin];
+
+// Public read routes
 router.get('/', variantController.getAllVariants);
-
-// Create a new variant for a product
-router.post('/:productId/createVariant', variantController.createVariant);
-
-// Get all variants for a product
+router.get('/single/:variantId', variantController.getVariantById);
 router.get('/:productId/getVariants', variantController.getProductVariants);
-
-// Get a specific variant
 router.get('/:productId/getVariant/:variantId', variantController.getVariant);
+router.get('/:variantId', variantController.getVariantById);
 
-// Update a variant
-router.put('/:productId/updateVariant/:variantId', variantController.updateVariant);
+// Admin-only write routes
+router.post('/:productId/createVariant', adminOnly, variantController.createVariant);
+router.put('/:productId/updateVariant/:variantId', adminOnly, variantController.updateVariant);
+router.delete('/:productId/deleteVariant/:variantId', adminOnly, variantController.deleteVariant);
 
-// Delete a variant
-router.delete('/:productId/deleteVariant/:variantId', variantController.deleteVariant);
-
-module.exports = router; 
+module.exports = router;
+ 
