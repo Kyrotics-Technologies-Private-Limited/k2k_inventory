@@ -31,9 +31,11 @@ function handleStorageError(res, error, operation) {
     error.code === 404 ||
     error.code === 'ENOTFOUND' ||
     error.code === 'ECONNREFUSED' ||
+    error.code === 'EACCES' ||
     error.message?.includes('bucket') ||
     error.message?.includes('ENOTFOUND') ||
-    error.message?.includes('Not Found')
+    error.message?.includes('Not Found') ||
+    error.message?.includes('credentials')
   ) {
     return res.status(503).json({
       error: 'Firebase Storage is unprovisioned or unavailable in this environment. Please ensure the Google Cloud Storage bucket exists.',

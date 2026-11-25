@@ -7,7 +7,7 @@ const API_KEY = process.env.VITE_FIREBASE_API_KEY || 'AIzaSyC_9gHBbr2y7x4nQKZyIj
 
 async function registerAdmin() {
   const adminData = {
-    email: process.env.ADMIN_EMAIL || 'admin@gmail.com',
+    email: process.env.ADMIN_EMAIL || 'admin@univillage.in',
     password: process.env.ADMIN_PASSWORD || '123456',
     displayName: 'k2kadmin',
   };
