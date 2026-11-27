@@ -1,38 +1,39 @@
 // firebase-config.js
+const { appEnv, projectId, EXPECTED_PROJECT_IDS } = require("../env");
 const admin = require("firebase-admin");
-const path = require("path");
 
-const FORBIDDEN_PRODUCTION_ID = "univillage-503009";
-const REQUIRED_TESTING_ID = "univillage-testing-a640c";
+const FORBIDDEN_PRODUCTION_ID = EXPECTED_PROJECT_IDS.production;
+const REQUIRED_TESTING_ID = EXPECTED_PROJECT_IDS.testing;
 
 // Fail-closed project isolation validation function
-function validateProjectIsolation(pId, appEnv) {
+function validateProjectIsolation(pId, env) {
+  const expectedProjectId = EXPECTED_PROJECT_IDS[env];
+
   if (!pId) {
     throw new Error("FIREBASE_PROJECT_ID is required and was not provided.");
   }
-  if (appEnv === "testing") {
-    if (pId === FORBIDDEN_PRODUCTION_ID) {
-      throw new Error(
-        `FATAL: Production project ID (${FORBIDDEN_PRODUCTION_ID}) is strictly forbidden in testing mode.`
-      );
-    }
-    if (pId !== REQUIRED_TESTING_ID) {
+  if (!expectedProjectId) {
+    throw new Error(`Unsupported APP_ENV "${env}".`);
+  }
+  if (env === "testing" && pId === FORBIDDEN_PRODUCTION_ID) {
+    throw new Error(
+      `FATAL: Production project ID (${FORBIDDEN_PRODUCTION_ID}) is strictly forbidden in testing mode.`
+    );
+  }
+  if (pId !== expectedProjectId) {
+    if (env === "testing") {
       throw new Error(
         `FATAL: Invalid Firebase project ID for testing: '${pId}'. Expected '${REQUIRED_TESTING_ID}'.`
       );
     }
+    throw new Error(
+      `FATAL: Invalid Firebase project ID for ${env}. Expected the configured ${env} Firebase project.`
+    );
   }
 }
 
-// In testing mode, NEVER load server/config.env to prevent production contamination
-if (process.env.APP_ENV !== "testing" && !process.env.FIREBASE_PROJECT_ID) {
-  require("dotenv").config({ path: path.join(__dirname, "../config.env") });
-}
-
-const projectId = process.env.FIREBASE_PROJECT_ID;
-
 // Validate immediately on module load
-validateProjectIsolation(projectId, process.env.APP_ENV);
+validateProjectIsolation(projectId, appEnv);
 
 const storageBucket =
   process.env.FIREBASE_STORAGE_BUCKET ||

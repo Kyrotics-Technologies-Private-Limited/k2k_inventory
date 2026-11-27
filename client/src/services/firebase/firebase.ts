@@ -21,7 +21,7 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+const analytics = firebaseConfig.measurementId?.trim() ? getAnalytics(app) : undefined;
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);

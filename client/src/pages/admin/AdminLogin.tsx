@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../services/firebase/firebase";
-import { adminLogin } from "../../services/api/authApi";
+import { useAdmin } from "../../context/AdminContext";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
@@ -19,14 +19,15 @@ const AdminLogin = () => {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { status, error: adminError, refreshAdmin } = useAdmin();
 
-  // Check if already authenticated
   useEffect(() => {
-    const adminToken = localStorage.getItem("adminToken");
-    if (adminToken && auth.currentUser) {
-      navigate("/admin/dashboard");
+    const state = location.state as LocationState | null;
+    const from = state?.from?.pathname || "/admin/dashboard";
+    if (status === "authenticated") {
+      navigate(from, { replace: true });
     }
-  }, [navigate]);
+  }, [status, navigate, location.state]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -45,19 +46,13 @@ const AdminLogin = () => {
         return;
       }
 
-      // Firebase authentication
-      const { user } = await signInWithEmailAndPassword(
-        auth,
-        form.email,
-        form.password
-      );
-      const idToken = await user.getIdToken();
+      await signInWithEmailAndPassword(auth, form.email, form.password);
 
-      // Backend authentication
-      const res = await adminLogin(idToken);
-      localStorage.setItem("adminToken", res.token);
+      const verified = await refreshAdmin();
+      if (!verified) {
+        return;
+      }
 
-      // Get the redirect location from state, or default to dashboard
       const state = location.state as LocationState | null;
       const from = state?.from?.pathname || "/admin/dashboard";
 
@@ -107,12 +102,12 @@ const AdminLogin = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          {error && (
+          {(error || adminError) && (
             <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 rounded flex items-start">
               <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
               <div>
                 <p className="font-medium">Login Error</p>
-                <p className="text-sm">{error}</p>
+                <p className="text-sm">{error || adminError}</p>
               </div>
             </div>
           )}

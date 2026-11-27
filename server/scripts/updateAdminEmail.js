@@ -1,10 +1,6 @@
 /**
  * server/scripts/updateAdminEmail.js
  *
- * Dedicated script to update or provision the admin credentials to:
- *   Email:    admin@univillage.in
- *   Password: 123456
- *
  * Configures both:
  *   1. Inventory Management System (k2k_inventory)
  *   2. Traceability System (k2k_traceability)
@@ -24,23 +20,32 @@ const path = require('path');
 const https = require('https');
 const admin = require(path.resolve(__dirname, '../node_modules/firebase-admin'));
 
-const NEW_ADMIN_EMAIL = process.env.NEW_ADMIN_EMAIL || 'admin@univillage.in';
-const OLD_ADMIN_EMAIL = process.env.OLD_ADMIN_EMAIL || 'admin@gmail.com';
-const ADMIN_PASSWORD  = process.env.ADMIN_PASSWORD  || '123456';
+const NEW_ADMIN_EMAIL = process.env.NEW_ADMIN_EMAIL;
+const OLD_ADMIN_EMAIL = process.env.OLD_ADMIN_EMAIL;
+const ADMIN_PASSWORD  = process.env.ADMIN_PASSWORD;
 const ADMIN_NAME      = process.env.ADMIN_NAME      || 'k2kadmin';
 
 const ENVIRONMENTS = {
   testing: {
     projectId: 'univillage-testing-a640c',
-    apiKey: process.env.TESTING_WEB_API_KEY || 'AIzaSyC_9gHBbr2y7x4nQKZyIjqaFuSbQno0l3M',
+    apiKey: process.env.TESTING_WEB_API_KEY,
+    apiKeyVariable: 'TESTING_WEB_API_KEY',
     label: 'Testing Environment',
   },
   production: {
     projectId: 'univillage-503009',
-    apiKey: process.env.PRODUCTION_WEB_API_KEY || 'AIzaSyDjkP-tGq35uKry6PtQ3nVQmq3Yg_DgyM0',
+    apiKey: process.env.PRODUCTION_WEB_API_KEY,
+    apiKeyVariable: 'PRODUCTION_WEB_API_KEY',
     label: 'Production Environment',
   },
 };
+
+function validateInputs(environments) {
+  const keys = ['NEW_ADMIN_EMAIL', 'OLD_ADMIN_EMAIL', 'ADMIN_PASSWORD'];
+  keys.push(...environments.map((mode) => ENVIRONMENTS[mode].apiKeyVariable));
+  const missing = keys.filter((key) => !process.env[key]?.trim());
+  if (missing.length) throw new Error(`Missing required variables: ${missing.join(', ')}`);
+}
 
 /**
  * Verify sign-in using Firebase Identity Toolkit REST API
@@ -72,10 +77,10 @@ function verifySignIn(apiKey, email, password) {
           if (res.statusCode === 200 && parsed.idToken) {
             resolve({ success: true, localId: parsed.localId, idToken: parsed.idToken });
           } else {
-            resolve({ success: false, error: parsed.error?.message || data, statusCode: res.statusCode });
+            resolve({ success: false, error: 'Firebase sign-in failed', statusCode: res.statusCode });
           }
         } catch (e) {
-          resolve({ success: false, error: e.message, raw: data });
+          resolve({ success: false, error: 'Invalid Firebase sign-in response' });
         }
       });
     });
@@ -94,13 +99,13 @@ async function processEnvironment(envKey) {
   if (!envConfig) {
     throw new Error(`Unknown environment: '${envKey}'. Allowed: testing, production, all`);
   }
+  validateInputs([envKey]);
 
   const { projectId, apiKey, label } = envConfig;
 
   console.log('\n================================================================');
   console.log(`  Processing ${label} [${projectId}]`);
   console.log(`  Target Admin: ${NEW_ADMIN_EMAIL}`);
-  console.log(`  Target Pwd:   ${ADMIN_PASSWORD}`);
   console.log('================================================================');
 
   // Initialize a scoped Firebase Admin app for this project
@@ -246,7 +251,6 @@ async function processEnvironment(envKey) {
     console.log('----------------------------------------------------------------');
     console.log(`[COMPLETED] ${label} successfully configured!`);
     console.log(`  Email:       ${NEW_ADMIN_EMAIL}`);
-    console.log(`  Password:    ${ADMIN_PASSWORD}`);
     console.log(`  UID:         ${userRecord.uid}`);
     console.log('  Systems:     Inventory (k2k_inventory) & Traceability (k2k_traceability)');
     console.log('----------------------------------------------------------------\n');
@@ -268,10 +272,10 @@ async function main() {
 
   console.log('################################################################');
   console.log('#   Univillage Admin Email & Password Configuration Tool       #');
-  console.log(`#   Target: ${NEW_ADMIN_EMAIL} | Pwd: ${ADMIN_PASSWORD}               #`);
   console.log('################################################################');
 
   if (arg === 'all' || arg === 'both') {
+    validateInputs(['testing', 'production']);
     console.log('[MODE] Running for BOTH Testing and Production environments...\n');
     await processEnvironment('testing');
     await processEnvironment('production');

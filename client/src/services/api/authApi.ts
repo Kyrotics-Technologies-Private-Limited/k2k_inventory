@@ -1,5 +1,6 @@
 // src/services/api/authApi.ts
 import type { AdminSignupInput, AdminLoginResponse } from "../../types/user";
+import axios from 'axios';
 
 // API instance with proper base URL
 import api from './api'; // Using the existing configured axios instance
@@ -22,13 +23,8 @@ export const adminSignup = async (data: AdminSignupInput) => {
 
 // Admin Login API (takes Firebase ID token)
 export const adminLogin = async (idToken: string) => {
-  try {
-    const response = await api.post<AdminLoginResponse>('/auth/admin/login', {
-      idToken,
-    });
-    return response.data; // { message, token }
-  } catch (error: any) {
-    console.error('Admin login error:', error);
-    throw error;
-  }
+  const response = await axios.post<AdminLoginResponse>('/auth/admin/login', {
+    idToken,
+  }, { baseURL: api.defaults.baseURL });
+  return response.data;
 };

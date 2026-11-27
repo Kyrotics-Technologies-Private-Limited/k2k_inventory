@@ -113,7 +113,7 @@ run_deploy() {
     --cpu=1 \
     --cpu-boost \
     --cpu-throttling \
-    --set-env-vars="NODE_ENV=production,APP_ENV=testing,FIREBASE_PROJECT_ID=${EXPECTED_PROJECT},FRONTEND_URL=https://univillage-inventory-testing.web.app" \
+    --set-env-vars="NODE_ENV=production,APP_ENV=testing,FIREBASE_PROJECT_ID=${EXPECTED_PROJECT},FIREBASE_STORAGE_BUCKET=${EXPECTED_PROJECT}.firebasestorage.app,FRONTEND_URL=https://univillage-inventory-testing.web.app" \
     --quiet
 
   local service_url

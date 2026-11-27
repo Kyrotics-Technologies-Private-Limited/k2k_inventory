@@ -1,29 +1,16 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { auth } from "../services/firebase/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { useAdmin } from "../context/AdminContext";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const { status } = useAdmin();
   const location = useLocation();
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      const adminToken = localStorage.getItem("adminToken");
-      setIsAuthenticated(!!user && !!adminToken);
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  if (isLoading) {
-    // You can replace this with a proper loading spinner component
+  if (status === "loading") {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -31,8 +18,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  if (!isAuthenticated) {
-    // Redirect to login with the attempted location
+  if (status !== "authenticated") {
     return <Navigate to="/admin/login" state={{ from: location }} replace />;
   }
 

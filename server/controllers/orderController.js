@@ -280,15 +280,6 @@ exports.adminUpdateOrderStatus = async (req, res) => {
     const orderData = orderDoc.data();
     const previousStatus = orderData.status;
 
-    // If status is being changed to 'Cancelled' or 'Returned' and it was not previously restocked
-    const isRestockStatus = ['cancelled', 'returned'].includes(status.toLowerCase());
-    const wasRestockStatus = ['cancelled', 'returned'].includes((previousStatus || '').toLowerCase());
-    if (isRestockStatus && !wasRestockStatus && !orderData.restocked) {
-      await restockOrderItems(orderData.items);
-      updateData.restocked = true;
-      updateData.restockedAt = admin.firestore.FieldValue.serverTimestamp();
-    }
-
     // Create status-specific timestamp field name
     const getStatusTimestampField = (status) => {
       const statusLower = status.toLowerCase();
@@ -305,17 +296,25 @@ exports.adminUpdateOrderStatus = async (req, res) => {
           return 'cancelledDate';
         case 'returned':
           return 'returnedDate';
-        
         default:
           return `${statusLower}Date`;
       }
     };
 
-    // Prepare update object with status and timestamp
+    // Prepare update object with status and timestamp (MUST be declared before restock block)
     const updateData = {
       status,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
+
+    // If status is being changed to 'Cancelled' or 'Returned' and it was not previously restocked
+    const isRestockStatus = ['cancelled', 'returned'].includes(status.toLowerCase());
+    const wasRestockStatus = ['cancelled', 'returned'].includes((previousStatus || '').toLowerCase());
+    if (isRestockStatus && !wasRestockStatus && !orderData.restocked) {
+      await restockOrderItems(orderData.items);
+      updateData.restocked = true;
+      updateData.restockedAt = admin.firestore.FieldValue.serverTimestamp();
+    }
 
     // Add status-specific timestamp
     const timestampField = getStatusTimestampField(status);

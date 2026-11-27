@@ -3,12 +3,20 @@ const { auth, db } = require('./firebase/firebase-config');
 const ADMIN_COLLECTION = 'admin';
 const USERS_COLLECTION = 'users';
 
-const API_KEY = process.env.VITE_FIREBASE_API_KEY || 'AIzaSyC_9gHBbr2y7x4nQKZyIjqaFuSbQno0l3M';
+const API_KEY = process.env.VITE_FIREBASE_API_KEY;
 
 async function registerAdmin() {
+  const missing = ['ADMIN_EMAIL', 'ADMIN_PASSWORD', 'VITE_FIREBASE_API_KEY']
+    .filter((key) => !process.env[key]?.trim());
+  if (missing.length) {
+    console.error('Missing required variables:', missing.join(', '));
+    process.exitCode = 1;
+    return;
+  }
+
   const adminData = {
-    email: process.env.ADMIN_EMAIL || 'admin@univillage.in',
-    password: process.env.ADMIN_PASSWORD || '123456',
+    email: process.env.ADMIN_EMAIL,
+    password: process.env.ADMIN_PASSWORD,
     displayName: 'k2kadmin',
   };
 
@@ -97,7 +105,7 @@ async function registerAdmin() {
       if (resp.ok && data.idToken) {
         console.log('Verification SUCCESS: signInWithPassword returned 200 OK with valid idToken.');
       } else {
-        console.warn('Verification WARNING: Response from identitytoolkit:', data);
+        console.warn('Verification WARNING: Firebase sign-in failed with HTTP status', resp.status);
       }
     } catch (testErr) {
       console.warn('Verification network test failed:', testErr.message);
@@ -108,7 +116,6 @@ async function registerAdmin() {
     console.log('  1. Inventory System (k2k_inventory)');
     console.log('  2. Traceability System (k2k_traceability)');
     console.log(`Email:    ${adminData.email}`);
-    console.log(`Password: ${adminData.password}`);
     console.log('=============================================\n');
 
     process.exit(0);

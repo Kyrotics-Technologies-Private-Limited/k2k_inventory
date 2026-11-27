@@ -12,7 +12,7 @@
  *   node scripts/backfillTraceabilityCodes.js --dry-run
  *   node scripts/backfillTraceabilityCodes.js --apply
  */
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+require('../env');
 
 const {
   rebuildProductCodeRegistry,

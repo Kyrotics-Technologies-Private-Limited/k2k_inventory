@@ -23,6 +23,9 @@ db.collection = (colName) => ({
       if (colName === 'admin' && docId === 'verified_firestore_admin') {
         return { exists: true, data: () => ({ role: 'admin', isAdmin: true }) };
       }
+      if (colName === 'admin' && docId === 'inactive_admin') {
+        return { exists: true, data: () => ({ role: 'customer', isAdmin: false }) };
+      }
       if (colName === 'users' && docId === 'verified_firestore_admin') {
         return { exists: true, data: () => ({ role: 'admin', isAdmin: true }) };
       }
@@ -828,6 +831,113 @@ describe('PHASE 5: Order Lifecycle, Restocking Idempotency, and Commerce Securit
     assert.equal(res.status, 200);
     assert.ok(typeof res.body.version === 'number');
     assert.ok(Array.isArray(res.body.menuCategories));
+  });
+});
+
+describe('PHASE 2: Admin Login Contract Tests', () => {
+  const authController = require('../controllers/authController');
+
+  function createMockRes() {
+    return {
+      statusCode: null,
+      body: null,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(body) {
+        this.body = body;
+        return this;
+      },
+    };
+  }
+
+  async function withVerifyIdToken(implementation, testFn) {
+    const originalVerifyIdToken = admin.auth().verifyIdToken;
+    admin.auth().verifyIdToken = implementation;
+    try {
+      await testFn();
+    } finally {
+      admin.auth().verifyIdToken = originalVerifyIdToken;
+    }
+  }
+
+  it('should return backend-confirmed admin data without a custom JWT', async () => {
+    await withVerifyIdToken(async () => ({
+      uid: 'verified_firestore_admin',
+      email: 'admin@example.com',
+    }), async () => {
+      const res = createMockRes();
+      await authController.adminLogin(
+        { body: { idToken: 'valid.admin.id.token' } },
+        res
+      );
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.body.admin, true);
+      assert.equal(res.body.uid, 'verified_firestore_admin');
+      assert.equal(res.body.email, 'admin@example.com');
+      assert.equal(res.body.name, 'Admin');
+      assert.equal(res.body.token, undefined);
+    });
+  });
+
+  it('should reject a missing ID token with 400', async () => {
+    const res = createMockRes();
+    await authController.adminLogin({ body: {} }, res);
+
+    assert.equal(res.statusCode, 400);
+    assert.match(res.body.error, /idToken is required/);
+  });
+
+  it('should authorize a Firebase custom-claim admin without a Firestore admin record', async () => {
+    await withVerifyIdToken(async () => ({ uid: 'claim_admin', role: 'admin' }), async () => {
+      const res = createMockRes();
+      await authController.adminLogin({ body: { idToken: 'valid.claim.admin.token' } }, res);
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.body.uid, 'claim_admin');
+    });
+  });
+
+  it('should reject an admin record without an active admin role', async () => {
+    await withVerifyIdToken(async () => ({ uid: 'inactive_admin' }), async () => {
+      const res = createMockRes();
+      await authController.adminLogin({ body: { idToken: 'valid.inactive.admin.token' } }, res);
+      assert.equal(res.statusCode, 403);
+    });
+  });
+
+  it('should reject an invalid Firebase ID token with 401', async () => {
+    await withVerifyIdToken(async () => {
+      const error = new Error('invalid token');
+      error.code = 'auth/id-token-expired';
+      throw error;
+    }, async () => {
+      const res = createMockRes();
+      await authController.adminLogin(
+        { body: { idToken: 'invalid.token' } },
+        res
+      );
+
+      assert.equal(res.statusCode, 401);
+      assert.match(res.body.error, /Invalid or expired ID token/);
+    });
+  });
+
+  it('should reject a verified non-admin user with 403', async () => {
+    await withVerifyIdToken(async () => ({
+      uid: 'non_admin_user',
+      email: 'customer@example.com',
+    }), async () => {
+      const res = createMockRes();
+      await authController.adminLogin(
+        { body: { idToken: 'valid.customer.id.token' } },
+        res
+      );
+
+      assert.equal(res.statusCode, 403);
+      assert.match(res.body.error, /Not authorized as admin/);
+    });
   });
 });
 

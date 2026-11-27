@@ -21,6 +21,8 @@ spec:
           value: testing
         - name: FIREBASE_PROJECT_ID
           value: univillage-testing-a640c
+        - name: FIREBASE_STORAGE_BUCKET
+          value: univillage-testing-a640c.firebasestorage.app
         - name: FRONTEND_URL
           value: https://univillage-inventory-testing.web.app
         resources:

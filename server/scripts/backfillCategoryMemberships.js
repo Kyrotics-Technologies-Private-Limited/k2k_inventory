@@ -6,7 +6,7 @@
  *   node scripts/backfillCategoryMemberships.js
  *   node scripts/backfillCategoryMemberships.js --dry-run
  */
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+require('../env');
 
 const { db } = require('../firebase/firebase-config');
 const {

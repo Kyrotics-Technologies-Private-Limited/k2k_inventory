@@ -96,7 +96,7 @@ run_checks() {
 
   echo "[STEP 7/7] Compiling Frontend Bundle in Testing Mode..."
   cd "${SCRIPT_DIR}"
-  npm run build -- --mode testing
+  npm run build:testing
   if [[ ! -f "dist/index.html" ]]; then
     echo "[ERROR] Build output dist/index.html was not generated."
     exit 1

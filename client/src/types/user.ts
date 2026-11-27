@@ -8,5 +8,8 @@ export interface AdminSignupInput {
 
 export interface AdminLoginResponse {
   message: string;
-  token: string;
+  admin: true;
+  uid: string;
+  email: string;
+  name?: string;
 }

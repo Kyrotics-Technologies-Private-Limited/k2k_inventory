@@ -1,6 +1,6 @@
 // src/controllers/authController.js
 const { auth, db } = require('../firebase/firebase-config');
-const jwt = require('jsonwebtoken');
+const { getAdminAccess } = require('../middleware/requireAdmin');
 
 const ADMIN_COLLECTION = 'admin'; // Firestore collection name
 
@@ -86,28 +86,35 @@ exports.adminSignup = async (req, res) => {
 
 // Admin login using Firebase token (from frontend)
 exports.adminLogin = async (req, res) => {
-  const { idToken } = req.body;
+  const { idToken } = req.body || {};
+
+  if (!idToken || typeof idToken !== 'string') {
+    return res.status(400).json({ error: 'idToken is required' });
+  }
+
+  let decodedToken;
+  try {
+    decodedToken = await auth.verifyIdToken(idToken);
+  } catch (error) {
+    console.error('Error verifying Firebase ID token:', error.code || error.message);
+    return res.status(401).json({ error: 'Invalid or expired ID token' });
+  }
 
   try {
-    // Verify Firebase ID Token
-    const decodedToken = await auth.verifyIdToken(idToken);
-
-    // Check if user exists in 'admin' collection
-    const adminDoc = await db.collection(ADMIN_COLLECTION).doc(decodedToken.uid).get();
-    if (!adminDoc.exists) {
+    const adminData = await getAdminAccess(decodedToken);
+    if (!adminData) {
       return res.status(403).json({ error: 'Not authorized as admin' });
     }
 
-    // Optional: create your own JWT if needed
-    const customToken = jwt.sign(
-      { uid: decodedToken.uid, email: decodedToken.email },
-      process.env.JWT_SECRET || 'your_jwt_secret',
-      { expiresIn: '7d' }
-    );
-
-    return res.status(200).json({ message: 'Login successful', token: customToken });
+    return res.status(200).json({
+      message: 'Login successful',
+      admin: true,
+      uid: decodedToken.uid,
+      email: decodedToken.email || adminData.email || '',
+      name: adminData.name || decodedToken.name || 'Admin',
+    });
   } catch (error) {
-    console.error('Error in admin login:', error);
-    return res.status(401).json({ error: 'Invalid or expired ID token' });
+    console.error('Error checking admin authorization:', error.message);
+    return res.status(500).json({ error: 'Failed to verify administrator status' });
   }
 };

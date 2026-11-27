@@ -132,7 +132,7 @@ function Run-Checks {
     Write-Host "[STEP 7/7] Compiling Frontend Bundle in Testing Mode..." -ForegroundColor Yellow
     Push-Location $ClientDir
     try {
-        npm run build -- --mode testing
+        npm run build:testing
         if ($LASTEXITCODE -ne 0) {
             Write-Error "Frontend build failed with exit code $LASTEXITCODE."
             exit 1

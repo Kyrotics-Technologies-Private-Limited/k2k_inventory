@@ -1,12 +1,8 @@
+require('./env');
+
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const path = require('path');
-
-// In testing mode, NEVER load server/config.env to prevent production contamination
-if (process.env.APP_ENV !== 'testing' && !process.env.FIREBASE_PROJECT_ID) {
-  require('dotenv').config({ path: path.join(__dirname, './config.env') });
-}
 
 const app = express();
 
@@ -50,7 +46,7 @@ app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    env: process.env.APP_ENV || 'production',
+    env: process.env.APP_ENV,
   });
 });
 

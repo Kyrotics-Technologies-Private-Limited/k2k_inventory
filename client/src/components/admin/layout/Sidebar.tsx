@@ -16,7 +16,6 @@ import {
   FiLayers,
 } from "react-icons/fi";
 import { useAdmin } from "../../../context/AdminContext";
-import { getAuth, signOut } from "firebase/auth";
 
 interface MenuItem {
   path: string;
@@ -29,7 +28,7 @@ const Sidebar = () => {
   const location = useLocation();
   const { pathname } = location;
 
-  const { admin } = useAdmin();
+  const { admin, logout } = useAdmin();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -49,9 +48,8 @@ const Sidebar = () => {
 
   const handleLogout = async () => {
     try {
-      const auth = getAuth();
-      await signOut(auth); // Firebase logout
-      navigate("/admin-login");
+      await logout();
+      navigate("/admin/login", { replace: true });
     } catch (error) {
       console.error("Logout error:", error);
     }
