@@ -5,6 +5,10 @@
 set -euo pipefail
 
 TARGET="${1:-all}"
+case "$TARGET" in
+    all|backend|frontend) ;;
+    *) echo "Expected all, backend, or frontend." >&2; exit 2 ;;
+esac
 PROJECT_ID="univillage-503009"
 REGION="us-central1"
 BACKEND_SERVICE="univillage-admin-backend"
@@ -25,11 +29,11 @@ if ! command -v gcloud &> /dev/null; then
     exit 1
 fi
 
-gcloud config set project "$PROJECT_ID" --quiet
 echo "[INFO] Active gcloud account: $(gcloud config get-value account 2>/dev/null)"
 
-BACKEND_URL=""
-FRONTEND_URL=""
+BACKEND_URL=$(gcloud run services describe "$BACKEND_SERVICE" --region "$REGION" --project "$PROJECT_ID" --format 'value(status.url)')
+FRONTEND_URL=$(gcloud run services describe "$FRONTEND_SERVICE" --region "$REGION" --project "$PROJECT_ID" --format 'value(status.url)')
+[[ -n "$BACKEND_URL" && -n "$FRONTEND_URL" ]]
 
 # 2. Deploy Backend
 if [ "$TARGET" = "all" ] || [ "$TARGET" = "backend" ]; then
@@ -41,31 +45,31 @@ if [ "$TARGET" = "all" ] || [ "$TARGET" = "backend" ]; then
         --region "$REGION" \
         --project "$PROJECT_ID" \
         --clear-base-image \
-        --allow-unauthenticated \
-        --set-env-vars "NODE_ENV=production,FIREBASE_PROJECT_ID=$PROJECT_ID,FIREBASE_STORAGE_BUCKET=$PROJECT_ID.firebasestorage.app" \
+        --update-env-vars "NODE_ENV=production,APP_ENV=production,FIREBASE_PROJECT_ID=$PROJECT_ID,FIREBASE_STORAGE_BUCKET=$PROJECT_ID.firebasestorage.app,FRONTEND_URL=$FRONTEND_URL" \
         --quiet
 
-    BACKEND_URL=$(gcloud run services describe "$BACKEND_SERVICE" --region "$REGION" --project "$PROJECT_ID" --format "value(status.url)")
+    [[ "$BACKEND_URL" == "$(gcloud run services describe "$BACKEND_SERVICE" --region "$REGION" --project "$PROJECT_ID" --format 'value(status.url)')" ]]
     echo "[SUCCESS] Backend deployed at: $BACKEND_URL"
     cd "$SCRIPT_DIR"
-else
-    BACKEND_URL=$(gcloud run services describe "$BACKEND_SERVICE" --region "$REGION" --project "$PROJECT_ID" --format "value(status.url)" 2>/dev/null || true)
 fi
 
 # 3. Deploy Frontend
 if [ "$TARGET" = "all" ] || [ "$TARGET" = "frontend" ]; then
     echo ""
     echo "--- Deploying Frontend: $FRONTEND_SERVICE ---"
-    cd "$SCRIPT_DIR/client"
+    staging_dir=$(mktemp -d)
+    trap 'rm -rf -- "$staging_dir"' EXIT
+    VITE_BACKEND_URL="$BACKEND_URL" npm --prefix "$SCRIPT_DIR/client" run build:production -- --outDir "$staging_dir/dist"
+    cp "$SCRIPT_DIR/client/nginx.conf" "$SCRIPT_DIR/client/Dockerfile.release" "$staging_dir/"
+    mv "$staging_dir/Dockerfile.release" "$staging_dir/Dockerfile"
     gcloud run deploy "$FRONTEND_SERVICE" \
-        --source . \
+        --source "$staging_dir" \
         --region "$REGION" \
         --project "$PROJECT_ID" \
         --clear-base-image \
-        --allow-unauthenticated \
         --quiet
 
-    FRONTEND_URL=$(gcloud run services describe "$FRONTEND_SERVICE" --region "$REGION" --project "$PROJECT_ID" --format "value(status.url)")
+    [[ "$FRONTEND_URL" == "$(gcloud run services describe "$FRONTEND_SERVICE" --region "$REGION" --project "$PROJECT_ID" --format 'value(status.url)')" ]]
     echo "[SUCCESS] Frontend deployed at: $FRONTEND_URL"
     cd "$SCRIPT_DIR"
 fi
